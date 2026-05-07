@@ -9,6 +9,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "keywords": ["phaser", "rpg", "pixel-art", "typescript"],
   "author": "",
   "license": "ISC",
