@@ -10,6 +10,7 @@
 
 import Phaser from 'phaser';
 import { GAME_CONFIG, DEPTH } from '@config/game.config';
+import { InputGuard } from '@/ui/InputGuard';
 
 export interface JoystickState {
   isActive: boolean;
@@ -59,6 +60,15 @@ export class MobileControls {
     return pressed;
   }
   get visible(): boolean { return this._visible; }
+
+  /** Show or hide the controls (e.g. during dialogue). No-op on non-touch devices. */
+  setGameVisible(visible: boolean): void {
+    if (!this._visible) return;
+    this.joystickBase.setVisible(visible);
+    this.joystickThumb.setVisible(visible);
+    this.actionBtn.setVisible(visible);
+    this.actionBtnText.setVisible(visible);
+  }
 
   destroy(): void {
     if (!this._visible) return;
@@ -121,6 +131,9 @@ export class MobileControls {
   }
 
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
+    // If a UI element already consumed this pointer event, ignore it
+    if (InputGuard.check()) return;
+
     const x = pointer.x;
     const y = pointer.y;
 

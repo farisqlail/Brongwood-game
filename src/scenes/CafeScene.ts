@@ -11,9 +11,10 @@ import { TEXTURE_KEYS } from '@config/assets.manifest';
 import { DialogueSystem } from '@/dialogue/DialogueSystem';
 import { DialogueDefinition } from '@/dialogue/DialogueTypes';
 import { gameManager } from '@/managers/GameManager';
-import { EventBus } from '@/core/EventBus';
+import { EventBus, GameEvents } from '@/core/EventBus';
 import { proceduralAudio } from '@/audio/ProceduralAudio';
 import { MobileControls } from '@/ui/MobileControls';
+import { ITEM_DEFS } from '@/types/inventory';
 
 const CAFE_W = 640; // pixels
 const CAFE_H = 400; // pixels
@@ -26,6 +27,22 @@ export class CafeScene extends Phaser.Scene {
   private promptText!: Phaser.GameObjects.Text;
   private nearbyNPC: NPC | null = null;
   private exiting: boolean = false;
+  private coffeeOrdered: boolean = false;
+
+  // Named handlers so we can remove them from EventBus on shutdown
+  private readonly onChoiceMade = (p: GameEvents['dialogue:choice-made']) => {
+    if (p.dialogueId === 'barista_chat' && p.choiceId === 'coffee') {
+      this.coffeeOrdered = true;
+    }
+  };
+
+  private readonly onDialogueEnded = () => {
+    this.barista.unfreeze();
+    if (this.coffeeOrdered) {
+      this.coffeeOrdered = false;
+      this.giveCoffee();
+    }
+  };
 
   constructor() {
     super({ key: 'CafeScene' });
@@ -110,8 +127,9 @@ export class CafeScene extends Phaser.Scene {
     // Mobile
     this.mobileControls = new MobileControls(this);
 
-    // Unfreeze barista after dialogue
-    EventBus.on('dialogue:ended', () => { this.barista.unfreeze(); }, this);
+    // Dialogue events
+    EventBus.on('dialogue:choice-made', this.onChoiceMade, this);
+    EventBus.on('dialogue:ended',       this.onDialogueEnded, this);
 
     // Stop outdoor audio
     proceduralAudio.stopBirds();
@@ -121,6 +139,8 @@ export class CafeScene extends Phaser.Scene {
     this.cameras.main.fadeIn(400, 0, 0, 0);
 
     this.events.on('shutdown', () => {
+      EventBus.off('dialogue:choice-made', this.onChoiceMade);
+      EventBus.off('dialogue:ended',       this.onDialogueEnded);
       this.dialogueSystem.destroy();
       this.barista.destroy();
       this.mobileControls.destroy();
@@ -167,21 +187,48 @@ export class CafeScene extends Phaser.Scene {
     }
   }
 
+  private giveCoffee(): void {
+    const inv = gameManager.inventory;
+    const slot = inv.addItem(ITEM_DEFS.coffee);
+
+    if (slot >= 0) {
+      this.showToast('Coffee added to inventory!', 0xf2a65a);
+    } else {
+      this.showToast('Inventory full — no room for coffee.', 0xcc6655);
+    }
+  }
+
+  private showToast(message: string, color: number): void {
+    const cx = GAME_CONFIG.WIDTH / 2;
+    const cy = GAME_CONFIG.HEIGHT / 2 - 40;
+
+    const bg = this.add.rectangle(cx, cy, message.length * 5.5 + 20, 20, 0x000000, 0.75)
+      .setScrollFactor(0).setDepth(DEPTH.UI + 50);
+
+    const txt = this.add.text(cx, cy, message, {
+      fontSize: '7px', fontFamily: 'monospace',
+      color: '#' + color.toString(16).padStart(6, '0'),
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI + 51);
+
+    // Float up then fade out
+    this.tweens.add({
+      targets: [bg, txt],
+      y: `-=22`,
+      alpha: 0,
+      duration: 1800,
+      ease: 'Cubic.Out',
+      onComplete: () => { bg.destroy(); txt.destroy(); },
+    });
+  }
+
   private doExit(): void {
     this.exiting = true;
     this.player.freeze();
 
-    // Show loading text then switch scene
-    const loadingText = this.add.text(CAFE_W / 2, CAFE_H / 2, 'Loading...', {
-      fontSize: '10px', color: '#f2a65a', fontFamily: 'monospace',
-    }).setOrigin(0.5).setDepth(DEPTH.UI + 100);
-
-    const loadingBg = this.add.rectangle(CAFE_W / 2, CAFE_H / 2, CAFE_W, CAFE_H, 0x000000, 0.8);
-    loadingBg.setDepth(DEPTH.UI + 99);
-
-    // Delay to show loading, then switch
-    this.time.delayedCall(500, () => {
-      this.scene.start('WorldScene', { map: 'downtown', spawn: 'from_cafe' });
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.stop();
+      this.scene.wake('WorldScene');
     });
   }
 }

@@ -26,6 +26,7 @@ import { NPCScheduleSystem } from '@/systems/NPCScheduleSystem';
 import { PhoneSystem } from '@/systems/PhoneSystem';
 import { StorySystem } from '@/systems/StorySystem';
 import { SaveSystem, SaveData } from '@/systems/SaveSystem';
+import { InventorySystem } from '@/systems/InventorySystem';
 import { RIKA_MESSAGES } from '@/dialogue/messages/RikaMessages';
 
 /**
@@ -44,6 +45,7 @@ class GameManagerImpl {
   public readonly phone: PhoneSystem;
   public readonly story: StorySystem;
   public readonly save: SaveSystem;
+  public readonly inventory: InventorySystem;
 
   // --- Scene-dependent systems ---
   private _sceneSystems: SceneSystems = {
@@ -62,6 +64,7 @@ class GameManagerImpl {
     this.phone = new PhoneSystem();
     this.story = new StorySystem();
     this.save = new SaveSystem();
+    this.inventory = new InventorySystem();
   }
 
   // ============================================================

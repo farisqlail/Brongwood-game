@@ -18,7 +18,6 @@ import { EventSystem } from '@/systems/EventSystem';
 import { DialogueSystem } from '@/dialogue/DialogueSystem';
 import { gameManager } from '@/managers/GameManager';
 import { EventBus } from '@/core/EventBus';
-import { formatTime } from '@config/time.config';
 import { TEXTURE_KEYS } from '@config/assets.manifest';
 import { RAINY_NIGHT_FLOWER_SHOP } from '@/dialogue/events/RainyNightFlowerShop';
 import { getRikaDialogue } from '@/dialogue/RikaDialogue';
@@ -26,6 +25,8 @@ import { TOWN_NPCS } from '@config/npcs.config';
 import { proceduralAudio } from '@/audio/ProceduralAudio';
 import { MobileControls } from '@/ui/MobileControls';
 import { ParticleSystem } from '@/systems/ParticleSystem';
+import { MinimapSystem } from '@/ui/MinimapSystem';
+import { InventoryUI } from '@/ui/InventoryUI';
 
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
@@ -55,6 +56,10 @@ export class WorldScene extends Phaser.Scene {
   // Mobile controls
   private mobileControls!: MobileControls;
   private particleSystem!: ParticleSystem;
+  private minimapSystem!: MinimapSystem;
+
+  // Inventory UI (data lives in gameManager.inventory)
+  private inventoryUI!: InventoryUI;
 
   // Map
   private mapKey: string = 'downtown';
@@ -69,6 +74,8 @@ export class WorldScene extends Phaser.Scene {
     this.mapKey = data?.map ?? 'downtown';
     this.spawnId = data?.spawn;
     this.isTransitioning = false;
+    this.townNPCs = [];
+    this.nearbyNPC = null;
   }
 
   create(): void {
@@ -96,6 +103,13 @@ export class WorldScene extends Phaser.Scene {
     // Ambient particles (leaves, dust, fireflies at night)
     this.particleSystem = new ParticleSystem(this);
 
+    // Minimap (top-left corner)
+    this.minimapSystem = new MinimapSystem(this, this.mapData.widthInPixels, this.mapData.heightInPixels);
+
+    // Inventory UI — data is stored in gameManager.inventory (persists across scenes)
+    this.inventoryUI = new InventoryUI(this, gameManager.inventory);
+    this.inventoryUI.redrawSlots();
+
     // Initialize audio on first click (browser requires user gesture)
     this.input.once('pointerdown', () => {
       proceduralAudio.init();
@@ -104,10 +118,9 @@ export class WorldScene extends Phaser.Scene {
       proceduralAudio.startBirds();
     });
 
-    this.createClockUI();
-    this.createDebugUI();
 
     this.events.on('shutdown', this.onShutdown, this);
+    this.events.on('wake', this.onWake, this);
   }
 
   update(_time: number, delta: number): void {
@@ -131,6 +144,8 @@ export class WorldScene extends Phaser.Scene {
     this.weatherSystem.update(delta);
     this.vegetationSystem.update(delta);
     this.particleSystem.update(delta);
+    this.minimapSystem.update(this.player.x, this.player.y, this.rika, this.townNPCs, this.weatherSystem.isRaining);
+    this.inventoryUI.redrawSlots();
 
     // Check NPC proximity for interaction prompt
     this.checkNPCProximity();
@@ -275,8 +290,9 @@ export class WorldScene extends Phaser.Scene {
     this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
     // Prompt text (hidden by default)
+    // Position above the inventory bar (SLOT_Y = HEIGHT - 38, bar starts ~HEIGHT - 43)
     this.promptText = this.add.text(
-      GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT - 30,
+      GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT - 55,
       '[E] Talk',
       {
         fontSize: '9px',
@@ -288,7 +304,7 @@ export class WorldScene extends Phaser.Scene {
     );
     this.promptText.setOrigin(0.5);
     this.promptText.setScrollFactor(0);
-    this.promptText.setDepth(DEPTH.UI);
+    this.promptText.setDepth(DEPTH.UI + 15);  // above inventory (UI+10)
     this.promptText.setVisible(false);
 
     // Handle E key press
@@ -342,10 +358,18 @@ export class WorldScene extends Phaser.Scene {
       else this.player.unfreeze();
     }, this);
 
-    // Unfreeze all NPCs when dialogue ends
+    // Hide inventory + mobile controls during dialogue
+    EventBus.on('dialogue:started', () => {
+      this.inventoryUI.setVisible(false);
+      this.mobileControls.setGameVisible(false);
+    }, this);
+
+    // Unfreeze all NPCs when dialogue ends, restore UI
     EventBus.on('dialogue:ended', () => {
       this.rika.unfreeze();
       for (const npc of this.townNPCs) npc.unfreeze();
+      this.inventoryUI.setVisible(true);
+      this.mobileControls.setGameVisible(true);
     }, this);
 
     EventBus.on('time:period-changed', () => {
@@ -438,21 +462,23 @@ export class WorldScene extends Phaser.Scene {
     this.isTransitioning = true;
     this.player.freeze();
 
-    // Show loading overlay then switch
-    const bg = this.add.rectangle(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT, 0x000000, 0.9);
-    bg.setScrollFactor(0).setDepth(DEPTH.UI + 100);
-    const txt = this.add.text(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, 'Loading...', {
-      fontSize: '10px', color: '#f2a65a', fontFamily: 'monospace',
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI + 101);
-
-    this.time.delayedCall(300, () => {
-      this.scene.start(targetScene, { spawn: spawnId });
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.sleep();
+      this.scene.run(targetScene, { spawn: spawnId });
     });
   }
 
   // ============================================================
   // CLEANUP
   // ============================================================
+
+  private onWake(): void {
+    this.player.unfreeze();
+    this.cameras.main.fadeIn(400, 0, 0, 0);
+    // Allow re-entering zones after a short delay
+    this.time.delayedCall(600, () => { this.isTransitioning = false; });
+  }
 
   private onShutdown(): void {
     gameManager.clearSceneSystems();
@@ -465,94 +491,9 @@ export class WorldScene extends Phaser.Scene {
     this.rika.destroy();
     for (const npc of this.townNPCs) npc.destroy();
     this.mobileControls.destroy();
+    this.minimapSystem.destroy();
+    this.inventoryUI.destroy();
     proceduralAudio.stopAll();
   }
 
-  // ============================================================
-  // CLOCK UI (visible to player)
-  // ============================================================
-
-  private createClockUI(): void {
-    const w = GAME_CONFIG.WIDTH;
-
-    // Background panel
-    const clockBg = this.add.rectangle(w - 52, 14, 96, 24, 0x000000, 0.55);
-    clockBg.setStrokeStyle(1, 0xffffff, 0.15);
-    clockBg.setScrollFactor(0);
-    clockBg.setDepth(DEPTH.UI);
-
-    // Time text
-    const clockText = this.add.text(w - 52, 9, '', {
-      fontSize: '8px',
-      color: '#ffffff',
-      fontFamily: 'monospace',
-    });
-    clockText.setOrigin(0.5);
-    clockText.setScrollFactor(0);
-    clockText.setDepth(DEPTH.UI + 1);
-
-    // Weather/period indicator
-    const weatherText = this.add.text(w - 52, 19, '', {
-      fontSize: '6px',
-      color: '#aaaaaa',
-      fontFamily: 'monospace',
-    });
-    weatherText.setOrigin(0.5);
-    weatherText.setScrollFactor(0);
-    weatherText.setDepth(DEPTH.UI + 1);
-
-    this.events.on('update', () => {
-      const time = gameManager.time;
-      const timeStr = formatTime(time.hour, time.minute);
-      clockText.setText(`Day ${time.day}  ${timeStr}`);
-
-      // Weather + period info
-      const weather = this.weatherSystem.isRaining ? '~ Rain' : '';
-      const periodName = time.period.replace('_', ' ');
-      weatherText.setText(`${periodName} ${weather}`);
-
-      // Color based on period
-      if (time.period === 'night' || time.period === 'late_night') {
-        clockText.setColor('#8899cc');
-        weatherText.setColor('#6677aa');
-      } else if (time.period === 'evening') {
-        clockText.setColor('#f2a65a');
-        weatherText.setColor('#c08040');
-      } else if (time.period === 'dawn') {
-        clockText.setColor('#f0b8a0');
-        weatherText.setColor('#c09080');
-      } else {
-        clockText.setColor('#ffffff');
-        weatherText.setColor('#aaaaaa');
-      }
-    });
-  }
-
-  // ============================================================
-  // DEBUG UI
-  // ============================================================
-
-  private createDebugUI(): void {
-    const debugText = this.add.text(4, 4, '', {
-      fontSize: '8px',
-      color: '#ffffff',
-      fontFamily: 'monospace',
-      backgroundColor: '#00000088',
-      padding: { x: 3, y: 2 },
-    });
-    debugText.setScrollFactor(0);
-    debugText.setDepth(DEPTH.UI);
-
-    this.events.on('update', () => {
-      const time = gameManager.time;
-      const timeStr = formatTime(time.hour, time.minute);
-      const weather = this.weatherSystem.isRaining ? 'Rain' : 'Clear';
-      const rel = gameManager.relationships.get('rika');
-      debugText.setText([
-        `Day ${time.day} | ${timeStr} (${time.period}) | ${weather}`,
-        `Pos: ${Math.round(this.player.x)}, ${Math.round(this.player.y)}`,
-        `Rika: Aff=${rel?.affection ?? 0} Trust=${rel?.trust ?? 0} [${rel?.stage ?? '?'}]`,
-      ].join('\n'));
-    });
-  }
 }
