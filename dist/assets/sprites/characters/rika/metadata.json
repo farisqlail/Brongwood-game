@@ -1,0 +1,97 @@
+{
+  "character": {
+    "id": "1cb85846-ce90-4cd6-9d08-8e734a8eab59",
+    "name": "female caharacter, cheerfull, shorthair with causal wardobe",
+    "prompt": "female caharacter, cheerfull, shorthair with causal wardobe",
+    "size": {
+      "width": 92,
+      "height": 92
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-05-07T06:33:45.860855+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "animation-c3630455": {
+        "south": [
+          "animations/animation-c3630455/south/frame_000.png",
+          "animations/animation-c3630455/south/frame_001.png",
+          "animations/animation-c3630455/south/frame_002.png",
+          "animations/animation-c3630455/south/frame_003.png",
+          "animations/animation-c3630455/south/frame_004.png",
+          "animations/animation-c3630455/south/frame_005.png"
+        ],
+        "south-west": [
+          "animations/animation-c3630455/south-west/frame_000.png",
+          "animations/animation-c3630455/south-west/frame_001.png",
+          "animations/animation-c3630455/south-west/frame_002.png",
+          "animations/animation-c3630455/south-west/frame_003.png",
+          "animations/animation-c3630455/south-west/frame_004.png",
+          "animations/animation-c3630455/south-west/frame_005.png"
+        ],
+        "west": [
+          "animations/animation-c3630455/west/frame_000.png",
+          "animations/animation-c3630455/west/frame_001.png",
+          "animations/animation-c3630455/west/frame_002.png",
+          "animations/animation-c3630455/west/frame_003.png",
+          "animations/animation-c3630455/west/frame_004.png",
+          "animations/animation-c3630455/west/frame_005.png"
+        ],
+        "north": [
+          "animations/animation-c3630455/north/frame_000.png",
+          "animations/animation-c3630455/north/frame_001.png",
+          "animations/animation-c3630455/north/frame_002.png",
+          "animations/animation-c3630455/north/frame_003.png",
+          "animations/animation-c3630455/north/frame_004.png",
+          "animations/animation-c3630455/north/frame_005.png"
+        ],
+        "east": [
+          "animations/animation-c3630455/east/frame_000.png",
+          "animations/animation-c3630455/east/frame_001.png",
+          "animations/animation-c3630455/east/frame_002.png",
+          "animations/animation-c3630455/east/frame_003.png",
+          "animations/animation-c3630455/east/frame_004.png",
+          "animations/animation-c3630455/east/frame_005.png"
+        ],
+        "south-east": [
+          "animations/animation-c3630455/south-east/frame_000.png",
+          "animations/animation-c3630455/south-east/frame_001.png",
+          "animations/animation-c3630455/south-east/frame_002.png",
+          "animations/animation-c3630455/south-east/frame_003.png",
+          "animations/animation-c3630455/south-east/frame_004.png",
+          "animations/animation-c3630455/south-east/frame_005.png"
+        ],
+        "north-west": [
+          "animations/animation-c3630455/north-west/frame_000.png",
+          "animations/animation-c3630455/north-west/frame_001.png",
+          "animations/animation-c3630455/north-west/frame_002.png",
+          "animations/animation-c3630455/north-west/frame_003.png",
+          "animations/animation-c3630455/north-west/frame_004.png",
+          "animations/animation-c3630455/north-west/frame_005.png"
+        ],
+        "north-east": [
+          "animations/animation-c3630455/north-east/frame_000.png",
+          "animations/animation-c3630455/north-east/frame_001.png",
+          "animations/animation-c3630455/north-east/frame_002.png",
+          "animations/animation-c3630455/north-east/frame_003.png",
+          "animations/animation-c3630455/north-east/frame_004.png",
+          "animations/animation-c3630455/north-east/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-05-07T06:50:32.113710"
+}
