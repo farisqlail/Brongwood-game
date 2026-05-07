@@ -22,6 +22,10 @@ import { formatTime } from '@config/time.config';
 import { TEXTURE_KEYS } from '@config/assets.manifest';
 import { RAINY_NIGHT_FLOWER_SHOP } from '@/dialogue/events/RainyNightFlowerShop';
 import { getRikaDialogue } from '@/dialogue/RikaDialogue';
+import { TOWN_NPCS } from '@config/npcs.config';
+import { proceduralAudio } from '@/audio/ProceduralAudio';
+import { MobileControls } from '@/ui/MobileControls';
+import { ParticleSystem } from '@/systems/ParticleSystem';
 
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
@@ -29,6 +33,7 @@ export class WorldScene extends Phaser.Scene {
 
   // NPCs
   private rika!: NPC;
+  private townNPCs: NPC[] = [];
 
   // Systems
   private atmosphereSystem!: AtmosphereSystem;
@@ -43,17 +48,27 @@ export class WorldScene extends Phaser.Scene {
   private promptText!: Phaser.GameObjects.Text;
   private nearbyNPC: NPC | null = null;
 
+  // Audio
+  private footstepTimer: number = 0;
+  private wasRaining: boolean = false;
+
+  // Mobile controls
+  private mobileControls!: MobileControls;
+  private particleSystem!: ParticleSystem;
+
   // Map
   private mapKey: string = 'downtown';
   private spawnId?: string;
+  private isTransitioning: boolean = false;
 
   constructor() {
     super({ key: SCENE_KEYS.WORLD });
   }
 
   init(data?: { map?: string; spawn?: string }): void {
-    if (data?.map) this.mapKey = data.map;
-    if (data?.spawn) this.spawnId = data.spawn;
+    this.mapKey = data?.map ?? 'downtown';
+    this.spawnId = data?.spawn;
+    this.isTransitioning = false;
   }
 
   create(): void {
@@ -71,6 +86,25 @@ export class WorldScene extends Phaser.Scene {
     this.setupEventListeners();
 
     gameManager.startGameplay();
+
+    // Speed up time for testing (10x — 1 real second = 10 game minutes)
+    gameManager.time.setSpeed(10);
+
+    // Mobile controls (joystick + action button)
+    this.mobileControls = new MobileControls(this);
+
+    // Ambient particles (leaves, dust, fireflies at night)
+    this.particleSystem = new ParticleSystem(this);
+
+    // Initialize audio on first click (browser requires user gesture)
+    this.input.once('pointerdown', () => {
+      proceduralAudio.init();
+      proceduralAudio.resume();
+      proceduralAudio.startWind(0.3);
+      proceduralAudio.startBirds();
+    });
+
+    this.createClockUI();
     this.createDebugUI();
 
     this.events.on('shutdown', this.onShutdown, this);
@@ -78,13 +112,56 @@ export class WorldScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     gameManager.update(delta);
+
+    // Feed mobile joystick into player movement
+    if (this.mobileControls.visible) {
+      const js = this.mobileControls.joystickState;
+      this.player.setJoystickInput(js.isActive, js.forceX, js.forceY);
+
+      // Mobile action button = interact
+      if (this.mobileControls.actionPressed && this.nearbyNPC && !this.dialogueSystem.isActive) {
+        proceduralAudio.playClick();
+        this.startNPCDialogue(this.nearbyNPC);
+      }
+    }
+
     this.player.update();
     this.rika.update(delta);
+    for (const npc of this.townNPCs) npc.update(delta);
     this.weatherSystem.update(delta);
     this.vegetationSystem.update(delta);
+    this.particleSystem.update(delta);
 
     // Check NPC proximity for interaction prompt
     this.checkNPCProximity();
+
+    // Audio: footsteps when walking
+    if (this.player.isMoving && proceduralAudio.initialized) {
+      this.footstepTimer += delta;
+      if (this.footstepTimer > 350) {
+        this.footstepTimer = 0;
+        proceduralAudio.playFootstep();
+      }
+    } else {
+      this.footstepTimer = 0;
+    }
+
+    // Audio: sync rain sound with weather system
+    if (proceduralAudio.initialized) {
+      const isRaining = this.weatherSystem.isRaining;
+      if (isRaining && !this.wasRaining) {
+        proceduralAudio.startRain(0.5);
+      } else if (!isRaining && this.wasRaining) {
+        proceduralAudio.stopRain();
+      }
+      this.wasRaining = isRaining;
+
+      // Birds only during day (stop at night)
+      const period = gameManager.time.period;
+      if (period === 'night' || period === 'late_night') {
+        proceduralAudio.stopBirds();
+      }
+    }
   }
 
   // ============================================================
@@ -106,27 +183,44 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /**
-   * Spawn Rika NPC at her position.
-   * She stands near the flower shop area (top-left of map).
+   * Spawn all NPCs — Rika + 10 townspeople.
    */
   private spawnNPCs(): void {
     const ts = GAME_CONFIG.TILE_SIZE;
 
+    // Rika (main NPC) — random spawn position away from player
+    const rikaSpawnX = Phaser.Math.Between(ts * 2, ts * 13);
+    const rikaSpawnY = Phaser.Math.Between(ts * 2, ts * 8);
+    // Make sure she doesn't spawn on the road (rows 4-5)
+    const rikaY = (rikaSpawnY >= ts * 4 && rikaSpawnY <= ts * 6) ? ts * 7 : rikaSpawnY;
+
     this.rika = new NPC(this, {
       id: 'rika',
       textureKey: TEXTURE_KEYS.RIKA,
-      x: ts * 7.5,
-      y: ts * 5,
+      x: rikaSpawnX,
+      y: rikaY,
       scale: 0.7,
       direction: 'down',
       interactionRadius: 50,
     });
-
-    // Enable natural wandering
     this.rika.enableWander(60);
-
-    // Collide player with Rika
     this.physics.add.collider(this.player.sprite, this.rika.sprite);
+
+    // 10 Town NPCs
+    for (const npcData of TOWN_NPCS) {
+      const npc = new NPC(this, {
+        id: npcData.id,
+        textureKey: npcData.textureKey,
+        x: npcData.x,
+        y: npcData.y,
+        scale: 0.9,
+        direction: 'down',
+        interactionRadius: 40,
+      });
+      npc.enableWander(npcData.wanderRadius);
+      this.physics.add.collider(this.player.sprite, npc.sprite);
+      this.townNPCs.push(npc);
+    }
   }
 
   private setupCamera(): void {
@@ -200,6 +294,7 @@ export class WorldScene extends Phaser.Scene {
     // Handle E key press
     this.interactKey.on('down', () => {
       if (this.nearbyNPC && !this.dialogueSystem.isActive) {
+        proceduralAudio.playClick();
         this.startNPCDialogue(this.nearbyNPC);
       }
     });
@@ -217,6 +312,9 @@ export class WorldScene extends Phaser.Scene {
     // All props have collision — player and NPCs can't walk through
     this.physics.add.collider(this.player.sprite, this.vegetationSystem.collisionGroup);
     this.physics.add.collider(this.rika.sprite, this.vegetationSystem.collisionGroup);
+    for (const npc of this.townNPCs) {
+      this.physics.add.collider(npc.sprite, this.vegetationSystem.collisionGroup);
+    }
 
     gameManager.registerSceneSystems({
       atmosphere: this.atmosphereSystem,
@@ -244,6 +342,12 @@ export class WorldScene extends Phaser.Scene {
       else this.player.unfreeze();
     }, this);
 
+    // Unfreeze all NPCs when dialogue ends
+    EventBus.on('dialogue:ended', () => {
+      this.rika.unfreeze();
+      for (const npc of this.townNPCs) npc.unfreeze();
+    }, this);
+
     EventBus.on('time:period-changed', () => {
       this.eventSystem.checkTriggers();
     }, this);
@@ -262,19 +366,30 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
 
-    const dist = Phaser.Math.Distance.Between(
-      this.player.x, this.player.y,
-      this.rika.sprite.x, this.rika.sprite.y
-    );
+    // Check Rika first
+    const allNPCs: NPC[] = [this.rika, ...this.townNPCs];
+    let closest: NPC | null = null;
+    let closestDist = Infinity;
 
-    if (dist < 55) {
-      this.nearbyNPC = this.rika;
+    for (const npc of allNPCs) {
+      const dist = Phaser.Math.Distance.Between(
+        this.player.x, this.player.y,
+        npc.sprite.x, npc.sprite.y
+      );
+      if (dist < 55 && dist < closestDist) {
+        closest = npc;
+        closestDist = dist;
+      }
+    }
+
+    if (closest) {
+      this.nearbyNPC = closest;
       this.promptText.setVisible(true);
-      this.rika.playerInRange = true;
+      closest.playerInRange = true;
     } else {
+      if (this.nearbyNPC) this.nearbyNPC.playerInRange = false;
       this.nearbyNPC = null;
       this.promptText.setVisible(false);
-      this.rika.playerInRange = false;
     }
   }
 
@@ -285,21 +400,33 @@ export class WorldScene extends Phaser.Scene {
     // Face each other
     npc.faceToward(this.player.x, this.player.y);
 
-    // Record interaction for relationship
-    gameManager.relationships.recordInteraction(npc.id, gameManager.time.day);
+    // Freeze NPC during conversation
+    npc.freeze();
 
-    // Get appropriate dialogue based on state
-    const hasMetRika = gameManager.relationships.hasFlag('rika', 'met_rika');
-    const dialogue = getRikaDialogue(hasMetRika, gameManager.time.period);
+    // Hide prompt
+    this.promptText.setVisible(false);
 
-    // Check if rainy night event should trigger instead
-    if (!hasMetRika || gameManager.time.period === 'night' || gameManager.time.period === 'late_night') {
-      if (this.eventSystem.checkTriggers()) return; // Event took over
+    // If it's Rika, use her special dialogue system
+    if (npc.id === 'rika') {
+      gameManager.relationships.recordInteraction('rika', gameManager.time.day);
+
+      const hasMetRika = gameManager.relationships.hasFlag('rika', 'met_rika');
+      const dialogue = getRikaDialogue(hasMetRika, gameManager.time.period);
+
+      // Check if rainy night event should trigger
+      if (!hasMetRika || gameManager.time.period === 'night' || gameManager.time.period === 'late_night') {
+        if (this.eventSystem.checkTriggers()) return;
+      }
+
+      this.dialogueSystem.start(dialogue);
+      return;
     }
 
-    // Start normal dialogue
-    this.dialogueSystem.start(dialogue);
-    this.promptText.setVisible(false);
+    // For town NPCs, find their dialogue from config
+    const npcData = TOWN_NPCS.find(n => n.id === npc.id);
+    if (npcData) {
+      this.dialogueSystem.start(npcData.dialogue);
+    }
   }
 
   // ============================================================
@@ -307,7 +434,8 @@ export class WorldScene extends Phaser.Scene {
   // ============================================================
 
   private handleSceneTransition(targetScene?: string, spawnId?: string): void {
-    if (!targetScene) return;
+    if (!targetScene || this.isTransitioning) return;
+    this.isTransitioning = true;
     this.player.freeze();
     this.cameras.main.fadeOut(500, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -326,7 +454,71 @@ export class WorldScene extends Phaser.Scene {
     this.dialogueSystem.destroy();
     this.weatherSystem.destroy();
     this.vegetationSystem.destroy();
+    this.particleSystem.destroy();
     this.rika.destroy();
+    for (const npc of this.townNPCs) npc.destroy();
+    this.mobileControls.destroy();
+    proceduralAudio.stopAll();
+  }
+
+  // ============================================================
+  // CLOCK UI (visible to player)
+  // ============================================================
+
+  private createClockUI(): void {
+    const w = GAME_CONFIG.WIDTH;
+
+    // Background panel
+    const clockBg = this.add.rectangle(w - 52, 14, 96, 24, 0x000000, 0.55);
+    clockBg.setStrokeStyle(1, 0xffffff, 0.15);
+    clockBg.setScrollFactor(0);
+    clockBg.setDepth(DEPTH.UI);
+
+    // Time text
+    const clockText = this.add.text(w - 52, 9, '', {
+      fontSize: '8px',
+      color: '#ffffff',
+      fontFamily: 'monospace',
+    });
+    clockText.setOrigin(0.5);
+    clockText.setScrollFactor(0);
+    clockText.setDepth(DEPTH.UI + 1);
+
+    // Weather/period indicator
+    const weatherText = this.add.text(w - 52, 19, '', {
+      fontSize: '6px',
+      color: '#aaaaaa',
+      fontFamily: 'monospace',
+    });
+    weatherText.setOrigin(0.5);
+    weatherText.setScrollFactor(0);
+    weatherText.setDepth(DEPTH.UI + 1);
+
+    this.events.on('update', () => {
+      const time = gameManager.time;
+      const timeStr = formatTime(time.hour, time.minute);
+      clockText.setText(`Day ${time.day}  ${timeStr}`);
+
+      // Weather + period info
+      const weather = this.weatherSystem.isRaining ? '~ Rain' : '';
+      const periodName = time.period.replace('_', ' ');
+      weatherText.setText(`${periodName} ${weather}`);
+
+      // Color based on period
+      if (time.period === 'night' || time.period === 'late_night') {
+        clockText.setColor('#8899cc');
+        weatherText.setColor('#6677aa');
+      } else if (time.period === 'evening') {
+        clockText.setColor('#f2a65a');
+        weatherText.setColor('#c08040');
+      } else if (time.period === 'dawn') {
+        clockText.setColor('#f0b8a0');
+        weatherText.setColor('#c09080');
+      } else {
+        clockText.setColor('#ffffff');
+        weatherText.setColor('#aaaaaa');
+      }
+    });
   }
 
   // ============================================================

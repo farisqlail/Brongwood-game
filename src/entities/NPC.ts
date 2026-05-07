@@ -105,6 +105,7 @@ export class NPC {
   private originX: number = 0;
   private originY: number = 0;
   private wanderRadius: number = 40;
+  private _frozen: boolean = false;
 
   /** Enable natural wandering behavior */
   enableWander(radius: number = 40): void {
@@ -114,9 +115,31 @@ export class NPC {
     this.idleDuration = 1500 + Math.random() * 2000;
   }
 
+  /** Freeze NPC (stop moving, stay idle) — used during dialogue */
+  freeze(): void {
+    this._frozen = true;
+    this.sprite.setVelocity(0, 0);
+    this.isWandering = false;
+  }
+
+  /** Unfreeze NPC (resume wandering) */
+  unfreeze(): void {
+    this._frozen = false;
+    this.wanderTimer = 0;
+    this.idleDuration = 1500 + Math.random() * 2000;
+  }
+
   /** Update (call every frame with delta in ms) */
   update(delta?: number): void {
     if (!delta) delta = 16;
+
+    // If frozen (during dialogue), just play idle animation
+    if (this._frozen) {
+      this.sprite.setVelocity(0, 0);
+      this.animationSystem.update(this.sprite, false, this._direction, this.id);
+      this.sprite.setDepth(this.sprite.y + 10);
+      return;
+    }
 
     this.wanderTimer += delta;
 

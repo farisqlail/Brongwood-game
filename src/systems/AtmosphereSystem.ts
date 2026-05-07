@@ -171,9 +171,8 @@ export class AtmosphereSystem {
     // Depth: above weather, below UI
     this.overlay.setDepth(DEPTH.LIGHTING);
 
-    // Blend mode: multiply creates natural darkening + color tint
-    // For pixel art, MULTIPLY works better than additive
-    this.overlay.setBlendMode(Phaser.BlendModes.MULTIPLY);
+    // Normal blend with alpha — creates visible color tint over the scene
+    this.overlay.setBlendMode(Phaser.BlendModes.NORMAL);
   }
 
   /** Apply an atmosphere preset to the overlay */

@@ -50,12 +50,13 @@ import { gameManager } from '@/managers/GameManager';
 // CONSTANTS
 // ============================================================
 
-const BOX_HEIGHT = 56;
+const BOX_MIN_HEIGHT = 56;
 const BOX_MARGIN = 6;
 const BOX_PADDING = 8;
 const TEXT_SIZE = '9px';
 const NAME_SIZE = '8px';
 const CHOICE_SIZE = '8px';
+const NAME_HEIGHT = 14; // space for speaker name
 const TYPE_SPEED_MS = 30; // ms per character (base)
 const CHOICE_HIGHLIGHT_COLOR = '#f2a65a';
 const TEXT_COLOR = '#ffffff';
@@ -140,6 +141,9 @@ export class DialogueSystem {
       this.scene.input.keyboard.off('keydown-UP', this.handleChoiceUp, this);
       this.scene.input.keyboard.off('keydown-DOWN', this.handleChoiceDown, this);
     }
+
+    // Remove touch listener
+    this.scene.input.off('pointerdown', this.handleTap, this);
   }
 
   // ============================================================
@@ -191,6 +195,11 @@ export class DialogueSystem {
     this.waitingForInput = false;
     this.continueIndicator.setVisible(false);
 
+    // Pre-calculate box size based on full text (so box doesn't jump)
+    this.dialogueText.setText(this.fullText);
+    this.resizeBox();
+    this.dialogueText.setText('');
+
     const speed = TYPE_SPEED_MS / (node.typeSpeed ?? 1);
 
     this.typeTimer = this.scene.time.addEvent({
@@ -223,10 +232,12 @@ export class DialogueSystem {
   }
 
   private processChoiceNode(node: DialogueChoiceNode): void {
-    // Show prompt if present
+    // Show prompt if present, otherwise clear dialogue text
     if (node.prompt) {
       this.nameText.setText('');
       this.dialogueText.setText(node.prompt);
+    } else {
+      this.dialogueText.setText('');
     }
 
     // Filter choices by conditions
@@ -245,7 +256,10 @@ export class DialogueSystem {
     this.waitingForInput = false;
     this.continueIndicator.setVisible(false);
 
-    const startY = BOX_PADDING + 16;
+    // Choices start BELOW the dialogue text (prompt)
+    const promptHeight = node.prompt ? this.dialogueText.height + 6 : 0;
+    const startY = NAME_HEIGHT + 6 + promptHeight;
+
     availableChoices.forEach((choice, index) => {
       const choiceText = this.scene.add.text(
         BOX_PADDING + 8,
@@ -255,11 +269,20 @@ export class DialogueSystem {
           fontSize: CHOICE_SIZE,
           color: index === 0 ? CHOICE_HIGHLIGHT_COLOR : TEXT_COLOR,
           fontFamily: 'monospace',
+          wordWrap: { width: GAME_CONFIG.WIDTH - BOX_MARGIN * 2 - BOX_PADDING * 2 - 24 },
         }
       );
       this.container.add(choiceText);
       this.choiceTexts.push(choiceText);
     });
+
+    // Resize box to fit prompt + all choices
+    const totalHeight = startY + availableChoices.length * 14 + BOX_PADDING;
+    const neededHeight = Math.max(BOX_MIN_HEIGHT, totalHeight);
+    this.box.setSize(GAME_CONFIG.WIDTH - BOX_MARGIN * 2, neededHeight);
+    this.box.setPosition(GAME_CONFIG.WIDTH / 2, neededHeight / 2);
+    this.container.setY(GAME_CONFIG.HEIGHT - neededHeight - BOX_MARGIN);
+    this.continueIndicator.setY(neededHeight - 14);
 
     // Store choices for selection handling
     (this as unknown as { _availableChoices: DialogueChoice[] })._availableChoices = availableChoices;
@@ -296,17 +319,42 @@ export class DialogueSystem {
   // ============================================================
 
   private setupInput(): void {
-    if (!this.scene.input.keyboard) return;
+    // Keyboard input
+    if (this.scene.input.keyboard) {
+      this.scene.input.keyboard.on('keydown-ENTER', this.handleConfirm, this);
+      this.scene.input.keyboard.on('keydown-SPACE', this.handleConfirm, this);
+      this.scene.input.keyboard.on('keydown-Z', this.handleConfirm, this);
+      this.scene.input.keyboard.on('keydown-UP', this.handleChoiceUp, this);
+      this.scene.input.keyboard.on('keydown-DOWN', this.handleChoiceDown, this);
+    }
 
-    // Use event-based input instead of addKey() to avoid capturing
-    // arrow keys that the MovementSystem's createCursorKeys() also uses.
-    // addKey() can interfere with cursor keys by resetting key state.
-    this.scene.input.keyboard.on('keydown-ENTER', this.handleConfirm, this);
-    this.scene.input.keyboard.on('keydown-SPACE', this.handleConfirm, this);
-    this.scene.input.keyboard.on('keydown-Z', this.handleConfirm, this);
-    this.scene.input.keyboard.on('keydown-UP', this.handleChoiceUp, this);
-    this.scene.input.keyboard.on('keydown-DOWN', this.handleChoiceDown, this);
+    // Touch/tap input — tap anywhere on screen to advance dialogue (mobile)
+    this.scene.input.on('pointerdown', this.handleTap, this);
   }
+
+  private handleTap = (pointer: Phaser.Input.Pointer): void => {
+    if (!this.active) return;
+
+    // Ignore taps on the joystick area (left half, bottom) to avoid conflicts
+    if (pointer.x < 100 && pointer.y > this.scene.scale.height - 100) return;
+
+    if (this.typing) {
+      this.skipTypewriter();
+    } else if (this.waitingForInput) {
+      this.advanceToNode(this.currentNodeId);
+    } else if (this.choiceTexts.length > 0) {
+      // Check if tap is on a choice
+      const localY = pointer.y - this.container.y;
+      for (let i = 0; i < this.choiceTexts.length; i++) {
+        const choiceY = this.choiceTexts[i].y;
+        if (localY >= choiceY - 4 && localY <= choiceY + 14) {
+          this.selectedChoice = i;
+          this.confirmChoice();
+          return;
+        }
+      }
+    }
+  };
 
   private handleConfirm = (): void => {
     if (!this.active) return;
@@ -334,6 +382,7 @@ export class DialogueSystem {
     this.typeTimer?.destroy();
     this.displayedChars = this.fullText.length;
     this.dialogueText.setText(this.fullText);
+    this.resizeBox();
     this.typing = false;
     this.waitingForInput = true;
     this.continueIndicator.setVisible(true);
@@ -472,18 +521,17 @@ export class DialogueSystem {
   // ============================================================
 
   private createUI(): void {
-    const boxY = GAME_CONFIG.HEIGHT - BOX_HEIGHT - BOX_MARGIN;
-
-    this.container = this.scene.add.container(0, boxY);
+    // Container starts at bottom — will be repositioned dynamically
+    this.container = this.scene.add.container(0, GAME_CONFIG.HEIGHT - BOX_MIN_HEIGHT - BOX_MARGIN);
     this.container.setScrollFactor(0);
     this.container.setDepth(DEPTH.UI + 10);
 
-    // Background box
+    // Background box (will be resized dynamically)
     this.box = this.scene.add.rectangle(
       GAME_CONFIG.WIDTH / 2,
-      BOX_HEIGHT / 2,
+      BOX_MIN_HEIGHT / 2,
       GAME_CONFIG.WIDTH - BOX_MARGIN * 2,
-      BOX_HEIGHT,
+      BOX_MIN_HEIGHT,
       BOX_COLOR,
       BOX_ALPHA
     );
@@ -502,22 +550,22 @@ export class DialogueSystem {
     // Dialogue text
     this.dialogueText = this.scene.add.text(
       BOX_PADDING + BOX_MARGIN,
-      16,
+      NAME_HEIGHT + 4,
       '',
       {
         fontSize: TEXT_SIZE,
         color: TEXT_COLOR,
         fontFamily: 'monospace',
         wordWrap: { width: GAME_CONFIG.WIDTH - BOX_MARGIN * 2 - BOX_PADDING * 2 - 16 },
-        lineSpacing: 2,
+        lineSpacing: 3,
       }
     );
     this.container.add(this.dialogueText);
 
-    // Continue indicator (blinking arrow)
+    // Continue indicator (repositioned dynamically)
     this.continueIndicator = this.scene.add.text(
       GAME_CONFIG.WIDTH - BOX_MARGIN * 2 - 16,
-      BOX_HEIGHT - 14,
+      BOX_MIN_HEIGHT - 14,
       'v',
       {
         fontSize: '8px',
@@ -535,6 +583,26 @@ export class DialogueSystem {
       yoyo: true,
       repeat: -1,
     });
+  }
+
+  /**
+   * Resize the dialogue box to fit the current text content.
+   * Called after text changes (typewriter complete or text set).
+   */
+  private resizeBox(): void {
+    // Calculate needed height based on text
+    const textHeight = this.dialogueText.height;
+    const neededHeight = Math.max(BOX_MIN_HEIGHT, NAME_HEIGHT + textHeight + BOX_PADDING * 2 + 8);
+
+    // Update box size
+    this.box.setSize(GAME_CONFIG.WIDTH - BOX_MARGIN * 2, neededHeight);
+    this.box.setPosition(GAME_CONFIG.WIDTH / 2, neededHeight / 2);
+
+    // Reposition container so box stays at bottom of screen
+    this.container.setY(GAME_CONFIG.HEIGHT - neededHeight - BOX_MARGIN);
+
+    // Reposition continue indicator at bottom-right of box
+    this.continueIndicator.setY(neededHeight - 14);
   }
 
   private show(): void {

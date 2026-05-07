@@ -102,8 +102,8 @@ export class WeatherSystem {
   private transitionProgress: number = 0;
   private transitionDuration: number = 3000; // ms
 
-  // Rain scheduling
-  private rainChancePerHour: number = 0.15; // 15% chance each hour
+  // Rain scheduling (30% base chance — rain is common in Brongwood)
+  private rainChancePerHour: number = 0.30;
   private forcedWeather: WeatherState | null = null;
 
   constructor(scene: Phaser.Scene) {

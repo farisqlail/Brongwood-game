@@ -33,6 +33,16 @@ export class VegetationSystem {
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.collisionGroup = scene.physics.add.staticGroup();
+
+    // Create a 1x1 transparent texture for invisible collision bodies
+    if (!scene.textures.exists('_collider')) {
+      const gfx = scene.add.graphics();
+      gfx.fillStyle(0x000000, 0);
+      gfx.fillRect(0, 0, 1, 1);
+      gfx.generateTexture('_collider', 1, 1);
+      gfx.destroy();
+    }
+
     this.placeGrassGround();
     this.placeHouses();
     this.placeDecor();
@@ -67,18 +77,29 @@ export class VegetationSystem {
     const mapW = 15 * ts;
     const mapH = 10 * ts;
 
-    // 80% coverage with shadow sprites as grass (dense, ~150 sprites)
-    for (let i = 0; i < 9000; i++) {
+    // Check if shadow textures are available
+    if (!this.scene.textures.exists('shadow-1')) return;
+
+    // 80% coverage with shadow sprites as grass
+    for (let i = 0; i < 150; i++) {
       const x = ts * 0.3 + Math.random() * (mapW - ts * 0.6);
       const y = ts * 0.3 + Math.random() * (mapH - ts * 0.6);
 
-      // Skip road (rows 4-5)
       const tileY = Math.floor(y / ts);
       if (tileY >= 4 && tileY <= 5) continue;
 
       const variant = Phaser.Math.Between(1, 6);
       const key = `shadow-${variant}`;
-      if (!this.scene.textures.exists(key)) continue;
+
+      // Use graphics rectangle as fallback if texture not available
+      const tex = this.scene.textures.get(key);
+      if (!tex || tex.key === '__MISSING' || !tex.getSourceImage()) {
+        // Fallback: green rectangle
+        const rect = this.scene.add.rectangle(x, y, 10, 10, 0x4a7a4a, 0.3);
+        rect.setDepth(DEPTH.GROUND_DECOR);
+        this.staticProps.push(rect as unknown as Phaser.GameObjects.Image);
+        continue;
+      }
 
       const sprite = this.scene.add.image(x, y, key);
       sprite.setDepth(DEPTH.GROUND_DECOR);
@@ -87,7 +108,9 @@ export class VegetationSystem {
       this.staticProps.push(sprite);
     }
 
-    // Add some actual grass sprites on top for variety (~20)
+    // Add some actual grass sprites on top for variety
+    if (!this.scene.textures.exists('grass-1')) return;
+
     for (let i = 0; i < 20; i++) {
       const x = ts * 1 + Math.random() * (mapW - ts * 2);
       const y = ts * 1 + Math.random() * (mapH - ts * 2);
@@ -97,7 +120,8 @@ export class VegetationSystem {
 
       const variant = Phaser.Math.Between(1, 6);
       const key = `grass-${variant}`;
-      if (!this.scene.textures.exists(key)) continue;
+      const tex = this.scene.textures.get(key);
+      if (!tex || tex.key === '__MISSING' || !tex.getSourceImage()) continue;
 
       const sprite = this.scene.add.image(x, y, key);
       sprite.setDepth(DEPTH.GROUND_DECOR + 1);
@@ -121,7 +145,8 @@ export class VegetationSystem {
       { x: ts * 11, y: ts * 8, variant: 1, scale: 0.7 },
     ];
 
-    for (const h of houses) {
+    for (let i = 0; i < houses.length; i++) {
+      const h = houses[i];
       const key = `house-${h.variant}`;
       if (!this.scene.textures.exists(key)) continue;
 
@@ -131,8 +156,38 @@ export class VegetationSystem {
       sprite.setOrigin(0.5, 0.7);
       this.staticProps.push(sprite);
 
-      // Collision
-      const col = this.collisionGroup.create(h.x, h.y + 8, undefined) as Phaser.Physics.Arcade.Sprite;
+      // Label + entrance indicator for the cafe (house index 1 = middle top)
+      if (i === 1) {
+        const label = this.scene.add.text(h.x, h.y - 30 * h.scale, 'CAFE', {
+          fontSize: '7px',
+          color: '#f2a65a',
+          fontFamily: 'monospace',
+          backgroundColor: '#00000088',
+          padding: { x: 4, y: 2 },
+        });
+        label.setOrigin(0.5);
+        label.setDepth(DEPTH.ABOVE_PLAYER + 1);
+
+        // Pulsing entrance arrow below cafe
+        const arrow = this.scene.add.text(h.x, h.y + 20 * h.scale, 'v ENTER v', {
+          fontSize: '5px',
+          color: '#f2a65a',
+          fontFamily: 'monospace',
+        });
+        arrow.setOrigin(0.5);
+        arrow.setDepth(DEPTH.ABOVE_PLAYER + 1);
+        this.scene.tweens.add({
+          targets: arrow,
+          alpha: 0.3,
+          y: arrow.y + 3,
+          duration: 800,
+          yoyo: true,
+          repeat: -1,
+        });
+      }
+
+      // Collision body
+      const col = this.collisionGroup.create(h.x, h.y + 8, '_collider') as Phaser.Physics.Arcade.Sprite;
       col.setVisible(false);
       col.body!.setSize(55 * h.scale, 35 * h.scale);
       col.refreshBody();
@@ -172,7 +227,7 @@ export class VegetationSystem {
       this.staticProps.push(sprite);
 
       // Collision
-      const col = this.collisionGroup.create(pos.x, pos.y, undefined) as Phaser.Physics.Arcade.Sprite;
+      const col = this.collisionGroup.create(pos.x, pos.y, '_collider') as Phaser.Physics.Arcade.Sprite;
       col.setVisible(false);
       col.body!.setSize(20 * pos.scale, 15 * pos.scale);
       col.refreshBody();
@@ -213,7 +268,7 @@ export class VegetationSystem {
       this.staticProps.push(sprite);
 
       // Collision
-      const col = this.collisionGroup.create(pos.x, pos.y, undefined) as Phaser.Physics.Arcade.Sprite;
+      const col = this.collisionGroup.create(pos.x, pos.y, '_collider') as Phaser.Physics.Arcade.Sprite;
       col.setVisible(false);
       col.body!.setSize(16 * pos.scale, 12 * pos.scale);
       col.refreshBody();
@@ -221,34 +276,53 @@ export class VegetationSystem {
   }
 
   // ============================================================
-  // BOXES — collision enabled
+  // BOXES — surround each house (like fences/crates around buildings)
   // ============================================================
 
   private placeBoxes(): void {
     const ts = GAME_CONFIG.TILE_SIZE;
+    const boxScale = 1;
 
-    const positions: Array<{ x: number; y: number; variant: number; scale: number }> = [
-      { x: ts * 4.5, y: ts * 2.5, variant: 1, scale: 0.45 },
-      { x: ts * 10.5, y: ts * 2.5, variant: 3, scale: 0.45 },
-      { x: ts * 6.5, y: ts * 8.5, variant: 2, scale: 0.4 },
-      { x: ts * 8.5, y: ts * 7, variant: 4, scale: 0.4 },
-      { x: ts * 1.5, y: ts * 8.5, variant: 5, scale: 0.4 },
+    // House positions (same as placeHouses)
+    const housePositions = [
+      { x: ts * 2.5, y: ts * 1.5 },
+      { x: ts * 7.5, y: ts * 1.5 },
+      { x: ts * 12.5, y: ts * 1.5 },
+      { x: ts * 4, y: ts * 8 },
+      { x: ts * 11, y: ts * 8 },
     ];
 
-    for (const pos of positions) {
-      const key = `box-${pos.variant}`;
-      if (!this.scene.textures.exists(key)) continue;
+    // Place boxes around each house (left, right, and front)
+    for (let hIdx = 0; hIdx < housePositions.length; hIdx++) {
+      const h = housePositions[hIdx];
+      const offsets = [
+        { dx: -80, dy: 10 },   // left
+        { dx: 80, dy: 10 },    // right
+        { dx: -80, dy: -10 },  // left-back
+        { dx: 80, dy: -10 },   // right-back
+        { dx: -20, dy: 25 },   // front-left
+        { dx: 20, dy: 25 },    // front-right
+      ];
 
-      const sprite = this.scene.add.image(pos.x, pos.y, key);
-      sprite.setScale(pos.scale);
-      sprite.setDepth(pos.y);
-      this.staticProps.push(sprite);
+      for (let i = 0; i < offsets.length; i++) {
+        const bx = h.x + offsets[i].dx;
+        const by = h.y + offsets[i].dy;
+        const variant = ((hIdx + i) % 5) + 1;
+        const key = `box-${variant}`;
+        if (!this.scene.textures.exists(key)) continue;
 
-      // Collision
-      const col = this.collisionGroup.create(pos.x, pos.y, undefined) as Phaser.Physics.Arcade.Sprite;
-      col.setVisible(false);
-      col.body!.setSize(18 * pos.scale, 14 * pos.scale);
-      col.refreshBody();
+        const sprite = this.scene.add.image(bx, by, key);
+        sprite.setScale(boxScale);
+        sprite.setDepth(by);
+        this.staticProps.push(sprite);
+
+        // Collision
+        const col = this.collisionGroup.create(bx, by, '_collider') as Phaser.Physics.Arcade.Sprite;
+        col.setVisible(false);
+        col.body!.setSize(14, 10);
+        col.refreshBody();
+      }
     }
   }
 }
+

@@ -33,6 +33,11 @@ export class MovementSystem {
   private wasd: Record<string, Phaser.Input.Keyboard.Key> | null = null;
   private enabled: boolean = true;
 
+  /** External joystick force (set by MobileControls) */
+  public joystickForceX: number = 0;
+  public joystickForceY: number = 0;
+  public joystickActive: boolean = false;
+
   /** Current facing direction (persists when idle) */
   private _direction: Direction = 'down';
 
@@ -95,14 +100,21 @@ export class MovementSystem {
     let vx = 0;
     let vy = 0;
 
+    // Keyboard input
     if (input.left) vx -= 1;
     if (input.right) vx += 1;
     if (input.up) vy -= 1;
     if (input.down) vy += 1;
 
-    // Normalize diagonal movement
-    if (vx !== 0 && vy !== 0) {
-      const normalizer = Math.SQRT1_2; // 1/sqrt(2) ≈ 0.707
+    // Joystick input (overrides keyboard if active)
+    if (this.joystickActive) {
+      vx = this.joystickForceX;
+      vy = this.joystickForceY;
+    }
+
+    // Normalize diagonal movement (keyboard only — joystick is already normalized)
+    if (!this.joystickActive && vx !== 0 && vy !== 0) {
+      const normalizer = Math.SQRT1_2;
       vx *= normalizer;
       vy *= normalizer;
     }
@@ -115,11 +127,15 @@ export class MovementSystem {
     this._isMoving = vx !== 0 || vy !== 0;
 
     if (this._isMoving) {
-      // Determine facing direction (vertical takes priority for top-down feel)
-      if (vy < 0) this._direction = 'up';
-      else if (vy > 0) this._direction = 'down';
-      else if (vx < 0) this._direction = 'left';
-      else if (vx > 0) this._direction = 'right';
+      // Determine facing direction — prioritize the STRONGER axis
+      // This ensures left/right shows properly when joystick is mostly horizontal
+      if (Math.abs(vx) > Math.abs(vy)) {
+        // Horizontal movement is dominant
+        this._direction = vx < 0 ? 'left' : 'right';
+      } else {
+        // Vertical movement is dominant
+        this._direction = vy < 0 ? 'up' : 'down';
+      }
     }
   }
 }

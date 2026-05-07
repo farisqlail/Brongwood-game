@@ -98,10 +98,116 @@ export class PreloadScene extends Phaser.Scene {
     this.createCharacterAnimations(TEXTURE_KEYS.PLAYER, 'lail');
     this.createCharacterAnimations(TEXTURE_KEYS.RIKA, 'rika');
 
+    // Generate 10 NPC placeholder sprites (different colors)
+    this.generateNPCSprites();
+
     // Register any additional animations from registry
     AssetLoader.registerAnimations(this);
 
     this.scene.start(SCENE_KEYS.MAIN_MENU);
+  }
+
+  /**
+   * Generate colored placeholder sprites for 10 NPCs.
+   * Each NPC gets a unique body color. 4 frames x 4 directions.
+   */
+  private generateNPCSprites(): void {
+    // Skip if already generated
+    if (this.textures.exists(TEXTURE_KEYS.NPC_BAKER)) return;
+
+    const npcColors: Array<{ key: string; body: string; hair: string }> = [
+      { key: TEXTURE_KEYS.NPC_BAKER, body: '#d4885a', hair: '#5a3020' },
+      { key: TEXTURE_KEYS.NPC_FISHER, body: '#5a88b8', hair: '#404040' },
+      { key: TEXTURE_KEYS.NPC_ELDER, body: '#8a7090', hair: '#c0c0c0' },
+      { key: TEXTURE_KEYS.NPC_GIRL, body: '#e8a0c0', hair: '#3a2020' },
+      { key: TEXTURE_KEYS.NPC_BOY, body: '#70b870', hair: '#4a3020' },
+      { key: TEXTURE_KEYS.NPC_MERCHANT, body: '#c8a840', hair: '#2a2020' },
+      { key: TEXTURE_KEYS.NPC_FARMER, body: '#7a9050', hair: '#5a4030' },
+      { key: TEXTURE_KEYS.NPC_ARTIST, body: '#b070c0', hair: '#1a1a30' },
+      { key: TEXTURE_KEYS.NPC_POSTMAN, body: '#4080c0', hair: '#3a3030' },
+      { key: TEXTURE_KEYS.NPC_LIBRARIAN, body: '#6a8a8a', hair: '#2a1a20' },
+    ];
+
+    const fw = 32;
+    const fh = 32;
+    const cols = 4; // walk frames
+    const rows = 4; // directions
+
+    for (const npc of npcColors) {
+      const canvas = this.textures.createCanvas(npc.key, fw * cols, fh * rows);
+      if (!canvas) continue;
+
+      const ctx = canvas.getContext();
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const x = col * fw;
+          const y = row * fh;
+          const bounce = (col === 1 || col === 3) ? -1 : 0;
+
+          // Shadow
+          ctx.fillStyle = 'rgba(0,0,0,0.15)';
+          ctx.beginPath();
+          ctx.ellipse(x + 16, y + 30, 6, 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Body
+          ctx.fillStyle = npc.body;
+          ctx.fillRect(x + 10, y + 14 + bounce, 12, 14);
+
+          // Head
+          ctx.fillStyle = '#f0c8a0';
+          ctx.fillRect(x + 11, y + 4 + bounce, 10, 10);
+
+          // Hair
+          ctx.fillStyle = npc.hair;
+          ctx.fillRect(x + 10, y + 2 + bounce, 12, 6);
+
+          // Eyes (front-facing only)
+          if (row === 0) {
+            ctx.fillStyle = '#222';
+            ctx.fillRect(x + 13, y + 9 + bounce, 2, 2);
+            ctx.fillRect(x + 17, y + 9 + bounce, 2, 2);
+          }
+
+          // Legs
+          ctx.fillStyle = '#4a4a5a';
+          const legOff = (col % 2 === 0) ? 0 : 1;
+          ctx.fillRect(x + 11, y + 27 + bounce, 4, 4 - legOff);
+          ctx.fillRect(x + 17, y + 27 + bounce + legOff, 4, 4 - legOff);
+        }
+      }
+
+      canvas.refresh();
+
+      // Register frames
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          this.textures.get(npc.key).add(row * cols + col, 0, col * fw, row * fh, fw, fh);
+        }
+      }
+
+      // Create animations
+      for (let dirIdx = 0; dirIdx < DIRECTIONS.length; dirIdx++) {
+        const dir = DIRECTIONS[dirIdx];
+        const gameDir = DIR_TO_KEY[dir];
+        const startFrame = dirIdx * cols;
+
+        this.anims.create({
+          key: `${npc.key}-walk-${gameDir}`,
+          frames: this.anims.generateFrameNumbers(npc.key, { start: startFrame, end: startFrame + cols - 1 }),
+          frameRate: 8,
+          repeat: -1,
+        });
+
+        this.anims.create({
+          key: `${npc.key}-idle-${gameDir}`,
+          frames: [{ key: npc.key, frame: startFrame }],
+          frameRate: 1,
+          repeat: 0,
+        });
+      }
+    }
   }
 
   /**
@@ -112,6 +218,9 @@ export class PreloadScene extends Phaser.Scene {
    * Total: 6 cols x 5 rows
    */
   private buildCharacterSpritesheet(textureKey: string, charId: string, frameSize: number): void {
+    // Skip if already built (prevents error on scene restart)
+    if (this.textures.exists(textureKey)) return;
+
     const cols = FRAMES_PER_DIR; // 6
     const rows = 5; // 4 walk directions + 1 idle row
     const fw = frameSize;
@@ -129,8 +238,8 @@ export class PreloadScene extends Phaser.Scene {
         const imgKey = `${charId}-walk-${dir}-${col}`;
         const tex = this.textures.get(imgKey);
         if (tex && tex.key !== '__MISSING') {
-          const src = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement;
-          ctx.drawImage(src, col * fw, rowIdx * fh, fw, fh);
+          const src = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement | null;
+          if (src) ctx.drawImage(src, col * fw, rowIdx * fh, fw, fh);
         }
       }
     }
@@ -141,8 +250,8 @@ export class PreloadScene extends Phaser.Scene {
       const imgKey = `${charId}-idle-${dir}`;
       const tex = this.textures.get(imgKey);
       if (tex && tex.key !== '__MISSING') {
-        const src = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement;
-        ctx.drawImage(src, dirIdx * fw, 4 * fh, fw, fh);
+        const src = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement | null;
+        if (src) ctx.drawImage(src, dirIdx * fw, 4 * fh, fw, fh);
       }
     }
 
@@ -167,6 +276,9 @@ export class PreloadScene extends Phaser.Scene {
    * Idle: 1 static frame per direction (row 4)
    */
   private createCharacterAnimations(textureKey: string, charId: string): void {
+    // Skip if animations already exist
+    if (this.anims.exists(`${charId}-walk-down`)) return;
+
     const walkFramesPerRow = FRAMES_PER_DIR; // 6
 
     for (let dirIdx = 0; dirIdx < DIRECTIONS.length; dirIdx++) {

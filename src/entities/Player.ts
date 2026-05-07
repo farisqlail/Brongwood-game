@@ -100,6 +100,13 @@ export class Player {
     this.movementSystem.setEnabled(true);
   }
 
+  /** Set joystick input (from mobile controls) */
+  setJoystickInput(active: boolean, forceX: number, forceY: number): void {
+    this.movementSystem.joystickActive = active;
+    this.movementSystem.joystickForceX = forceX;
+    this.movementSystem.joystickForceY = forceY;
+  }
+
   /** Get world position */
   get x(): number {
     return this.sprite.x;

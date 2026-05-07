@@ -44,6 +44,16 @@ export const TEXTURE_KEYS = {
   // Characters
   PLAYER: 'lail',
   RIKA: 'rika',
+  NPC_BAKER: 'npc_baker',
+  NPC_FISHER: 'npc_fisher',
+  NPC_ELDER: 'npc_elder',
+  NPC_GIRL: 'npc_girl',
+  NPC_BOY: 'npc_boy',
+  NPC_MERCHANT: 'npc_merchant',
+  NPC_FARMER: 'npc_farmer',
+  NPC_ARTIST: 'npc_artist',
+  NPC_POSTMAN: 'npc_postman',
+  NPC_LIBRARIAN: 'npc_librarian',
 
   // Tilesets
   TILESET_BRONGWOOD: 'tileset_brongwood',

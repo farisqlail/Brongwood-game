@@ -77,6 +77,18 @@
                  "width":64,
                  "x":480,
                  "y":320
+                },
+                {
+                 "height":64,
+                 "id":2,
+                 "name":"from_cafe",
+                 "properties":[{"name":"direction","type":"string","value":"down"}],
+                 "rotation":0,
+                 "type":"PlayerSpawn",
+                 "visible":true,
+                 "width":64,
+                 "x":480,
+                 "y":200
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -88,7 +100,21 @@
          "draworder":"topdown",
          "id":6,
          "name":"zones",
-         "objects":[],
+         "objects":[
+                {
+                 "height":40,
+                 "id":10,
+                 "name":"to_cafe",
+                 "properties":[
+                        {"name":"targetScene","type":"string","value":"CafeScene"},
+                        {"name":"spawnId","type":"string","value":"from_downtown"}],
+                 "rotation":0,
+                 "type":"SceneTransition",
+                 "visible":true,
+                 "width":64,
+                 "x":448,
+                 "y":120
+                }],
          "opacity":1,
          "type":"objectgroup",
          "visible":true,

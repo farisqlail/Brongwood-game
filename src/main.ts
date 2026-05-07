@@ -27,6 +27,7 @@ import { BootScene } from './scenes/BootScene';
 import { PreloadScene } from './scenes/PreloadScene';
 import { MainMenuScene } from './scenes/MainMenuScene';
 import { WorldScene } from './scenes/WorldScene';
+import { CafeScene } from './scenes/CafeScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -61,7 +62,7 @@ const config: Phaser.Types.Core.GameConfig = {
   },
 
   // Scene registration order (first scene auto-starts)
-  scene: [BootScene, PreloadScene, MainMenuScene, WorldScene],
+  scene: [BootScene, PreloadScene, MainMenuScene, WorldScene, CafeScene],
 
   // Input configuration
   input: {
