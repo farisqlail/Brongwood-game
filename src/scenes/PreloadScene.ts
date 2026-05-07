@@ -19,16 +19,8 @@ const DIRECTIONS = ['south', 'north', 'west', 'east'] as const;
 const DIR_TO_KEY = { south: 'down', north: 'up', west: 'left', east: 'right' } as const;
 
 export class PreloadScene extends Phaser.Scene {
-  private nextScene: string = SCENE_KEYS.MAIN_MENU;
-  private nextData: Record<string, unknown> = {};
-
   constructor() {
     super({ key: SCENE_KEYS.PRELOAD });
-  }
-
-  init(data?: { nextScene?: string; nextData?: Record<string, unknown> }): void {
-    this.nextScene = data?.nextScene ?? SCENE_KEYS.MAIN_MENU;
-    this.nextData = data?.nextData ?? {};
   }
 
   preload(): void {
@@ -112,7 +104,7 @@ export class PreloadScene extends Phaser.Scene {
     // Register any additional animations from registry
     AssetLoader.registerAnimations(this);
 
-    this.scene.start(this.nextScene, this.nextData);
+    this.scene.start(SCENE_KEYS.MAIN_MENU);
   }
 
   /**

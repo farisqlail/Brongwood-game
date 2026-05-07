@@ -437,10 +437,16 @@ export class WorldScene extends Phaser.Scene {
     if (!targetScene || this.isTransitioning) return;
     this.isTransitioning = true;
     this.player.freeze();
-    // Go through PreloadScene to ensure clean reload
-    this.scene.start(SCENE_KEYS.PRELOAD, {
-      nextScene: targetScene,
-      nextData: { spawn: spawnId },
+
+    // Show loading overlay then switch
+    const bg = this.add.rectangle(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT, 0x000000, 0.9);
+    bg.setScrollFactor(0).setDepth(DEPTH.UI + 100);
+    const txt = this.add.text(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, 'Loading...', {
+      fontSize: '10px', color: '#f2a65a', fontFamily: 'monospace',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI + 101);
+
+    this.time.delayedCall(300, () => {
+      this.scene.start(targetScene, { spawn: spawnId });
     });
   }
 

@@ -52,3 +52,4 @@ Port 3000 is in use, trying another one...
 [2m17.14.14[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/CafeScene.ts[22m
 [2m17.16.16[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/CafeScene.ts[22m
 [2m17.16.31[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/CafeScene.ts[22m
+[2m17.17.47[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/world/VegetationSystem.ts[22m

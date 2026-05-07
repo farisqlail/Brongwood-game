@@ -1,11 +1,10 @@
 /**
  * CafeScene - Interior of the town cafe.
- * A warm, cozy indoor space with tables, counter, and an NPC barista.
- * Player enters from downtown and can exit back.
+ * Simple scene: player can walk around, talk to barista, and exit.
  */
 
 import Phaser from 'phaser';
-import { GAME_CONFIG, DEPTH, CAMERA_CONFIG } from '@config/game.config';
+import { GAME_CONFIG, DEPTH } from '@config/game.config';
 import { Player } from '@/entities/Player';
 import { NPC } from '@/entities/NPC';
 import { TEXTURE_KEYS } from '@config/assets.manifest';
@@ -13,233 +12,177 @@ import { DialogueSystem } from '@/dialogue/DialogueSystem';
 import { DialogueDefinition } from '@/dialogue/DialogueTypes';
 import { gameManager } from '@/managers/GameManager';
 import { EventBus } from '@/core/EventBus';
-import { SCENE_KEYS } from '@config/game.config';
 import { proceduralAudio } from '@/audio/ProceduralAudio';
 import { MobileControls } from '@/ui/MobileControls';
 
-const CAFE_WIDTH = 10; // tiles
-const CAFE_HEIGHT = 8; // tiles
+const CAFE_W = 640; // pixels
+const CAFE_H = 400; // pixels
 
 export class CafeScene extends Phaser.Scene {
   private player!: Player;
   private barista!: NPC;
   private dialogueSystem!: DialogueSystem;
-  private interactKey!: Phaser.Input.Keyboard.Key;
+  private mobileControls!: MobileControls;
   private promptText!: Phaser.GameObjects.Text;
   private nearbyNPC: NPC | null = null;
-  private mobileControls!: MobileControls;
-  private isTransitioning: boolean = false;
+  private exiting: boolean = false;
 
   constructor() {
     super({ key: 'CafeScene' });
   }
 
   create(): void {
-    const ts = GAME_CONFIG.TILE_SIZE;
-    const mapW = CAFE_WIDTH * ts;
-    const mapH = CAFE_HEIGHT * ts;
+    this.exiting = false;
 
-    this.cameras.main.fadeIn(600, 0, 0, 0);
+    // Background
+    this.add.rectangle(CAFE_W / 2, CAFE_H / 2, CAFE_W, CAFE_H, 0x5a4030).setDepth(DEPTH.GROUND);
 
-    // Spawn player first (needed for collision setup in drawCafeInterior)
-    this.player = new Player(this, mapW / 2, mapH - ts * 2);
-    this.physics.world.setBounds(0, 0, mapW, mapH);
-    // Disable world bounds for player so they can reach the exit zone
+    // Floor pattern
+    for (let x = 0; x < CAFE_W; x += 32) {
+      for (let y = 0; y < CAFE_H; y += 32) {
+        if ((x / 32 + y / 32) % 2 === 0) {
+          this.add.rectangle(x + 16, y + 16, 31, 31, 0x6a5040, 0.4).setDepth(DEPTH.GROUND);
+        }
+      }
+    }
+
+    // Walls
+    this.add.rectangle(CAFE_W / 2, 16, CAFE_W, 32, 0x3a2820).setDepth(DEPTH.GROUND_DECOR);
+    this.add.rectangle(16, CAFE_H / 2, 32, CAFE_H, 0x3a2820).setDepth(DEPTH.GROUND_DECOR);
+    this.add.rectangle(CAFE_W - 16, CAFE_H / 2, 32, CAFE_H, 0x3a2820).setDepth(DEPTH.GROUND_DECOR);
+
+    // Counter
+    this.add.rectangle(CAFE_W / 2, 100, 300, 16, 0x8a6040).setDepth(DEPTH.ENTITIES);
+
+    // Tables
+    this.add.rectangle(180, 240, 60, 40, 0x7a5838).setDepth(DEPTH.ENTITIES);
+    this.add.rectangle(460, 240, 60, 40, 0x7a5838).setDepth(DEPTH.ENTITIES);
+
+    // Exit indicator
+    const exitLabel = this.add.text(CAFE_W / 2, CAFE_H - 20, '[ EXIT - walk down ]', {
+      fontSize: '8px', color: '#f2a65a', fontFamily: 'monospace',
+    }).setOrigin(0.5).setDepth(DEPTH.UI);
+    this.tweens.add({ targets: exitLabel, alpha: 0.3, duration: 700, yoyo: true, repeat: -1 });
+
+    // Player (no world bounds — free to walk to exit)
+    this.player = new Player(this, CAFE_W / 2, CAFE_H - 80);
     this.player.sprite.setCollideWorldBounds(false);
 
-    // Draw cafe interior (sets up walls, tables, counter with collision)
-    this.drawCafeInterior(ts, mapW, mapH);
+    // Wall colliders (top, left, right only — bottom is open for exit)
+    const wallTop = this.physics.add.staticBody(0, 0, CAFE_W, 40);
+    const wallLeft = this.physics.add.staticBody(0, 0, 40, CAFE_H);
+    const wallRight = this.physics.add.staticBody(CAFE_W - 40, 0, 40, CAFE_H);
+    const counterBody = this.physics.add.staticBody(CAFE_W / 2 - 150, 92, 300, 16);
 
-    // Spawn barista NPC behind counter
+    this.physics.add.collider(this.player.sprite, wallTop as unknown as Phaser.Physics.Arcade.StaticBody);
+    this.physics.add.collider(this.player.sprite, wallLeft as unknown as Phaser.Physics.Arcade.StaticBody);
+    this.physics.add.collider(this.player.sprite, wallRight as unknown as Phaser.Physics.Arcade.StaticBody);
+    this.physics.add.collider(this.player.sprite, counterBody as unknown as Phaser.Physics.Arcade.StaticBody);
+
+    // Barista
     this.barista = new NPC(this, {
       id: 'barista',
       textureKey: TEXTURE_KEYS.NPC_BAKER,
-      x: mapW / 2,
-      y: ts * 2.5,
+      x: CAFE_W / 2,
+      y: 70,
       scale: 0.9,
       direction: 'down',
-      interactionRadius: 40,
+      interactionRadius: 50,
     });
 
     // Camera
-    this.cameras.main.startFollow(this.player.sprite, true);
-    this.cameras.main.setBounds(0, 0, mapW, mapH);
-    this.cameras.main.setRoundPixels(true);
+    this.cameras.main.setBounds(0, 0, CAFE_W, CAFE_H);
+    this.cameras.main.centerOn(CAFE_W / 2, CAFE_H / 2);
 
     // Dialogue
     this.dialogueSystem = new DialogueSystem(this);
 
-    // Interaction
-    this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-    this.interactKey.on('down', () => {
-      if (this.nearbyNPC && !this.dialogueSystem.isActive) {
-        proceduralAudio.playClick();
-        this.barista.freeze();
-        this.barista.faceToward(this.player.x, this.player.y);
-        this.dialogueSystem.start(BARISTA_DIALOGUE);
-        this.promptText.setVisible(false);
-      }
-    });
+    // Interaction (E key)
+    const eKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    eKey.on('down', () => this.tryInteract());
 
     // Prompt
-    this.promptText = this.add.text(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT - 20, '[E] Talk', {
+    this.promptText = this.add.text(CAFE_W / 2, CAFE_H - 50, '[E] Talk', {
       fontSize: '9px', color: '#ffffff', fontFamily: 'monospace',
       backgroundColor: '#00000099', padding: { x: 8, y: 4 },
-    });
-    this.promptText.setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI).setVisible(false);
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI).setVisible(false);
 
-    // Reset transition flag
-    this.isTransitioning = false;
-
-    // Unfreeze barista on dialogue end
-    EventBus.on('dialogue:ended', () => { this.barista.unfreeze(); }, this);
-
-    // Mobile controls
+    // Mobile
     this.mobileControls = new MobileControls(this);
 
-    // Audio
+    // Unfreeze barista after dialogue
+    EventBus.on('dialogue:ended', () => { this.barista.unfreeze(); }, this);
+
+    // Stop outdoor audio
     proceduralAudio.stopBirds();
     proceduralAudio.stopWind();
+
+    // Fade in
+    this.cameras.main.fadeIn(400, 0, 0, 0);
 
     this.events.on('shutdown', () => {
       this.dialogueSystem.destroy();
       this.barista.destroy();
+      this.mobileControls.destroy();
     });
   }
 
   update(_time: number, delta: number): void {
+    if (this.exiting) return;
+
     // Mobile joystick
     if (this.mobileControls.visible) {
       const js = this.mobileControls.joystickState;
       this.player.setJoystickInput(js.isActive, js.forceX, js.forceY);
-
-      if (this.mobileControls.actionPressed && this.nearbyNPC && !this.dialogueSystem.isActive) {
-        proceduralAudio.playClick();
-        this.barista.freeze();
-        this.barista.faceToward(this.player.x, this.player.y);
-        this.dialogueSystem.start(BARISTA_DIALOGUE);
-        this.promptText.setVisible(false);
-      }
+      if (this.mobileControls.actionPressed) this.tryInteract();
     }
 
     this.player.update();
     this.barista.update(delta);
-
-    // Check if player walked to exit (bottom of cafe)
-    const exitY = CAFE_HEIGHT * GAME_CONFIG.TILE_SIZE - GAME_CONFIG.TILE_SIZE;
-    if (this.player.y > exitY && !this.isTransitioning) {
-      this.exitCafe();
-    }
 
     // Proximity check
     if (!this.dialogueSystem.isActive) {
       const dist = Phaser.Math.Distance.Between(
         this.player.x, this.player.y, this.barista.sprite.x, this.barista.sprite.y
       );
-      if (dist < 50) {
-        this.nearbyNPC = this.barista;
-        this.promptText.setVisible(true);
-      } else {
-        this.nearbyNPC = null;
-        this.promptText.setVisible(false);
-      }
+      this.nearbyNPC = dist < 60 ? this.barista : null;
+      this.promptText.setVisible(this.nearbyNPC !== null);
     } else {
       this.promptText.setVisible(false);
     }
 
-    // Footsteps
-    if (this.player.isMoving && proceduralAudio.initialized) {
-      // handled by main scene pattern — simplified here
+    // EXIT: if player walks past bottom edge
+    if (this.player.y > CAFE_H - 10) {
+      this.doExit();
     }
   }
 
-  private exitCafe(): void {
-    if (this.isTransitioning) return;
-    this.isTransitioning = true;
+  private tryInteract(): void {
+    if (this.nearbyNPC && !this.dialogueSystem.isActive) {
+      proceduralAudio.playClick();
+      this.barista.freeze();
+      this.barista.faceToward(this.player.x, this.player.y);
+      this.dialogueSystem.start(BARISTA_DIALOGUE);
+      this.promptText.setVisible(false);
+    }
+  }
+
+  private doExit(): void {
+    this.exiting = true;
     this.player.freeze();
-    // Go through PreloadScene to properly reload everything
-    this.scene.start(SCENE_KEYS.PRELOAD, { nextScene: 'WorldScene', nextData: { map: 'downtown', spawn: 'from_cafe' } });
-  }
 
-  // ============================================================
-  // DRAW CAFE INTERIOR (procedural — no tilemap needed)
-  // ============================================================
+    // Show loading text then switch scene
+    const loadingText = this.add.text(CAFE_W / 2, CAFE_H / 2, 'Loading...', {
+      fontSize: '10px', color: '#f2a65a', fontFamily: 'monospace',
+    }).setOrigin(0.5).setDepth(DEPTH.UI + 100);
 
-  private drawCafeInterior(ts: number, mapW: number, mapH: number): void {
-    // Floor
-    const floor = this.add.rectangle(mapW / 2, mapH / 2, mapW, mapH, 0x5a4030);
-    floor.setDepth(DEPTH.GROUND);
+    const loadingBg = this.add.rectangle(CAFE_W / 2, CAFE_H / 2, CAFE_W, CAFE_H, 0x000000, 0.8);
+    loadingBg.setDepth(DEPTH.UI + 99);
 
-    // Lighter floor tiles pattern
-    for (let x = 0; x < CAFE_WIDTH; x++) {
-      for (let y = 0; y < CAFE_HEIGHT; y++) {
-        if ((x + y) % 2 === 0) {
-          const tile = this.add.rectangle(x * ts + ts / 2, y * ts + ts / 2, ts - 1, ts - 1, 0x6a5040, 0.5);
-          tile.setDepth(DEPTH.GROUND);
-        }
-      }
-    }
-
-    // Walls (top and sides)
-    const wallColor = 0x3a2820;
-    this.add.rectangle(mapW / 2, ts / 2, mapW, ts, wallColor).setDepth(DEPTH.GROUND_DECOR);
-    this.add.rectangle(ts / 2, mapH / 2, ts, mapH, wallColor).setDepth(DEPTH.GROUND_DECOR);
-    this.add.rectangle(mapW - ts / 2, mapH / 2, ts, mapH, wallColor).setDepth(DEPTH.GROUND_DECOR);
-
-    // Counter (horizontal bar near top)
-    const counter = this.add.rectangle(mapW / 2, ts * 3.5, mapW * 0.6, ts * 0.4, 0x8a6040);
-    counter.setDepth(DEPTH.ENTITIES);
-
-    // Counter collision
-    const counterBody = this.physics.add.staticImage(mapW / 2, ts * 3.5, undefined as unknown as string);
-    counterBody.setVisible(false);
-    counterBody.body!.setSize(mapW * 0.6, ts * 0.4);
-    this.physics.add.collider(this.player.sprite, counterBody);
-
-    // Tables (2 tables with chairs)
-    this.drawTable(ts * 3, ts * 5.5, ts);
-    this.drawTable(ts * 7, ts * 5.5, ts);
-
-    // Wall collisions
-    const wallTop = this.physics.add.staticImage(mapW / 2, 0, undefined as unknown as string);
-    wallTop.setVisible(false);
-    wallTop.body!.setSize(mapW, ts);
-    this.physics.add.collider(this.player.sprite, wallTop);
-
-    const wallLeft = this.physics.add.staticImage(0, mapH / 2, undefined as unknown as string);
-    wallLeft.setVisible(false);
-    wallLeft.body!.setSize(ts, mapH);
-    this.physics.add.collider(this.player.sprite, wallLeft);
-
-    const wallRight = this.physics.add.staticImage(mapW, mapH / 2, undefined as unknown as string);
-    wallRight.setVisible(false);
-    wallRight.body!.setSize(ts, mapH);
-    this.physics.add.collider(this.player.sprite, wallRight);
-
-    // Door indicator at bottom
-    this.add.rectangle(mapW / 2, mapH - ts * 0.5, ts * 2, ts * 0.5, 0xf2a65a, 0.4).setDepth(DEPTH.GROUND_DECOR);
-    const exitLabel = this.add.text(mapW / 2, mapH - ts * 0.8, '[ EXIT ]', {
-      fontSize: '7px', color: '#f2a65a', fontFamily: 'monospace',
+    // Delay to show loading, then switch
+    this.time.delayedCall(500, () => {
+      this.scene.start('WorldScene', { map: 'downtown', spawn: 'from_cafe' });
     });
-    exitLabel.setOrigin(0.5).setDepth(DEPTH.UI);
-    this.tweens.add({ targets: exitLabel, alpha: 0.4, duration: 600, yoyo: true, repeat: -1 });
-  }
-
-  private drawTable(x: number, y: number, ts: number): void {
-    // Table top
-    const table = this.add.rectangle(x, y, ts * 1.2, ts * 0.8, 0x7a5838);
-    table.setDepth(y);
-
-    // Table collision
-    const tableBody = this.physics.add.staticImage(x, y, undefined as unknown as string);
-    tableBody.setVisible(false);
-    tableBody.body!.setSize(ts * 1.2, ts * 0.8);
-    this.physics.add.collider(this.player.sprite, tableBody);
-
-    // Chairs (small squares)
-    const chairColor = 0x5a4028;
-    this.add.rectangle(x - ts * 0.5, y, ts * 0.3, ts * 0.3, chairColor).setDepth(y - 1);
-    this.add.rectangle(x + ts * 0.5, y, ts * 0.3, ts * 0.3, chairColor).setDepth(y - 1);
   }
 }
 
