@@ -437,9 +437,10 @@ export class WorldScene extends Phaser.Scene {
     if (!targetScene || this.isTransitioning) return;
     this.isTransitioning = true;
     this.player.freeze();
-    this.cameras.main.fadeOut(500, 0, 0, 0);
-    this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start(targetScene, { spawn: spawnId });
+    // Go through PreloadScene to ensure clean reload
+    this.scene.start(SCENE_KEYS.PRELOAD, {
+      nextScene: targetScene,
+      nextData: { spawn: spawnId },
     });
   }
 

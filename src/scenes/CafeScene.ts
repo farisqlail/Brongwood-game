@@ -13,6 +13,7 @@ import { DialogueSystem } from '@/dialogue/DialogueSystem';
 import { DialogueDefinition } from '@/dialogue/DialogueTypes';
 import { gameManager } from '@/managers/GameManager';
 import { EventBus } from '@/core/EventBus';
+import { SCENE_KEYS } from '@config/game.config';
 import { proceduralAudio } from '@/audio/ProceduralAudio';
 import { MobileControls } from '@/ui/MobileControls';
 
@@ -41,8 +42,10 @@ export class CafeScene extends Phaser.Scene {
     this.cameras.main.fadeIn(600, 0, 0, 0);
 
     // Spawn player first (needed for collision setup in drawCafeInterior)
-    this.player = new Player(this, mapW / 2, mapH - ts * 1.5);
+    this.player = new Player(this, mapW / 2, mapH - ts * 2);
     this.physics.world.setBounds(0, 0, mapW, mapH);
+    // Disable world bounds for player so they can reach the exit zone
+    this.player.sprite.setCollideWorldBounds(false);
 
     // Draw cafe interior (sets up walls, tables, counter with collision)
     this.drawCafeInterior(ts, mapW, mapH);
@@ -85,10 +88,8 @@ export class CafeScene extends Phaser.Scene {
     });
     this.promptText.setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI).setVisible(false);
 
-    // Exit zone (near bottom, but inside world bounds so player can reach it)
-    const exitZone = this.add.zone(mapW / 2, mapH - ts * 0.5, mapW * 0.4, ts * 0.8);
-    this.physics.add.existing(exitZone, true);
-    this.physics.add.overlap(this.player.sprite, exitZone, () => this.exitCafe(), undefined, this);
+    // Reset transition flag
+    this.isTransitioning = false;
 
     // Unfreeze barista on dialogue end
     EventBus.on('dialogue:ended', () => { this.barista.unfreeze(); }, this);
@@ -124,6 +125,12 @@ export class CafeScene extends Phaser.Scene {
     this.player.update();
     this.barista.update(delta);
 
+    // Check if player walked to exit (bottom of cafe)
+    const exitY = CAFE_HEIGHT * GAME_CONFIG.TILE_SIZE - GAME_CONFIG.TILE_SIZE;
+    if (this.player.y > exitY && !this.isTransitioning) {
+      this.exitCafe();
+    }
+
     // Proximity check
     if (!this.dialogueSystem.isActive) {
       const dist = Phaser.Math.Distance.Between(
@@ -150,8 +157,8 @@ export class CafeScene extends Phaser.Scene {
     if (this.isTransitioning) return;
     this.isTransitioning = true;
     this.player.freeze();
-    // Direct scene switch (fade-in handled by WorldScene)
-    this.scene.start('WorldScene', { map: 'downtown', spawn: 'from_cafe' });
+    // Go through PreloadScene to properly reload everything
+    this.scene.start(SCENE_KEYS.PRELOAD, { nextScene: 'WorldScene', nextData: { map: 'downtown', spawn: 'from_cafe' } });
   }
 
   // ============================================================

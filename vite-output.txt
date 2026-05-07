@@ -129,3 +129,6 @@
 [2m16.56.00[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/PreloadScene.ts[22m
 [2m16.56.32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/PreloadScene.ts[22m
 [2m16.59.54[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/WorldScene.ts[22m
+[2m17.11.16[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/PreloadScene.ts[22m
+[2m17.11.50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/PreloadScene.ts[22m
+[2m17.12.00[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/WorldScene.ts[22m

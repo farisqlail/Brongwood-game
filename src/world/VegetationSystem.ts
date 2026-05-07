@@ -81,7 +81,7 @@ export class VegetationSystem {
     if (!this.scene.textures.exists('shadow-1')) return;
 
     // 80% coverage with shadow sprites as grass
-    for (let i = 0; i < 150; i++) {
+    for (let i = 0; i < 9000; i++) {
       const x = ts * 0.3 + Math.random() * (mapW - ts * 0.6);
       const y = ts * 0.3 + Math.random() * (mapH - ts * 0.6);
 

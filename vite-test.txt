@@ -43,3 +43,12 @@ Port 3000 is in use, trying another one...
 [2m17.06.17[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/world/VegetationSystem.ts[22m
 [2m17.06.29[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/world/VegetationSystem.ts[22m
 [2m17.07.02[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/world/VegetationSystem.ts[22m
+[2m17.10.46[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/CafeScene.ts[22m
+[2m17.10.57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/CafeScene.ts[22m
+[2m17.11.16[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/PreloadScene.ts[22m
+[2m17.11.50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/PreloadScene.ts[22m
+[2m17.12.00[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/WorldScene.ts[22m
+[2m17.14.03[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/CafeScene.ts[22m
+[2m17.14.14[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/CafeScene.ts[22m
+[2m17.16.16[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/CafeScene.ts[22m
+[2m17.16.31[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/CafeScene.ts[22m
