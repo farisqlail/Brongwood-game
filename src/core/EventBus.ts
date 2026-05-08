@@ -102,6 +102,9 @@ export interface GameEvents {
   // --- Scene ---
   'scene:transition-start': { from: string; to: string };
   'scene:ready': { sceneKey: string };
+
+  // --- UI ---
+  'ui:open-pause-menu': Record<string, never>;
 }
 
 /** Time periods that drive atmosphere, schedules, and dialogue */

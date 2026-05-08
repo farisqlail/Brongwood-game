@@ -18,7 +18,7 @@ import { EventSystem } from '@/systems/EventSystem';
 import { DialogueSystem } from '@/dialogue/DialogueSystem';
 import { gameManager } from '@/managers/GameManager';
 import { EventBus } from '@/core/EventBus';
-import { TEXTURE_KEYS } from '@config/assets.manifest';
+import { TEXTURE_KEYS, AUDIO_KEYS } from '@config/assets.manifest';
 import { RAINY_NIGHT_FLOWER_SHOP } from '@/dialogue/events/RainyNightFlowerShop';
 import { getRikaDialogue } from '@/dialogue/RikaDialogue';
 import { TOWN_NPCS } from '@config/npcs.config';
@@ -30,6 +30,7 @@ import { InventoryUI } from '@/ui/InventoryUI';
 import { PhoneUI } from '@/ui/PhoneUI';
 import { ActivityZoneUI, ActivityZoneConfig } from '@/ui/ActivityZoneUI';
 import { ActivitySystem } from '@/systems/ActivitySystem';
+import { PauseMenuUI } from '@/ui/PauseMenuUI';
 
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
@@ -70,6 +71,9 @@ export class WorldScene extends Phaser.Scene {
   // Activity system + zones
   private activitySystem!: ActivitySystem;
   private activityZoneUI!: ActivityZoneUI;
+
+  // Pause menu
+  private pauseMenu!: PauseMenuUI;
 
   // Map
   private mapKey: string = 'downtown';
@@ -129,12 +133,21 @@ export class WorldScene extends Phaser.Scene {
     this.activityZoneUI = new ActivityZoneUI(this, this.activitySystem);
     this.setupActivityZones();
 
+    // Pause menu (ESC key + minimap click)
+    this.pauseMenu = new PauseMenuUI(this);
+    EventBus.on('ui:open-pause-menu', () => { if (!this.pauseMenu.opened) this.pauseMenu.open(); });
+
+    // Restore saved BGM volume
+    const savedBgmVol = parseFloat(localStorage.getItem('brongwood_bgm_volume') ?? '0.4');
+    this.audioSystem.setBGMVolume(isNaN(savedBgmVol) ? 0.4 : savedBgmVol);
+
     // Initialize audio on first click (browser requires user gesture)
     this.input.once('pointerdown', () => {
       proceduralAudio.init();
       proceduralAudio.resume();
       proceduralAudio.startWind(0.3);
       proceduralAudio.startBirds();
+      this.audioSystem.playBGM(AUDIO_KEYS.BGM_DOWNTOWN);
     });
 
 
@@ -143,6 +156,9 @@ export class WorldScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    // Skip all updates when pause menu is open
+    if (this.pauseMenu.opened) return;
+
     gameManager.update(delta);
 
     // Feed mobile joystick into player movement
@@ -437,10 +453,22 @@ export class WorldScene extends Phaser.Scene {
     // P key to toggle phone
     const phoneKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.P);
     phoneKey.on('down', () => {
-      if (!this.dialogueSystem.isActive && !this.activityZoneUI.isActivityActive) {
+      if (!this.dialogueSystem.isActive && !this.activityZoneUI.isActivityActive && !this.pauseMenu.opened) {
         proceduralAudio.playClick();
         this.phoneUI.toggle();
       }
+    });
+
+    // ESC key to toggle pause menu
+    const escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    escKey.on('down', () => {
+      // Close phone first if open
+      if (this.phoneUI.opened) {
+        this.phoneUI.close();
+        return;
+      }
+      proceduralAudio.playClick();
+      this.pauseMenu.toggle();
     });
   }
 
@@ -782,6 +810,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private onShutdown(): void {
+    EventBus.removeAll('ui:open-pause-menu');
     gameManager.clearSceneSystems();
     gameManager.pauseGameplay();
     this.eventSystem.destroy();
@@ -796,6 +825,7 @@ export class WorldScene extends Phaser.Scene {
     this.inventoryUI.destroy();
     this.phoneUI.destroy();
     this.activityZoneUI.destroy();
+    this.pauseMenu.destroy();
     proceduralAudio.stopAll();
   }
 

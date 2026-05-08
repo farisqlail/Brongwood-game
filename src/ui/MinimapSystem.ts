@@ -17,6 +17,7 @@ import { DEPTH, GAME_CONFIG } from '@config/game.config';
 import { NPC } from '@/entities/NPC';
 import { gameManager } from '@/managers/GameManager';
 import { formatTime } from '@config/time.config';
+import { EventBus } from '@/core/EventBus';
 
 // ─── Panel geometry ───────────────────────────────────────────
 const PX      = 6;    // panel left
@@ -65,6 +66,7 @@ export class MinimapSystem {
   private mapH: number;
   private zoneMarkers: MinimapZoneMarker[] = [];
   private zoneLabels: Phaser.GameObjects.Text[] = [];
+  private clickZone!: Phaser.GameObjects.Rectangle;
 
   constructor(scene: Phaser.Scene, mapWidth: number, mapHeight: number) {
     this.scene = scene;
@@ -74,6 +76,13 @@ export class MinimapSystem {
     this.g = scene.add.graphics();
     this.g.setScrollFactor(0);
     this.g.setDepth(DEPTH.UI + 5);
+
+    // Invisible click zone over the entire panel — opens pause menu
+    this.clickZone = scene.add.rectangle(PX + PW / 2, PY + PH / 2, PW, PH, 0x000000, 0);
+    this.clickZone.setScrollFactor(0);
+    this.clickZone.setDepth(DEPTH.UI + 8);
+    this.clickZone.setInteractive({ useHandCursor: true });
+    this.clickZone.on('pointerdown', () => { EventBus.emit('ui:open-pause-menu', {}); });
 
     // Create info text lines (4 rows)
     const infoY0 = PY + PAD + MM_H + PAD + 1 + PAD;
@@ -136,6 +145,7 @@ export class MinimapSystem {
 
   destroy(): void {
     this.g.destroy();
+    this.clickZone.destroy();
     for (const t of this.texts) t.destroy();
     for (const t of this.zoneLabels) t.destroy();
   }

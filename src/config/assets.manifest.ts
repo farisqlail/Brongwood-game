@@ -216,11 +216,11 @@ export const ASSET_MANIFEST: AssetManifest = {
   ],
 
   bgm: [
-    // {
-    //   type: 'audio',
-    //   key: AUDIO_KEYS.BGM_DOWNTOWN,
-    //   paths: ['assets/audio/bgm/downtown.ogg', 'assets/audio/bgm/downtown.mp3'],
-    // },
+    {
+      type: 'audio',
+      key: AUDIO_KEYS.BGM_DOWNTOWN,
+      paths: ['assets/audio/bgm/bgm.mp3'],
+    },
   ],
 
   ambience: [
