@@ -204,6 +204,9 @@ export class ActivitySystem {
     // Lock player
     EventBus.emit('event:player-locked', { locked: true });
 
+    // Emit started event
+    EventBus.emit('activity:started', { activityId });
+
     // Transition to active after brief pause
     this._current.state = 'active';
 
@@ -224,12 +227,6 @@ export class ActivitySystem {
     if (this._current.elapsed >= durationMs) {
       this.complete();
     }
-  }
-
-  /** Cancel the current activity early */
-  cancel(): void {
-    if (!this._current || !this._current.config.cancellable) return;
-    this.end();
   }
 
   // ============================================================
@@ -262,6 +259,12 @@ export class ActivitySystem {
 
     this._current.state = 'ending';
 
+    // Emit completion event
+    EventBus.emit('activity:completed', {
+      activityId: this._current.config.id,
+      outcomeId: this._current.outcome?.id,
+    });
+
     // Brief pause before ending
     this.end();
   }
@@ -270,6 +273,16 @@ export class ActivitySystem {
   private end(): void {
     this._current = null;
     EventBus.emit('event:player-locked', { locked: false });
+  }
+
+  /** Cancel the current activity early */
+  cancel(): void {
+    if (!this._current || !this._current.config.cancellable) return;
+
+    // Emit cancellation event
+    EventBus.emit('activity:cancelled', { activityId: this._current.config.id });
+
+    this.end();
   }
 
   /** Roll a random outcome based on chances */

@@ -27,6 +27,9 @@ import { MobileControls } from '@/ui/MobileControls';
 import { ParticleSystem } from '@/systems/ParticleSystem';
 import { MinimapSystem } from '@/ui/MinimapSystem';
 import { InventoryUI } from '@/ui/InventoryUI';
+import { PhoneUI } from '@/ui/PhoneUI';
+import { ActivityZoneUI, ActivityZoneConfig } from '@/ui/ActivityZoneUI';
+import { ActivitySystem } from '@/systems/ActivitySystem';
 
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
@@ -61,6 +64,13 @@ export class WorldScene extends Phaser.Scene {
   // Inventory UI (data lives in gameManager.inventory)
   private inventoryUI!: InventoryUI;
 
+  // Phone UI
+  private phoneUI!: PhoneUI;
+
+  // Activity system + zones
+  private activitySystem!: ActivitySystem;
+  private activityZoneUI!: ActivityZoneUI;
+
   // Map
   private mapKey: string = 'downtown';
   private spawnId?: string;
@@ -87,6 +97,7 @@ export class WorldScene extends Phaser.Scene {
     this.setupCamera();
     this.setupCollisions();
     this.setupZones();
+    this.setupPlayerHouseEntrance();
     this.setupInteraction();
     this.initializeSystems();
     this.registerEvents();
@@ -110,6 +121,14 @@ export class WorldScene extends Phaser.Scene {
     this.inventoryUI = new InventoryUI(this, gameManager.inventory);
     this.inventoryUI.redrawSlots();
 
+    // Phone UI — visual interface for reading Rika's messages
+    this.phoneUI = new PhoneUI(this);
+
+    // Activity system + zones (fishing, bench, garden, stargazing)
+    this.activitySystem = new ActivitySystem();
+    this.activityZoneUI = new ActivityZoneUI(this, this.activitySystem);
+    this.setupActivityZones();
+
     // Initialize audio on first click (browser requires user gesture)
     this.input.once('pointerdown', () => {
       proceduralAudio.init();
@@ -132,9 +151,16 @@ export class WorldScene extends Phaser.Scene {
       this.player.setJoystickInput(js.isActive, js.forceX, js.forceY);
 
       // Mobile action button = interact
-      if (this.mobileControls.actionPressed && this.nearbyNPC && !this.dialogueSystem.isActive) {
-        proceduralAudio.playClick();
-        this.startNPCDialogue(this.nearbyNPC);
+      if (this.mobileControls.actionPressed && !this.dialogueSystem.isActive && !this.phoneUI.opened) {
+        if (this.activityZoneUI.isActivityActive) {
+          this.activityZoneUI.cancelActivity();
+        } else if (this.activityZoneUI.isInZone && !this.nearbyNPC) {
+          proceduralAudio.playClick();
+          this.activityZoneUI.startActivity();
+        } else if (this.nearbyNPC) {
+          proceduralAudio.playClick();
+          this.startNPCDialogue(this.nearbyNPC);
+        }
       }
     }
 
@@ -146,9 +172,20 @@ export class WorldScene extends Phaser.Scene {
     this.particleSystem.update(delta);
     this.minimapSystem.update(this.player.x, this.player.y, this.rika, this.townNPCs, this.weatherSystem.isRaining);
     this.inventoryUI.redrawSlots();
+    this.phoneUI.update();
+    this.activitySystem.update(delta);
+    this.activityZoneUI.update(delta);
 
-    // Check NPC proximity for interaction prompt
-    this.checkNPCProximity();
+    // Check NPC proximity for interaction prompt (skip if phone is open or activity running)
+    if (!this.phoneUI.opened && !this.activityZoneUI.isActivityActive) {
+      this.checkNPCProximity();
+      // Hide NPC prompt if player is in activity zone (activity prompt takes priority when no NPC nearby)
+      if (!this.nearbyNPC && this.activityZoneUI.isInZone) {
+        this.promptText.setVisible(false);
+      }
+    } else {
+      this.promptText.setVisible(false);
+    }
 
     // Audio: footsteps when walking
     if (this.player.isMoving && proceduralAudio.initialized) {
@@ -283,6 +320,74 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /**
+   * Setup the player's house entrance in the world.
+   * House is at bottom-left area (tile 4, row 8) — one of the existing house positions.
+   */
+  private setupPlayerHouseEntrance(): void {
+    const ts = GAME_CONFIG.TILE_SIZE;
+
+    // House entrance position (bottom-left house area)
+    const houseX = ts * 4;
+    const houseY = ts * 8;
+    const doorW = ts * 1.2;
+    const doorH = ts * 0.6;
+
+    // Visual: "My House" sign above the door area
+    const signGraphics = this.add.graphics();
+    signGraphics.setDepth(DEPTH.ENTITIES - 1);
+    // Sign board
+    signGraphics.fillStyle(0x8b6b3d, 1);
+    signGraphics.fillRoundedRect(houseX - 24, houseY - 30, 48, 14, 2);
+    signGraphics.lineStyle(1, 0x5c3a1e, 1);
+    signGraphics.strokeRoundedRect(houseX - 24, houseY - 30, 48, 14, 2);
+
+    const houseLabel = this.add.text(houseX, houseY - 23, 'My House', {
+      fontSize: '6px',
+      color: '#ffffff',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+    });
+    houseLabel.setOrigin(0.5);
+    houseLabel.setDepth(DEPTH.ENTITIES);
+
+    // Door indicator (glowing doorway)
+    const doorGlow = this.add.graphics();
+    doorGlow.setDepth(DEPTH.GROUND_DECOR + 1);
+    doorGlow.fillStyle(0xf2a65a, 0.15);
+    doorGlow.fillRect(houseX - doorW / 2, houseY - doorH / 2, doorW, doorH);
+    doorGlow.lineStyle(1, 0xf2a65a, 0.4);
+    doorGlow.strokeRect(houseX - doorW / 2, houseY - doorH / 2, doorW, doorH);
+
+    // Door icon
+    const doorIcon = this.add.text(houseX, houseY, '\u{1F3E0}', {
+      fontSize: '12px',
+    });
+    doorIcon.setOrigin(0.5);
+    doorIcon.setDepth(DEPTH.ENTITIES);
+
+    // Overlap zone for entering the house
+    const enterZone = this.add.zone(houseX, houseY, doorW, doorH);
+    this.physics.add.existing(enterZone, true);
+    this.physics.add.overlap(
+      this.player.sprite, enterZone,
+      () => this.enterPlayerHouse(),
+      undefined, this
+    );
+  }
+
+  private enterPlayerHouse(): void {
+    if (this.isTransitioning) return;
+    this.isTransitioning = true;
+    this.player.freeze();
+
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.sleep();
+      this.scene.run('PlayerHouseScene');
+    });
+  }
+
+  /**
    * Setup interaction input (E key) and prompt UI.
    */
   private setupInteraction(): void {
@@ -309,9 +414,32 @@ export class WorldScene extends Phaser.Scene {
 
     // Handle E key press
     this.interactKey.on('down', () => {
-      if (this.nearbyNPC && !this.dialogueSystem.isActive) {
+      // If an activity is running, E cancels it
+      if (this.activityZoneUI.isActivityActive) {
+        this.activityZoneUI.cancelActivity();
+        return;
+      }
+
+      // If player is in an activity zone, start the activity
+      if (this.activityZoneUI.isInZone && !this.dialogueSystem.isActive && !this.phoneUI.opened) {
+        proceduralAudio.playClick();
+        this.activityZoneUI.startActivity();
+        return;
+      }
+
+      // Otherwise, interact with NPC
+      if (this.nearbyNPC && !this.dialogueSystem.isActive && !this.phoneUI.opened) {
         proceduralAudio.playClick();
         this.startNPCDialogue(this.nearbyNPC);
+      }
+    });
+
+    // P key to toggle phone
+    const phoneKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.P);
+    phoneKey.on('down', () => {
+      if (!this.dialogueSystem.isActive && !this.activityZoneUI.isActivityActive) {
+        proceduralAudio.playClick();
+        this.phoneUI.toggle();
       }
     });
   }
@@ -362,6 +490,7 @@ export class WorldScene extends Phaser.Scene {
     EventBus.on('dialogue:started', () => {
       this.inventoryUI.setVisible(false);
       this.mobileControls.setGameVisible(false);
+      this.phoneUI.setVisible(false);
     }, this);
 
     // Unfreeze all NPCs when dialogue ends, restore UI
@@ -370,6 +499,7 @@ export class WorldScene extends Phaser.Scene {
       for (const npc of this.townNPCs) npc.unfreeze();
       this.inventoryUI.setVisible(true);
       this.mobileControls.setGameVisible(true);
+      this.phoneUI.setVisible(true);
     }, this);
 
     EventBus.on('time:period-changed', () => {
@@ -454,6 +584,177 @@ export class WorldScene extends Phaser.Scene {
   }
 
   // ============================================================
+  // ACTIVITY ZONES
+  // ============================================================
+
+  /**
+   * Setup activity zones in the world.
+   * Positions are based on the downtown map layout.
+   */
+  private setupActivityZones(): void {
+    const ts = GAME_CONFIG.TILE_SIZE;
+
+    // Activity zone configs — placed at meaningful locations in downtown
+    const zoneConfigs: ActivityZoneConfig[] = [
+      // Fishing spot — bottom-right area (near ocean/water edge)
+      {
+        id: 'fishing',
+        x: ts * 12,
+        y: ts * 9,
+        width: ts * 2,
+        height: ts * 1.5,
+      },
+      // Bench — center-left area (park bench for resting)
+      {
+        id: 'bench_sit',
+        x: ts * 3,
+        y: ts * 7,
+        width: ts * 1.5,
+        height: ts * 1,
+      },
+      // Garden — top-left area (small garden patch)
+      {
+        id: 'gardening',
+        x: ts * 1,
+        y: ts * 2,
+        width: ts * 2,
+        height: ts * 1.5,
+      },
+      // Stargazing — top-right open area (clear sky view)
+      {
+        id: 'stargazing',
+        x: ts * 11,
+        y: ts * 1,
+        width: ts * 2,
+        height: ts * 2,
+      },
+    ];
+
+    this.activityZoneUI.createZones(this.player.sprite, zoneConfigs);
+
+    // Add sign posts at each activity zone
+    this.createZoneMarkers(zoneConfigs);
+
+    // Register zone markers on the minimap (activity zones + player house)
+    const minimapMarkers = zoneConfigs.map(z => ({
+      id: z.id,
+      x: z.x,
+      y: z.y,
+      width: z.width,
+      height: z.height,
+      color: this.getSignInfo(z.id).color,
+      icon: this.getSignInfo(z.id).icon,
+    }));
+
+    // Add player house marker
+    minimapMarkers.push({
+      id: 'house',
+      x: ts * 3.5,
+      y: ts * 7.5,
+      width: ts * 1.2,
+      height: ts * 0.6,
+      color: 0xffaa44,
+      icon: '\u{1F3E0}',
+    });
+
+    this.minimapSystem.setZoneMarkers(minimapMarkers);
+  }
+
+  /**
+   * Draw visible sign posts at each activity zone so players can find them.
+   * Each sign has a wooden post + board with the activity name.
+   */
+  private createZoneMarkers(zones: ActivityZoneConfig[]): void {
+    for (const zone of zones) {
+      const cx = zone.x + zone.width / 2;
+      const cy = zone.y + zone.height / 2;
+
+      // Draw a sign post (wooden post + sign board)
+      this.createSignPost(cx, cy - 24, zone.id);
+
+      // Ground glow circle to highlight the zone area
+      const glowGraphics = this.add.graphics();
+      glowGraphics.setDepth(DEPTH.GROUND_DECOR);
+      glowGraphics.fillStyle(0xf2a65a, 0.08);
+      glowGraphics.fillCircle(cx, cy, Math.max(zone.width, zone.height) / 2);
+      glowGraphics.lineStyle(1, 0xf2a65a, 0.3);
+      glowGraphics.strokeCircle(cx, cy, Math.max(zone.width, zone.height) / 2);
+    }
+  }
+
+  /**
+   * Create a pixel-art style sign post at the given position.
+   */
+  private createSignPost(x: number, y: number, activityId: string): void {
+    const signInfo = this.getSignInfo(activityId);
+
+    // Sign post (wooden pole)
+    const postGraphics = this.add.graphics();
+    postGraphics.setDepth(DEPTH.ENTITIES - 1);
+    postGraphics.fillStyle(0x5c3a1e, 1); // dark wood
+    postGraphics.fillRect(x - 2, y, 4, 28); // vertical pole
+    // Pole base
+    postGraphics.fillStyle(0x3d2510, 1);
+    postGraphics.fillRect(x - 4, y + 26, 8, 4);
+
+    // Sign board (rectangle behind text)
+    const boardW = 40;
+    const boardH = 16;
+    const boardX = x - boardW / 2;
+    const boardY = y - boardH + 2;
+
+    const boardGraphics = this.add.graphics();
+    boardGraphics.setDepth(DEPTH.ENTITIES - 1);
+    // Board background
+    boardGraphics.fillStyle(0x8b6b3d, 1); // light wood
+    boardGraphics.fillRoundedRect(boardX, boardY, boardW, boardH, 2);
+    // Board border
+    boardGraphics.lineStyle(1, 0x5c3a1e, 1);
+    boardGraphics.strokeRoundedRect(boardX, boardY, boardW, boardH, 2);
+    // Board highlight (top edge)
+    boardGraphics.lineStyle(1, 0xb8956a, 0.5);
+    boardGraphics.lineBetween(boardX + 2, boardY + 1, boardX + boardW - 2, boardY + 1);
+
+    // Sign text (activity name)
+    const nameText = this.add.text(x, boardY + boardH / 2, signInfo.name, {
+      fontSize: '6px',
+      color: '#ffffff',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+    });
+    nameText.setOrigin(0.5);
+    nameText.setDepth(DEPTH.ENTITIES);
+
+    // Icon above the sign board
+    const iconText = this.add.text(x, boardY - 8, signInfo.icon, {
+      fontSize: '10px',
+      fontFamily: 'monospace',
+    });
+    iconText.setOrigin(0.5);
+    iconText.setDepth(DEPTH.ENTITIES);
+
+    // Subtle floating animation on the icon
+    this.tweens.add({
+      targets: iconText,
+      y: boardY - 11,
+      duration: 1500,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  private getSignInfo(id: string): { name: string; icon: string; color: number } {
+    switch (id) {
+      case 'fishing':    return { name: 'Fishing',    icon: '\u{1F3A3}', color: 0x4488cc };
+      case 'bench_sit':  return { name: 'Bench',      icon: '\u{1F4BA}', color: 0x88aa66 };
+      case 'gardening':  return { name: 'Garden',     icon: '\u{1F331}', color: 0x66bb66 };
+      case 'stargazing': return { name: 'Stargaze',   icon: '\u2B50',    color: 0xccaa44 };
+      default:           return { name: '???',        icon: '?',         color: 0xaaaaaa };
+    }
+  }
+
+  // ============================================================
   // TRANSITIONS
   // ============================================================
 
@@ -493,6 +794,8 @@ export class WorldScene extends Phaser.Scene {
     this.mobileControls.destroy();
     this.minimapSystem.destroy();
     this.inventoryUI.destroy();
+    this.phoneUI.destroy();
+    this.activityZoneUI.destroy();
     proceduralAudio.stopAll();
   }
 

@@ -46,12 +46,25 @@ const C_HOUSE  = 0x7a4828;
 const C_CAFE   = 0xc87820;
 const C_WATER  = 0x1a3a6a;
 
+/** Activity zone marker data for minimap display */
+export interface MinimapZoneMarker {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: number;
+  icon: string;
+}
+
 export class MinimapSystem {
   private scene: Phaser.Scene;
   private g: Phaser.GameObjects.Graphics;
   private texts: Phaser.GameObjects.Text[] = [];
   private mapW: number;
   private mapH: number;
+  private zoneMarkers: MinimapZoneMarker[] = [];
+  private zoneLabels: Phaser.GameObjects.Text[] = [];
 
   constructor(scene: Phaser.Scene, mapWidth: number, mapHeight: number) {
     this.scene = scene;
@@ -77,6 +90,35 @@ export class MinimapSystem {
     }
   }
 
+  /** Register activity zone markers to display on the minimap */
+  setZoneMarkers(markers: MinimapZoneMarker[]): void {
+    this.zoneMarkers = markers;
+
+    // Create persistent text labels for each zone marker
+    for (const label of this.zoneLabels) label.destroy();
+    this.zoneLabels = [];
+
+    for (const marker of markers) {
+      const cx = marker.x + marker.width / 2;
+      const cy = marker.y + marker.height / 2;
+      const mx = IX + (cx / this.mapW) * MM_W;
+      const my = IY + (cy / this.mapH) * MM_H;
+
+      const shortLabel = this.getZoneShortLabel(marker.id);
+      const colorHex = '#' + marker.color.toString(16).padStart(6, '0');
+
+      const t = this.scene.add.text(mx + 4, my - 3, shortLabel, {
+        fontSize: '5px',
+        fontFamily: 'monospace',
+        color: colorHex,
+        fontStyle: 'bold',
+      });
+      t.setScrollFactor(0);
+      t.setDepth(DEPTH.UI + 7);
+      this.zoneLabels.push(t);
+    }
+  }
+
   update(
     playerX: number,
     playerY: number,
@@ -87,6 +129,7 @@ export class MinimapSystem {
     this.g.clear();
     this.drawPanel();
     this.drawTerrain();
+    this.drawZoneMarkers();
     this.drawDots(playerX, playerY, rika, townNPCs);
     this.updateInfo(playerX, playerY, isRaining);
   }
@@ -94,6 +137,7 @@ export class MinimapSystem {
   destroy(): void {
     this.g.destroy();
     for (const t of this.texts) t.destroy();
+    for (const t of this.zoneLabels) t.destroy();
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -218,6 +262,50 @@ export class MinimapSystem {
     g.fillCircle(pp.x, pp.y, 4);
     g.fillStyle(0xffffff, 1);
     g.fillCircle(pp.x, pp.y, 2);
+  }
+
+  private drawZoneMarkers(): void {
+    if (this.zoneMarkers.length === 0) return;
+    const g = this.g;
+
+    for (const marker of this.zoneMarkers) {
+      // Convert world position to minimap position
+      const cx = marker.x + marker.width / 2;
+      const cy = marker.y + marker.height / 2;
+      const mx = IX + (cx / this.mapW) * MM_W;
+      const my = IY + (cy / this.mapH) * MM_H;
+
+      // Draw a diamond-shaped marker with the zone color
+      g.fillStyle(marker.color, 0.9);
+      // Diamond shape (two triangles)
+      g.fillTriangle(
+        mx, my - 3,   // top
+        mx + 3, my,   // right
+        mx, my + 3,   // bottom
+      );
+      g.fillTriangle(
+        mx, my - 3,   // top
+        mx - 3, my,   // left
+        mx, my + 3,   // bottom
+      );
+
+      // White outline for visibility
+      g.lineStyle(1, 0xffffff, 0.4);
+      g.strokeTriangle(mx, my - 3, mx + 3, my, mx, my + 3);
+      g.strokeTriangle(mx, my - 3, mx - 3, my, mx, my + 3);
+    }
+  }
+
+  /** Get a short label character for zone markers on minimap */
+  private getZoneShortLabel(id: string): string {
+    switch (id) {
+      case 'fishing':    return 'F';
+      case 'bench_sit':  return 'B';
+      case 'gardening':  return 'G';
+      case 'stargazing': return 'S';
+      case 'house':      return 'H';
+      default:           return '?';
+    }
   }
 
   private updateInfo(playerX: number, playerY: number, isRaining: boolean): void {
