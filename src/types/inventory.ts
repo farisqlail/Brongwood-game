@@ -5,7 +5,9 @@ export interface InventoryItem {
   /** Hex colour used to draw the slot icon */
   color: number;
   /** Shape hint for the mini icon renderer */
-  icon: 'cup' | 'circle' | 'envelope' | 'key' | 'cake' | 'book' | 'gem' | 'box';
+  icon: 'cup' | 'circle' | 'envelope' | 'key' | 'cake' | 'book' | 'gem' | 'box' | 'meat';
+  /** Optional texture key for image-based icons */
+  textureKey?: string;
 }
 
 export const ITEM_DEFS: Record<string, InventoryItem> = {
@@ -57,5 +59,47 @@ export const ITEM_DEFS: Record<string, InventoryItem> = {
     description: 'Smooth, translucent stone.\nFound near the shore.',
     color: 0x4488cc,
     icon: 'gem',
+  },
+
+  // === Meats ===
+  meat_1: {
+    id: 'meat_1',
+    name: 'Raw Steak',
+    description: 'A fresh cut of red meat.\nPerfect for grilling.',
+    color: 0xcc3333,
+    icon: 'meat',
+    textureKey: 'meat_1',
+  },
+  meat_2: {
+    id: 'meat_2',
+    name: 'Pork Chop',
+    description: 'A thick pork chop.\nNeeds seasoning and heat.',
+    color: 0xe8a090,
+    icon: 'meat',
+    textureKey: 'meat_2',
+  },
+  meat_3: {
+    id: 'meat_3',
+    name: 'Chicken Leg',
+    description: 'A plump chicken drumstick.\nGreat for roasting.',
+    color: 0xf5c882,
+    icon: 'meat',
+    textureKey: 'meat_3',
+  },
+  meat_4: {
+    id: 'meat_4',
+    name: 'Meat Roast',
+    description: 'A large piece of roast meat.\nCould feed a family.',
+    color: 0x8b4513,
+    icon: 'meat',
+    textureKey: 'meat_4',
+  },
+  meat_5: {
+    id: 'meat_5',
+    name: 'Sausage',
+    description: 'A handmade sausage link.\nSmoked and savory.',
+    color: 0xb5651d,
+    icon: 'meat',
+    textureKey: 'meat_5',
   },
 };

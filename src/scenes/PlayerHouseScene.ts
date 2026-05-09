@@ -1,46 +1,52 @@
 /**
- * PlayerHouseScene - Main character's cozy home interior.
+ * PlayerHouseScene - Interior rumah main character.
  *
- * Built using individual tiles from Kenney Roguelike Indoors:
- * - part 1: walls, bed, floor, chairs, bucket
- * - part 2: table, buffet, kitchen set, cabinets
- *
- * LAYOUT (10x8 grid, each cell = 16px * 3 scale = 48px):
- *
- *   ┌─────────────────────────────────────────┐
- *   │ WALL WALL WALL WALL WALL WALL WALL WALL │  row 0
- *   │ WALL WALL WALL WALL WALL WALL WALL WALL │  row 1
- *   │ [BED-L][BED-R]    [KITCHEN1 L M R]      │  row 2
- *   │ [CHAIR-V]         [KITCHEN2 L M R]      │  row 3
- *   │ [BUCKET]  [TABLE L M R]  [BUFFET]       │  row 4
- *   │           [CHAIR-HL][CHAIR-HR]           │  row 5
- *   │ [CABINET-S][CABINET L1 L2]              │  row 6
- *   │              [DOOR EXIT]                 │  row 7
- *   └─────────────────────────────────────────┘
+ *   ┌──[TEMBOK]──[TEMBOK]──[TEMBOK]──────────────────────────┐  y: 0–84
+ *   ├─────────────────────────────────────────────────────────┤
+ *   │                                                         │
+ *   │   [BUFFET]  [LEMARI_BUKU]                  [KASUR]     │
+ *   │                                                         │
+ *   │                                                         │
+ *   │                    [ EXIT ]                             │
+ *   └─────────────────────────────────────────────────────────┘
  */
 
 import Phaser from 'phaser';
 import { GAME_CONFIG, DEPTH } from '@config/game.config';
 import { Player } from '@/entities/Player';
 import { gameManager } from '@/managers/GameManager';
-import { proceduralAudio } from '@/audio/ProceduralAudio';
 import { MobileControls } from '@/ui/MobileControls';
+import { SceneHUD } from '@/ui/SceneHUD';
+import { SceneAtmosphere } from '@/systems/SceneAtmosphere';
 
-// ─── Room dimensions ──────────────────────────────────────────
-const TILE = 16;
-const SCALE = 3;
-const ROOM_COLS = 10;
-const ROOM_ROWS = 8;
-const ROOM_W = ROOM_COLS * TILE * SCALE; // 480
-const ROOM_H = ROOM_ROWS * TILE * SCALE; // 384
-const TS = TILE * SCALE; // 48 — one grid cell
+const ROOM_W = 480;
+const ROOM_H = 384;
+
+// 3 tile tembok mengisi 480px → scale = 480/(3×138)
+const WALL_SCALE  = 480 / (3 * 138);   // ≈ 1.159
+const WALL_H      = Math.round(72 * WALL_SCALE); // ≈ 84px
+const WALL_TILE_W = ROOM_W / 3;         // 160px per tile
+
+// Lantai mulai tepat di bawah tembok
+const WALL_BOTTOM_Y = WALL_H;           // ≈ 84
+
+// Skala furnitur
+const KASUR_SCALE  = 1.4;  // asli 48×81 → 67×113
+const LEMARI_SCALE = 1.2;  // asli 48×69 → 58×83
+const BUFFET_SCALE = 1.5;  // asli 72×35 → 108×53
+
+// Gap pintu (tengah bawah)
+const DOOR_GAP_X1 = 192;
+const DOOR_GAP_X2 = 288;
 
 export class PlayerHouseScene extends Phaser.Scene {
   private player!: Player;
   private mobileControls!: MobileControls;
+  private hud!: SceneHUD;
+  private atmosphere!: SceneAtmosphere;
   private promptText!: Phaser.GameObjects.Text;
-  private exiting: boolean = false;
-  private nearBed: boolean = false;
+  private exiting = false;
+  private nearBed = false;
 
   constructor() {
     super({ key: 'PlayerHouseScene' });
@@ -48,76 +54,70 @@ export class PlayerHouseScene extends Phaser.Scene {
 
   create(): void {
     this.exiting = false;
-    this.nearBed = false;
+    this.nearBed  = false;
 
     this.cameras.main.fadeIn(500, 0, 0, 0);
 
-    // Build the room
     this.buildFloor();
-    this.buildWalls();
+    this.buildBackWall();
     this.buildFurniture();
 
-    // Player spawns near the door (bottom center)
-    this.player = new Player(this, ROOM_W / 2, ROOM_H - TS * 1.2);
+    this.player = new Player(this, ROOM_W / 2, ROOM_H - 48);
     this.player.sprite.setCollideWorldBounds(false);
 
-    // Camera
     this.cameras.main.setBounds(0, 0, ROOM_W, ROOM_H);
     this.cameras.main.centerOn(ROOM_W / 2, ROOM_H / 2);
 
-    // Wall colliders
     this.createColliders();
 
-    // Interaction (E key)
-    const interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-    interactKey.on('down', () => this.handleInteract());
+    this.input.keyboard!
+      .addKey(Phaser.Input.Keyboard.KeyCodes.E)
+      .on('down', () => this.handleInteract());
 
-    // Prompt text
-    this.promptText = this.add.text(
-      GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT - 40,
-      '',
-      {
+    this.promptText = this.add
+      .text(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT - 40, '', {
         fontSize: '8px',
         color: '#ffffff',
         fontFamily: 'monospace',
         backgroundColor: '#00000099',
         padding: { x: 8, y: 4 },
-      }
-    );
-    this.promptText.setOrigin(0.5);
-    this.promptText.setScrollFactor(0);
-    this.promptText.setDepth(DEPTH.UI + 15);
-    this.promptText.setVisible(false);
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(DEPTH.UI + 15)
+      .setVisible(false);
 
-    // Mobile controls
     this.mobileControls = new MobileControls(this);
+    this.hud = new SceneHUD(this, 'player_house', ROOM_W, ROOM_H);
+    this.atmosphere = new SceneAtmosphere(this);
 
-    // Exit label
-    const exitLabel = this.add.text(ROOM_W / 2, ROOM_H - 12, '[ EXIT - walk down ]', {
-      fontSize: '7px', color: '#f2a65a', fontFamily: 'monospace',
-    }).setOrigin(0.5).setDepth(DEPTH.UI);
+    const exitLabel = this.add
+      .text(ROOM_W / 2, ROOM_H - 7, '[ EXIT ]', {
+        fontSize: '7px', color: '#f2a65a', fontFamily: 'monospace',
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.UI);
     this.tweens.add({ targets: exitLabel, alpha: 0.3, duration: 700, yoyo: true, repeat: -1 });
 
-    // Scene lifecycle
     this.events.on('shutdown', this.onShutdown, this);
-    this.events.on('wake', this.onWake, this);
+    this.events.on('wake',     this.onWake,     this);
   }
 
   update(_time: number, delta: number): void {
-    // Mobile joystick
+    gameManager.update(delta);
+    this.atmosphere.update(delta);
+    this.hud.update(this.player.sprite.x, this.player.sprite.y, this.atmosphere.weatherState);
+
     if (this.mobileControls.visible) {
       const js = this.mobileControls.joystickState;
       this.player.setJoystickInput(js.isActive, js.forceX, js.forceY);
-      if (this.mobileControls.actionPressed) {
-        this.handleInteract();
-      }
+      if (this.mobileControls.actionPressed) this.handleInteract();
     }
 
     this.player.update();
     this.checkBedProximity();
 
-    // Exit: player walks past bottom edge
-    if (!this.exiting && this.player.sprite.y > ROOM_H - TS * 0.3) {
+    if (!this.exiting && this.player.sprite.y > ROOM_H - 14) {
       this.doExit();
     }
   }
@@ -126,62 +126,67 @@ export class PlayerHouseScene extends Phaser.Scene {
   // ROOM BUILDING
   // ============================================================
 
-  /** Floor tiles covering the entire room — no walls, tiles placed flush (no gap) */
+  /** Lantai kayu penuh satu ruangan */
   private buildFloor(): void {
-    for (let row = 0; row < ROOM_ROWS; row++) {
-      for (let col = 0; col < ROOM_COLS; col++) {
-        this.placeImage(col, row, 'house-floor-main', DEPTH.GROUND);
-      }
+    this.add
+      .rectangle(0, WALL_BOTTOM_Y, ROOM_W, ROOM_H - WALL_BOTTOM_Y, 0x7a5530)
+      .setOrigin(0, 0)
+      .setDepth(DEPTH.GROUND - 1);
+
+    // Garis papan lantai
+    for (let y = WALL_BOTTOM_Y; y < ROOM_H; y += 28) {
+      this.add
+        .rectangle(0, y, ROOM_W, 1, 0x3d2610)
+        .setOrigin(0, 0)
+        .setDepth(DEPTH.GROUND)
+        .setAlpha(0.22);
     }
   }
 
-  /** No walls — open room */
-  private buildWalls(): void {
-    // No walls rendered — room is open
+  /**
+   * Tembok belakang — 3 tile tembok_kayu_1 mengisi penuh lebar ruangan.
+   * Ditempatkan di paling atas (y=0) sebagai batas belakang ruangan.
+   */
+  private buildBackWall(): void {
+    for (let i = 0; i < 3; i++) {
+      const img = this.add.image(
+        WALL_TILE_W * i + WALL_TILE_W / 2,
+        WALL_H / 2,
+        'house2-tembok-kayu',
+      );
+      img.setScale(WALL_SCALE).setDepth(DEPTH.GROUND + 1);
+    }
   }
 
-  /** Place all furniture objects */
+  /**
+   * Furnitur:
+   *  kasur  (1.4×): 67×113 → pojok kanan-atas
+   *  lemari (1.2×): 58×83  → pojok kiri-atas (menempel tembok kiri)
+   *  buffet (1.5×): 108×53 → kanan lemari, masih di area kiri-atas
+   */
   private buildFurniture(): void {
-    // ─── Bed (top-left, row 2, cols 1-2) — horizontal ───
-    this.placeImage(1, 2, 'house-bed-l', DEPTH.ENTITIES);
-    this.placeImage(2, 2, 'house-bed-r', DEPTH.ENTITIES);
+    const top = WALL_BOTTOM_Y;
 
-    // ─── Chair vertical (below bed, row 3, col 1) ───
-    this.placeImage(1, 3, 'house-chair-v', DEPTH.ENTITIES);
+    // Kasur — pojok kanan-atas
+    const kasurW = 48 * KASUR_SCALE;   // 67.2
+    const kasurH = 81 * KASUR_SCALE;   // 113.4
+    const kasurX = ROOM_W - kasurW / 2;
+    const kasurY = top + kasurH / 2;
+    this.placeObj(kasurX, kasurY, 'house2-kasur', DEPTH.ENTITIES, KASUR_SCALE);
 
-    // ─── Kitchen set (top-right, rows 2-3, cols 7-9) ───
-    // Kitchen row 1 (upper cabinets)
-    this.placeImage(7, 2, 'house-kitchen-1-l', DEPTH.ENTITIES);
-    this.placeImage(8, 2, 'house-kitchen-1-m', DEPTH.ENTITIES);
-    // Kitchen row 2 (lower counter)
-    this.placeImage(7, 3, 'house-kitchen-2-l', DEPTH.ENTITIES);
-    this.placeImage(8, 3, 'house-kitchen-2-m', DEPTH.ENTITIES);
+    // Lemari buku — pojok kiri-atas (menempel tembok kiri)
+    const lemariW = 48 * LEMARI_SCALE;  // 57.6
+    const lemariH = 69 * LEMARI_SCALE;  // 82.8
+    const lemariX = lemariW / 2;
+    const lemariY = top + lemariH / 2;
+    this.placeObj(lemariX, lemariY, 'house2-lemari-buku', DEPTH.ENTITIES, LEMARI_SCALE);
 
-    // ─── Bucket (row 4, col 1) ───
-    this.placeImage(1, 4, 'house-bucket', DEPTH.ENTITIES);
-
-    // ─── Red table (row 4, cols 4-6) — horizontal 3 tiles ───
-    this.placeImage(4, 4, 'house-table-l', DEPTH.ENTITIES);
-    this.placeImage(5, 4, 'house-table-m', DEPTH.ENTITIES);
-    this.placeImage(6, 4, 'house-table-r', DEPTH.ENTITIES);
-
-    // ─── Buffet (row 4, col 8) ───
-    this.placeImage(8, 4, 'house-buffet', DEPTH.ENTITIES);
-
-    // ─── Chairs at table (row 5, cols 4-5) — horizontal ───
-    this.placeImage(4, 5, 'house-chair-h-l', DEPTH.ENTITIES);
-    this.placeImage(5, 5, 'house-chair-h-r', DEPTH.ENTITIES);
-
-    // ─── Cabinets (row 6, cols 1-3) ───
-    this.placeImage(1, 6, 'house-cabinet-s', DEPTH.ENTITIES);
-    this.placeImage(2, 6, 'house-cabinet-l-1', DEPTH.ENTITIES);
-    this.placeImage(3, 6, 'house-cabinet-l-2', DEPTH.ENTITIES);
-
-    // ─── Labels ───
-    this.addLabel(1.5 * TS, 2 * TS - 10, 'Bed');
-    this.addLabel(7.5 * TS, 2 * TS - 10, 'Kitchen');
-    this.addLabel(5 * TS, 4 * TS - 10, 'Table');
-    this.addLabel(2 * TS, 6 * TS - 10, 'Storage');
+    // Buffet — kanan lemari, masih di kiri-atas
+    const buffetW = 72 * BUFFET_SCALE;  // 108
+    const buffetH = 35 * BUFFET_SCALE;  // 52.5
+    const buffetX = lemariW + buffetW / 2;
+    const buffetY = top + buffetH / 2;
+    this.placeObj(buffetX, buffetY, 'house2-buffet', DEPTH.ENTITIES, BUFFET_SCALE);
   }
 
   // ============================================================
@@ -189,71 +194,58 @@ export class PlayerHouseScene extends Phaser.Scene {
   // ============================================================
 
   private createColliders(): void {
-    // Invisible room boundaries (no visual walls, just collision edges)
-    const edgeThick = 4; // thin invisible edge
+    const thick = 6;
+    const top = WALL_BOTTOM_Y;
 
-    // Top edge
-    const edgeTop = this.physics.add.staticBody(0, -edgeThick, ROOM_W, edgeThick);
-    this.physics.add.collider(this.player.sprite, edgeTop as unknown as Phaser.Physics.Arcade.StaticBody);
+    const wallTop = this.physics.add.staticBody(0, top, ROOM_W, thick);
+    const lft     = this.physics.add.staticBody(-thick, 0, thick, ROOM_H);
+    const rgt     = this.physics.add.staticBody(ROOM_W, 0, thick, ROOM_H);
+    const botL    = this.physics.add.staticBody(0, ROOM_H, DOOR_GAP_X1, thick);
+    const botR    = this.physics.add.staticBody(DOOR_GAP_X2, ROOM_H, ROOM_W - DOOR_GAP_X2, thick);
 
-    // Left edge
-    const edgeLeft = this.physics.add.staticBody(-edgeThick, 0, edgeThick, ROOM_H);
-    this.physics.add.collider(this.player.sprite, edgeLeft as unknown as Phaser.Physics.Arcade.StaticBody);
+    for (const b of [wallTop, lft, rgt, botL, botR]) {
+      this.physics.add.collider(this.player.sprite, b as unknown as Phaser.Physics.Arcade.StaticBody);
+    }
 
-    // Right edge
-    const edgeRight = this.physics.add.staticBody(ROOM_W, 0, edgeThick, ROOM_H);
-    this.physics.add.collider(this.player.sprite, edgeRight as unknown as Phaser.Physics.Arcade.StaticBody);
+    // Kasur (1.4×): 67×113 — pojok kanan-atas
+    const kasurW = Math.round(48 * KASUR_SCALE);
+    const kasurH = Math.round(81 * KASUR_SCALE);
+    this.addBox(ROOM_W - kasurW, top, kasurW, kasurH);
 
-    // Bottom edge — left part (cols 0-3) and right part (cols 6-9), gap for door
-    const edgeBotL = this.physics.add.staticBody(0, ROOM_H, 4 * TS, edgeThick);
-    this.physics.add.collider(this.player.sprite, edgeBotL as unknown as Phaser.Physics.Arcade.StaticBody);
-    const edgeBotR = this.physics.add.staticBody(6 * TS, ROOM_H, 4 * TS, edgeThick);
-    this.physics.add.collider(this.player.sprite, edgeBotR as unknown as Phaser.Physics.Arcade.StaticBody);
+    // Lemari (1.2×): 58×83 — pojok kiri-atas
+    const lemariW = Math.round(48 * LEMARI_SCALE);
+    const lemariH = Math.round(69 * LEMARI_SCALE);
+    this.addBox(0, top, lemariW, lemariH);
 
-    // Furniture colliders
-    // Bed (cols 1-2, row 2)
-    const bed = this.physics.add.staticBody(1 * TS, 2 * TS, 2 * TS, TS);
-    this.physics.add.collider(this.player.sprite, bed as unknown as Phaser.Physics.Arcade.StaticBody);
+    // Buffet (1.5×): 108×53 — kanan lemari
+    const buffetW = Math.round(72 * BUFFET_SCALE);
+    const buffetH = Math.round(35 * BUFFET_SCALE);
+    this.addBox(lemariW, top, buffetW, buffetH);
+  }
 
-    // Kitchen (cols 7-8, rows 2-3)
-    const kitchen = this.physics.add.staticBody(7 * TS, 2 * TS, 2 * TS, 2 * TS);
-    this.physics.add.collider(this.player.sprite, kitchen as unknown as Phaser.Physics.Arcade.StaticBody);
-
-    // Table (cols 4-6, row 4)
-    const table = this.physics.add.staticBody(4 * TS, 4 * TS, 3 * TS, TS);
-    this.physics.add.collider(this.player.sprite, table as unknown as Phaser.Physics.Arcade.StaticBody);
-
-    // Buffet (col 8, row 4)
-    const buffet = this.physics.add.staticBody(8 * TS, 4 * TS, TS, TS);
-    this.physics.add.collider(this.player.sprite, buffet as unknown as Phaser.Physics.Arcade.StaticBody);
-
-    // Cabinets (cols 1-3, row 6)
-    const cabinets = this.physics.add.staticBody(1 * TS, 6 * TS, 3 * TS, TS);
-    this.physics.add.collider(this.player.sprite, cabinets as unknown as Phaser.Physics.Arcade.StaticBody);
+  private addBox(x: number, y: number, w: number, h: number): void {
+    const body = this.physics.add.staticBody(x, y, w, h);
+    this.physics.add.collider(this.player.sprite, body as unknown as Phaser.Physics.Arcade.StaticBody);
   }
 
   // ============================================================
-  // INTERACTION
+  // INTERAKSI KASUR
   // ============================================================
 
   private handleInteract(): void {
-    if (this.nearBed) {
-      this.sleepInBed();
-    }
+    if (this.nearBed) this.sleepInBed();
   }
 
   private checkBedProximity(): void {
-    const bedCX = 1 * TS + TS; // center of bed (cols 1-2)
-    const bedCY = 2 * TS + TS / 2; // center of bed row
-    const dist = Phaser.Math.Distance.Between(
+    const kasurX = ROOM_W - (48 * KASUR_SCALE) / 2;
+    const kasurY = WALL_BOTTOM_Y + (81 * KASUR_SCALE) / 2;
+    const dist   = Phaser.Math.Distance.Between(
       this.player.sprite.x, this.player.sprite.y,
-      bedCX, bedCY
+      kasurX, kasurY,
     );
-
-    if (dist < TS * 1.8) {
+    if (dist < 80) {
       this.nearBed = true;
-      this.promptText.setText('[E] Sleep');
-      this.promptText.setVisible(true);
+      this.promptText.setText('[E] Tidur').setVisible(true);
     } else {
       this.nearBed = false;
       this.promptText.setVisible(false);
@@ -264,29 +256,19 @@ export class PlayerHouseScene extends Phaser.Scene {
     this.player.freeze();
     this.promptText.setVisible(false);
 
-    // Fade to black
     this.cameras.main.fadeOut(1000, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      // Advance to next day morning
       gameManager.time.advanceTo(7, 0);
-
-      // Fade back in
       this.cameras.main.fadeIn(1500, 0, 0, 0);
 
-      // Show "Day X" text
-      const dayText = this.add.text(
-        GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2,
-        `Day ${gameManager.time.day}`,
-        {
-          fontSize: '12px',
-          color: '#f2a65a',
-          fontFamily: 'monospace',
-        }
-      );
-      dayText.setOrigin(0.5);
-      dayText.setScrollFactor(0);
-      dayText.setDepth(DEPTH.UI + 50);
-      dayText.setAlpha(0);
+      const dayText = this.add
+        .text(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, `Hari ${gameManager.time.day}`, {
+          fontSize: '12px', color: '#f2a65a', fontFamily: 'monospace',
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(DEPTH.UI + 50)
+        .setAlpha(0);
 
       this.tweens.add({
         targets: dayText,
@@ -294,10 +276,7 @@ export class PlayerHouseScene extends Phaser.Scene {
         duration: 800,
         hold: 2000,
         yoyo: true,
-        onComplete: () => {
-          dayText.destroy();
-          this.player.unfreeze();
-        },
+        onComplete: () => { dayText.destroy(); this.player.unfreeze(); },
       });
     });
   }
@@ -306,26 +285,8 @@ export class PlayerHouseScene extends Phaser.Scene {
   // HELPERS
   // ============================================================
 
-  /** Place an image tile at grid position (col, row) — origin top-left, no gap */
-  private placeImage(col: number, row: number, key: string, depth: number): void {
-    const x = col * TS;
-    const y = row * TS;
-    const img = this.add.image(x, y, key);
-    img.setOrigin(0, 0);
-    img.setScale(SCALE);
-    img.setDepth(depth);
-  }
-
-  /** Add a subtle label */
-  private addLabel(x: number, y: number, text: string): void {
-    const label = this.add.text(x, y, text, {
-      fontSize: '5px',
-      color: '#8899aa',
-      fontFamily: 'monospace',
-    });
-    label.setOrigin(0.5);
-    label.setDepth(DEPTH.ENTITIES + 2);
-    label.setAlpha(0.6);
+  private placeObj(x: number, y: number, key: string, depth: number, scale: number): void {
+    this.add.image(x, y, key).setScale(scale).setDepth(depth);
   }
 
   // ============================================================
@@ -335,11 +296,14 @@ export class PlayerHouseScene extends Phaser.Scene {
   private doExit(): void {
     this.exiting = true;
     this.player.freeze();
-
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.stop();
-      this.scene.wake('WorldScene');
+      if (this.scene.isSleeping('WorldScene')) {
+        this.scene.wake('WorldScene');
+      } else {
+        this.scene.start('WorldScene');
+      }
     });
   }
 
@@ -351,5 +315,7 @@ export class PlayerHouseScene extends Phaser.Scene {
 
   private onShutdown(): void {
     this.mobileControls.destroy();
+    this.hud.destroy();
+    this.atmosphere.destroy();
   }
 }

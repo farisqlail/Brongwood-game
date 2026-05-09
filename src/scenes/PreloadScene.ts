@@ -30,38 +30,33 @@ export class PreloadScene extends Phaser.Scene {
     // === TILESETS ===
     this.load.image(TEXTURE_KEYS.TILESET_BRONGWOOD, 'assets/sprites/tileset/1 Tiles/FieldsTileset.png');
 
-    // === HOUSE INTERIOR TILES (individual PNGs) ===
-    const housePart1 = 'assets/tilemaps/house/tilesheets/part 1';
-    const housePart2 = 'assets/tilemaps/house/tilesheets/part2';
+    // === LAND / BEACH TILES ===
+    const land = 'assets/tilemaps/land';
+    this.load.image('land-floor-2', `${land}/Floors_Tiles 2.png`);
+    this.load.image('land-floor-3', `${land}/Floors_Tiles 3.png`);
+    this.load.image('land-water-2', `${land}/Water_tiles 2.png`);
+    this.load.image('land-water-3', `${land}/Water_tiles 3.png`);
+    this.load.image('land-water-4', `${land}/Water_tiles 4.png`);
 
-    // Part 1
-    this.load.image('house-floor-main', `${housePart1}/row-4-column-26.png`);
-    this.load.image('house-wall-1', `${housePart1}/row-1-column-25.png`);
-    this.load.image('house-wall-2', `${housePart1}/row-1-column-26.png`);
-    this.load.image('house-bed-l', `${housePart1}/row-1-column-10.png`);
-    this.load.image('house-bed-r', `${housePart1}/row-1-column-11.png`);
-    this.load.image('house-floor-1', `${housePart1}/row-5-column-25.png`);
-    this.load.image('house-floor-2', `${housePart1}/row-5-column-26.png`);
-    this.load.image('house-floor-3', `${housePart1}/row-5-column-27.png`);
-    this.load.image('house-chair-v', `${housePart1}/row-5-column-27.png`);
-    this.load.image('house-chair-h-l', `${housePart1}/row-7-column-4.png`);
-    this.load.image('house-chair-h-r', `${housePart1}/row-7-column-3.png`);
-    this.load.image('house-bucket', `${housePart1}/row-6-column-23.png`);
-
-    // Part 2
-    this.load.image('house-table-l', `${housePart2}/row-1-column-1.png`);
-    this.load.image('house-table-m', `${housePart2}/row-1-column-2.png`);
-    this.load.image('house-table-r', `${housePart2}/row-1-column-3.png`);
-    this.load.image('house-buffet', `${housePart2}/row-2-column-28.png`);
-    this.load.image('house-kitchen-1-l', `${housePart2}/row-4-column-1.png`);
-    this.load.image('house-kitchen-1-m', `${housePart2}/row-4-column-2.png`);
-    this.load.image('house-kitchen-1-r', `${housePart2}/row-4-column-3.png`);
-    this.load.image('house-kitchen-2-l', `${housePart2}/row-5-column-1.png`);
-    this.load.image('house-kitchen-2-m', `${housePart2}/row-5-column-2.png`);
-    this.load.image('house-kitchen-2-r', `${housePart2}/row-5-column-3.png`);
-    this.load.image('house-cabinet-s', `${housePart2}/row-8-column-1.png`);
-    this.load.image('house-cabinet-l-1', `${housePart2}/row-8-column-2.png`);
-    this.load.image('house-cabinet-l-2', `${housePart2}/row-8-column-3.png`);
+    // === HOUSE INTERIOR (individual object PNGs) ===
+    const houseV2 = 'assets/tilemaps/house';
+    this.load.image('house2-bangku-semen', `${houseV2}/bangku_semen_1.png`);
+    this.load.image('house2-bangku-taman', `${houseV2}/bangku_taman.png`);
+    this.load.image('house2-buffet', `${houseV2}/buffet_1.png`);
+    this.load.image('house2-genteng', `${houseV2}/genteng_1.png`);
+    this.load.image('house2-genteng-horizontal', `${houseV2}/genteng_horizontal_1.png`);
+    this.load.image('house2-genteng-kayu-tengah', `${houseV2}/genteng_kayu_tengah_1.png`);
+    this.load.image('house2-jendela-kaca', `${houseV2}/jendela_kaca_1.png`);
+    this.load.image('house2-kasur', `${houseV2}/kasur_1.png`);
+    this.load.image('house2-lemari-buku', `${houseV2}/lemari_buku_1.png`);
+    this.load.image('house2-meja-horizontal', `${houseV2}/meja_kayu_horizontal_1.png`);
+    this.load.image('house2-meja-vertical', `${houseV2}/meja_kayu_vertical_1.png`);
+    this.load.image('house2-pintu-kayu', `${houseV2}/pintu_kayu_1.png`);
+    this.load.image('house2-pintu-lorong-1', `${houseV2}/pintu_lorong_1.png`);
+    this.load.image('house2-pintu-lorong-2', `${houseV2}/pintu_lorong_2.png`);
+    this.load.image('house2-tanaman', `${houseV2}/tanaman_1.png`);
+    this.load.image('house2-tembok-kayu', `${houseV2}/tembok_kayu_1.png`);
+    this.load.image('house2-tempat-bunga', `${houseV2}/tempat_bunga_kayu_1.png`);
 
     // Shadow (1-6) — used as grass/ground cover
     for (let i = 1; i <= 6; i++) {

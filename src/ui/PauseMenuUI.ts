@@ -442,10 +442,18 @@ export class PauseMenuUI {
     const playerX = scene.player?.sprite?.x ?? scene.player?.x ?? 0;
     const playerY = scene.player?.sprite?.y ?? scene.player?.y ?? 0;
 
+    // Simpan scene key yang sedang aktif.
+    // Jika WorldScene, gunakan mapKey internal (nama Tiled map).
+    // Jika scene aktivitas (Fishing, Garden, dll.), gunakan scene.key langsung.
+    const sceneKey = this.scene.scene.key;
+    const mapKey = sceneKey === SCENE_KEYS.WORLD
+      ? (scene.mapKey ?? 'downtown')
+      : sceneKey;
+
     const success = gameManager.saveGame(slot, {
       x: playerX,
       y: playerY,
-      mapKey: 'downtown',
+      mapKey,
       direction: 'down',
     });
 
@@ -467,18 +475,32 @@ export class PauseMenuUI {
     }
 
     this.showToast('Loading...');
-
-    // Close menu and restart world scene with loaded data
     this.isOpen = false;
     this.hide();
     this.clearElements();
 
     this.scene.time.delayedCall(500, () => {
-      this.scene.scene.start(SCENE_KEYS.WORLD, {
-        map: data.player.mapKey,
-        spawn: undefined,
-      });
+      PauseMenuUI.startSceneFromSave(this.scene, data.player.mapKey);
     });
+  }
+
+  /**
+   * Tentukan scene mana yang harus distart berdasarkan mapKey tersimpan.
+   * mapKey bisa berupa:
+   *  - Tiled map key ('downtown') → start WorldScene dengan map itu
+   *  - Scene key langsung ('FishingScene', 'GardenScene', dll.) → start scene itu
+   */
+  static startSceneFromSave(scene: Phaser.Scene, mapKey: string): void {
+    const STANDALONE_SCENES = [
+      'FishingScene', 'GardenScene', 'BenchScene',
+      'PlayerHouseScene', 'HouseInteriorScene',
+    ];
+
+    if (STANDALONE_SCENES.includes(mapKey)) {
+      scene.scene.start(mapKey);
+    } else {
+      scene.scene.start(SCENE_KEYS.WORLD, { map: mapKey });
+    }
   }
 
   private quitToMenu(): void {

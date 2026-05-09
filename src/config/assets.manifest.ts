@@ -58,6 +58,13 @@ export const TEXTURE_KEYS = {
   // Tilesets
   TILESET_BRONGWOOD: 'tileset_brongwood',
 
+  // Food - Meats
+  MEAT_1: 'meat_1',
+  MEAT_2: 'meat_2',
+  MEAT_3: 'meat_3',
+  MEAT_4: 'meat_4',
+  MEAT_5: 'meat_5',
+
   // UI
   PORTRAIT_LAIL: 'portrait_lail',
   PORTRAIT_RIKA: 'portrait_rika',
@@ -244,7 +251,33 @@ export const ASSET_MANIFEST: AssetManifest = {
     // },
   ],
 
-  misc: [],
+  misc: [
+    {
+      type: 'image',
+      key: TEXTURE_KEYS.MEAT_1,
+      path: 'assets/tilemaps/food/meats/Meat 1.png',
+    },
+    {
+      type: 'image',
+      key: TEXTURE_KEYS.MEAT_2,
+      path: 'assets/tilemaps/food/meats/Meat 2.png',
+    },
+    {
+      type: 'image',
+      key: TEXTURE_KEYS.MEAT_3,
+      path: 'assets/tilemaps/food/meats/Meat 3.png',
+    },
+    {
+      type: 'image',
+      key: TEXTURE_KEYS.MEAT_4,
+      path: 'assets/tilemaps/food/meats/Meat 4.png',
+    },
+    {
+      type: 'image',
+      key: TEXTURE_KEYS.MEAT_5,
+      path: 'assets/tilemaps/food/meats/Meat 5.png',
+    },
+  ],
 };
 
 /**

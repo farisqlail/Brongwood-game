@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { SCENE_KEYS, GAME_CONFIG } from '@config/game.config';
 import { gameManager } from '@/managers/GameManager';
+import { PauseMenuUI } from '@/ui/PauseMenuUI';
 
 const CLR_BG       = 0x1a1a2e;
 const CLR_TITLE    = '#f2a65a';
@@ -179,10 +180,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     this.cameras.main.fadeOut(500, 0x1a, 0x1a, 0x2e);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start(SCENE_KEYS.WORLD, {
-        map: data.player.mapKey,
-        spawn: undefined,
-      });
+      PauseMenuUI.startSceneFromSave(this, data.player.mapKey);
     });
   }
 

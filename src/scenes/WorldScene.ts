@@ -141,14 +141,21 @@ export class WorldScene extends Phaser.Scene {
     const savedBgmVol = parseFloat(localStorage.getItem('brongwood_bgm_volume') ?? '0.4');
     this.audioSystem.setBGMVolume(isNaN(savedBgmVol) ? 0.4 : savedBgmVol);
 
-    // Initialize audio on first click (browser requires user gesture)
-    this.input.once('pointerdown', () => {
+    // Mulai audio segera. Jika browser masih lock AudioContext (autoplay policy),
+    // Phaser akan unlock otomatis saat interaksi pertama dan emit 'unlocked'.
+    const startAudio = () => {
       proceduralAudio.init();
       proceduralAudio.resume();
       proceduralAudio.startWind(0.3);
       proceduralAudio.startBirds();
       this.audioSystem.playBGM(AUDIO_KEYS.BGM_DOWNTOWN);
-    });
+    };
+
+    if (this.sound.locked) {
+      this.sound.once('unlocked', startAudio);
+    } else {
+      startAudio();
+    }
 
 
     this.events.on('shutdown', this.onShutdown, this);
@@ -160,6 +167,19 @@ export class WorldScene extends Phaser.Scene {
     if (this.pauseMenu.opened) return;
 
     gameManager.update(delta);
+
+    // ─── Edge transitions ke activity maps ───────────────────
+    if (!this.isTransitioning && this.mapData) {
+      const px = this.player.sprite.x;
+      const py = this.player.sprite.y;
+      const mw = this.mapData.widthInPixels;
+      const mh = this.mapData.heightInPixels;
+
+      if (px > mw - 50)      this.transitionToActivityMap('FishingScene');
+      else if (py < 50)      this.transitionToActivityMap('GardenScene');
+      else if (px < 50)      this.transitionToActivityMap('BenchScene');
+      else if (py > mh - 50) this.transitionToActivityMap('BenchScene'); // fallback bawah
+    }
 
     // Feed mobile joystick into player movement
     if (this.mobileControls.visible) {
@@ -616,39 +636,16 @@ export class WorldScene extends Phaser.Scene {
   // ============================================================
 
   /**
-   * Setup activity zones in the world.
-   * Positions are based on the downtown map layout.
+   * Setup activity zones dan edge transitions.
+   *
+   * Fishing, Garden, Bench → maps terpisah (dicapai lewat tepi peta).
+   * Stargazing → tetap sebagai activity zone di dalam downtown.
    */
   private setupActivityZones(): void {
     const ts = GAME_CONFIG.TILE_SIZE;
 
-    // Activity zone configs — placed at meaningful locations in downtown
+    // Hanya stargazing yang tersisa di dalam downtown
     const zoneConfigs: ActivityZoneConfig[] = [
-      // Fishing spot — bottom-right area (near ocean/water edge)
-      {
-        id: 'fishing',
-        x: ts * 12,
-        y: ts * 9,
-        width: ts * 2,
-        height: ts * 1.5,
-      },
-      // Bench — center-left area (park bench for resting)
-      {
-        id: 'bench_sit',
-        x: ts * 3,
-        y: ts * 7,
-        width: ts * 1.5,
-        height: ts * 1,
-      },
-      // Garden — top-left area (small garden patch)
-      {
-        id: 'gardening',
-        x: ts * 1,
-        y: ts * 2,
-        width: ts * 2,
-        height: ts * 1.5,
-      },
-      // Stargazing — top-right open area (clear sky view)
       {
         id: 'stargazing',
         x: ts * 11,
@@ -659,11 +656,12 @@ export class WorldScene extends Phaser.Scene {
     ];
 
     this.activityZoneUI.createZones(this.player.sprite, zoneConfigs);
-
-    // Add sign posts at each activity zone
     this.createZoneMarkers(zoneConfigs);
 
-    // Register zone markers on the minimap (activity zones + player house)
+    // Edge exit indicators (tanda arah ke activity map)
+    this.createEdgeIndicators();
+
+    // Minimap markers
     const minimapMarkers = zoneConfigs.map(z => ({
       id: z.id,
       x: z.x,
@@ -674,7 +672,6 @@ export class WorldScene extends Phaser.Scene {
       icon: this.getSignInfo(z.id).icon,
     }));
 
-    // Add player house marker
     minimapMarkers.push({
       id: 'house',
       x: ts * 3.5,
@@ -686,6 +683,38 @@ export class WorldScene extends Phaser.Scene {
     });
 
     this.minimapSystem.setZoneMarkers(minimapMarkers);
+  }
+
+  /**
+   * Buat tanda panah di tepi peta untuk memberi tahu player
+   * bahwa mereka bisa berjalan ke sana menuju activity map.
+   */
+  private createEdgeIndicators(): void {
+    if (!this.mapData) return;
+    const mw = this.mapData.widthInPixels;
+    const mh = this.mapData.heightInPixels;
+
+    const indicators: Array<{ x: number; y: number; label: string; icon: string; arrow: string }> = [
+      { x: mw - 24, y: mh / 2,  label: 'Pantai',  icon: '🎣', arrow: '→' },
+      { x: mw / 2,  y: 24,      label: 'Kebun',   icon: '🌱', arrow: '↑' },
+      { x: 24,      y: mh / 2,  label: 'Taman',   icon: '🪑', arrow: '←' },
+    ];
+
+    for (const ind of indicators) {
+      const g = this.add.graphics().setDepth(DEPTH.ENTITIES - 1);
+      g.fillStyle(0x8b6b3d, 0.85);
+      g.fillRoundedRect(ind.x - 26, ind.y - 12, 52, 24, 3);
+      g.lineStyle(1, 0xf2a65a, 0.7);
+      g.strokeRoundedRect(ind.x - 26, ind.y - 12, 52, 24, 3);
+
+      this.add.text(ind.x, ind.y - 3, `${ind.arrow} ${ind.label}`, {
+        fontSize: '5px', color: '#f2e8d0', fontFamily: 'monospace', fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(DEPTH.ENTITIES);
+
+      this.add.text(ind.x, ind.y + 7, ind.icon, {
+        fontSize: '8px',
+      }).setOrigin(0.5).setDepth(DEPTH.ENTITIES);
+    }
   }
 
   /**
@@ -798,6 +827,18 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
+  private transitionToActivityMap(sceneKey: string): void {
+    if (this.isTransitioning) return;
+    this.isTransitioning = true;
+    this.player.freeze();
+
+    this.cameras.main.fadeOut(400, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.sleep();
+      this.scene.run(sceneKey);
+    });
+  }
+
   // ============================================================
   // CLEANUP
   // ============================================================
@@ -805,6 +846,18 @@ export class WorldScene extends Phaser.Scene {
   private onWake(): void {
     this.player.unfreeze();
     this.cameras.main.fadeIn(400, 0, 0, 0);
+
+    // Clamp player away from map edges so edge-transition check
+    // doesn't fire again immediately after returning from an activity map.
+    if (this.mapData) {
+      const margin = 80;
+      const mw = this.mapData.widthInPixels;
+      const mh = this.mapData.heightInPixels;
+      const cx = Phaser.Math.Clamp(this.player.sprite.x, margin, mw - margin);
+      const cy = Phaser.Math.Clamp(this.player.sprite.y, margin, mh - margin);
+      this.player.sprite.setPosition(cx, cy);
+    }
+
     // Allow re-entering zones after a short delay
     this.time.delayedCall(600, () => { this.isTransitioning = false; });
   }
