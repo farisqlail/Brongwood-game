@@ -45,6 +45,7 @@ export class VegetationSystem {
 
     this.placeGrassGround();
     this.placeHouses();
+    this.placeUpperIndonesianBuildings();
     this.placeIndonesianHouse();
     this.placeIndonesianHouse2();
     this.placeDecor();
@@ -184,7 +185,6 @@ export class VegetationSystem {
     const ts = GAME_CONFIG.TILE_SIZE;
 
     const houses: Array<{ x: number; y: number; variant: number; scale: number }> = [
-      { x: ts * 2.5, y: ts * 1.5, variant: 1, scale: 0.75 },
       { x: ts * 7.5, y: ts * 1.5, variant: 2, scale: 0.8 },
       { x: ts * 12.5, y: ts * 1.5, variant: 3, scale: 0.75 },
       { x: ts * 4, y: ts * 8, variant: 4, scale: 0.7 },
@@ -258,6 +258,34 @@ export class VegetationSystem {
     col.setVisible(false);
     col.setDisplaySize(132, 104);
     col.refreshBody();
+  }
+
+  private placeUpperIndonesianBuildings(): void {
+    const ts = GAME_CONFIG.TILE_SIZE;
+    const buildings = [
+      { key: 'house2-rumah-indo-5', x: ts * 2.5, y: ts * 2.15, scale: 0.20 },
+      { key: 'house2-rumah-indo-4', x: ts * 4.6, y: ts * 2.15, scale: 0.20 },
+      { key: 'house2-toko-indo-1', x: ts * 10.4, y: ts * 2.15, scale: 0.20 },
+    ];
+
+    for (const building of buildings) {
+      if (!this.scene.textures.exists(building.key)) continue;
+
+      const sprite = this.scene.add.image(building.x, building.y, building.key);
+      sprite.setScale(building.scale);
+      sprite.setOrigin(0.5, 0.76);
+      sprite.setDepth(building.y);
+      this.staticProps.push(sprite);
+
+      const col = this.collisionGroup.create(
+        building.x - 4,
+        building.y - 40,
+        '_collider',
+      ) as Phaser.Physics.Arcade.Sprite;
+      col.setVisible(false);
+      col.setDisplaySize(132, 104);
+      col.refreshBody();
+    }
   }
 
   private placeIndonesianHouse(): void {
