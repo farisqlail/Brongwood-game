@@ -26,6 +26,7 @@ import { EventBus } from '@/core/EventBus';
 import { gameManager } from '@/managers/GameManager';
 import { AudioSystem } from '@/systems/AudioSystem';
 import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
+import { UtilityInteractionSystem, UtilityObjectPlacement } from '@/systems/UtilityInteractionSystem';
 
 const W = GAME_CONFIG.WIDTH;
 const H = GAME_CONFIG.HEIGHT;
@@ -38,6 +39,13 @@ const TREE_POSITIONS = [
   { x: 24,  y: 232 },
   { x: 456, y: 228 },
 ] as const;
+const UTILITY_OBJECTS: UtilityObjectPlacement[] = [
+  { kind: 'ember', x: 178, y: 220, startFrame: 0, scale: 1.05, collider: { width: 22, height: 18 } },
+  { kind: 'ember', x: 302, y: 72,  startFrame: 2, scale: 1.05, collider: { width: 22, height: 18 } },
+  { kind: 'box',   x: 382, y: 228, startFrame: 0, scale: 0.95, collider: { width: 26, height: 22 } },
+  { kind: 'box',   x: 82,  y: 44,  startFrame: 4, scale: 0.95, collider: { width: 26, height: 22 } },
+  { kind: 'box',   x: 384, y: 44,  startFrame: 7, scale: 0.95, collider: { width: 26, height: 22 } },
+];
 
 export class GardenScene extends Phaser.Scene {
   private player!: Player;
@@ -48,6 +56,7 @@ export class GardenScene extends Phaser.Scene {
   private hud!: SceneHUD;
   private atmosphere!: SceneAtmosphere;
   private ownedAudioSystem: AudioSystem | null = null;
+  private utilityInteractions!: UtilityInteractionSystem;
   private exiting = false;
   private readonly onPlayerLocked = (payload: { locked: boolean }) => {
     if (payload.locked) this.player.freeze();
@@ -67,12 +76,12 @@ export class GardenScene extends Phaser.Scene {
     this.buildFieldDetails();
     this.buildGardenBeds();
     this.buildTrees();
-    this.buildExitSign();
 
     // Player masuk dari bawah (datang dari kota)
     // Spawn di y=220 agar tidak langsung menyentuh batas bawah
     this.player = new Player(this, W / 2, H - 80);
     this.player.sprite.setCollideWorldBounds(true);
+    this.utilityInteractions = new UtilityInteractionSystem(this, this.player.sprite, UTILITY_OBJECTS);
 
     this.cameras.main.setBounds(0, 0, W, H);
     this.cameras.main.centerOn(W / 2, H / 2);
@@ -89,13 +98,14 @@ export class GardenScene extends Phaser.Scene {
       height: 62,
     }]);
 
-    this.buildZoneMarker(100, 188, '🌱', 'Berkebun');
     this.createObjectColliders();
 
     // E key
     this.input.keyboard!
       .addKey(Phaser.Input.Keyboard.KeyCodes.E)
       .on('down', () => {
+        if (this.utilityInteractions.tryInteract()) return;
+
         if (this.activityZoneUI.isActivityActive) {
           this.activityZoneUI.cancelActivity();
         } else if (this.activityZoneUI.isInZone) {
@@ -131,12 +141,14 @@ export class GardenScene extends Phaser.Scene {
       const js = this.mobileControls.joystickState;
       this.player.setJoystickInput(js.isActive, js.forceX, js.forceY);
       if (this.mobileControls.actionPressed) {
+        if (this.utilityInteractions.tryInteract()) return;
         if (this.activityZoneUI.isActivityActive) this.activityZoneUI.cancelActivity();
         else if (this.activityZoneUI.isInZone) this.activityZoneUI.startActivity();
       }
     }
 
     this.player.update();
+    this.utilityInteractions.update();
     this.activitySystem.update(delta);
     this.activityZoneUI.update(delta);
 
@@ -433,6 +445,7 @@ export class GardenScene extends Phaser.Scene {
     this.pauseMenu.destroy();
     this.hud.destroy();
     this.atmosphere.destroy();
+    this.utilityInteractions.destroy();
     this.ownedAudioSystem?.destroy();
     if (this.ownedAudioSystem) {
       gameManager.registerSceneSystems({ audio: null });

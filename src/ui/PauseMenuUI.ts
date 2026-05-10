@@ -56,11 +56,16 @@ export class PauseMenuUI {
 
   // Dynamic elements (rebuilt per state)
   private elements: Phaser.GameObjects.GameObject[] = [];
+  private readonly onOpenPauseMenu = () => {
+    if (!this.scene.scene.isActive()) return;
+    this.open();
+  };
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.buildBase();
     this.hide();
+    EventBus.on('ui:open-pause-menu', this.onOpenPauseMenu);
   }
 
   // ============================================================
@@ -103,6 +108,7 @@ export class PauseMenuUI {
   }
 
   destroy(): void {
+    EventBus.off('ui:open-pause-menu', this.onOpenPauseMenu);
     this.backdrop.destroy();
     this.panel.destroy();
     this.titleText.destroy();
@@ -492,7 +498,7 @@ export class PauseMenuUI {
    */
   static startSceneFromSave(scene: Phaser.Scene, mapKey: string): void {
     const STANDALONE_SCENES = [
-      'FishingScene', 'GardenScene', 'BenchScene',
+      'FishingScene', 'GardenScene', 'BenchScene', 'CafeScene', 'HomesteadScene',
       'PlayerHouseScene', 'HouseInteriorScene',
     ];
 

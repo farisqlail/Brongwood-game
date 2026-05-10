@@ -73,7 +73,6 @@ export class BenchScene extends Phaser.Scene {
     this.buildPath();
     this.buildBench();
     this.buildLanterns();
-    this.buildExitSign();
     this.spawnLeaves();
     this.spawnFireflies();
     this.spawnButterflies();
@@ -97,7 +96,6 @@ export class BenchScene extends Phaser.Scene {
       height: 38,
     }]);
 
-    this.buildZoneMarker(210, PATH_TOP - 12, '🪑', 'Duduk');
     this.createObjectColliders();
 
     // E key
@@ -393,9 +391,6 @@ export class BenchScene extends Phaser.Scene {
     this.addColliderBox(0, 0, W, SKY_H + 4); // batas langit
 
     this.addColliderBox(166, PATH_TOP - 36, 88, 30); // bench
-    this.addColliderBox(188, PATH_TOP - 72, 44, 58); // activity sign
-    this.addColliderBox(W - 54, PATH_TOP - 22, 48, 16); // exit sign
-
     this.addColliderBox(300, PATH_BOTTOM + 3, 20, 74); // lower lantern
     this.addColliderBox(420, PATH_TOP - 76, 20, 74); // upper lantern
 

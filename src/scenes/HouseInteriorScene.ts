@@ -34,6 +34,8 @@ import { SceneAtmosphere } from '@/systems/SceneAtmosphere';
 import { gameManager } from '@/managers/GameManager';
 import { AudioSystem } from '@/systems/AudioSystem';
 import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
+import { PauseMenuUI } from '@/ui/PauseMenuUI';
+import { proceduralAudio } from '@/audio/ProceduralAudio';
 
 // ─── Room dimensions ──────────────────────────────────────────
 const ROOM_W = 480;
@@ -53,6 +55,7 @@ export class HouseInteriorScene extends Phaser.Scene {
   private player!: Player;
   private mobileControls!: MobileControls;
   private hud!: SceneHUD;
+  private pauseMenu!: PauseMenuUI;
   private atmosphere!: SceneAtmosphere;
   private ownedAudioSystem: AudioSystem | null = null;
   private exiting = false;
@@ -83,21 +86,16 @@ export class HouseInteriorScene extends Phaser.Scene {
     this.createColliders();
 
     this.mobileControls = new MobileControls(this);
+    this.pauseMenu = new PauseMenuUI(this);
+    this.input.keyboard!
+      .addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
+      .on('down', () => this.pauseMenu.toggle());
+
     this.hud = new SceneHUD(this, 'house_interior', ROOM_W, ROOM_H);
-    this.atmosphere = new SceneAtmosphere(this);
+    this.atmosphere = new SceneAtmosphere(this, { weather: false });
     gameManager.startGameplay();
     this.ownedAudioSystem = bootstrapGameplayAudio(this);
-
-    // Label exit
-    const exitLabel = this.add
-      .text(ROOM_W / 2, ROOM_H - 7, '[ EXIT ]', {
-        fontSize: '7px',
-        color: '#f2a65a',
-        fontFamily: 'monospace',
-      })
-      .setOrigin(0.5)
-      .setDepth(DEPTH.UI);
-    this.tweens.add({ targets: exitLabel, alpha: 0.3, duration: 700, yoyo: true, repeat: -1 });
+    proceduralAudio.stopRain();
 
     this.events.on('shutdown', this.onShutdown, this);
     this.events.on('wake', this.onWake, this);
@@ -107,6 +105,7 @@ export class HouseInteriorScene extends Phaser.Scene {
     gameManager.update(delta);
     this.atmosphere.update(delta);
     this.hud.update(this.player.sprite.x, this.player.sprite.y, this.atmosphere.weatherState);
+    if (this.pauseMenu.opened) return;
 
     if (this.mobileControls.visible) {
       const js = this.mobileControls.joystickState;
@@ -357,11 +356,13 @@ export class HouseInteriorScene extends Phaser.Scene {
   private onWake(): void {
     this.exiting = false;
     this.player.unfreeze();
+    proceduralAudio.stopRain();
     this.cameras.main.fadeIn(400, 0, 0, 0);
   }
 
   private onShutdown(): void {
     this.mobileControls.destroy();
+    this.pauseMenu.destroy();
     this.hud.destroy();
     this.atmosphere.destroy();
     this.ownedAudioSystem?.destroy();

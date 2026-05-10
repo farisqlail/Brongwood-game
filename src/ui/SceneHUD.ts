@@ -19,6 +19,8 @@ import { DEPTH } from '@config/game.config';
 import { InventoryUI } from '@/ui/InventoryUI';
 import { PhoneUI } from '@/ui/PhoneUI';
 import { gameManager } from '@/managers/GameManager';
+import { EventBus } from '@/core/EventBus';
+import { InputGuard } from '@/ui/InputGuard';
 
 // ─── Minimap panel geometry (mirrors WorldScene minimap) ──────
 const PX     = 6;
@@ -36,6 +38,7 @@ export type SceneHUDMode =
   | 'fishing'
   | 'garden'
   | 'bench'
+  | 'homestead'
   | 'player_house'
   | 'house_interior';
 
@@ -51,6 +54,7 @@ export class SceneHUD {
   private locationText: Phaser.GameObjects.Text;
   private timeText:     Phaser.GameObjects.Text;
   private infoText:     Phaser.GameObjects.Text;
+  private clickZone!:   Phaser.GameObjects.Rectangle;
 
   // Hotbar & phone
   private inventoryUI: InventoryUI;
@@ -87,12 +91,14 @@ export class SceneHUD {
     this.locationText.destroy();
     this.timeText.destroy();
     this.infoText.destroy();
+    this.clickZone.destroy();
     this.inventoryUI.destroy();
     this.phoneUI.destroy();
   }
 
   /** Hide hotbar + phone icon (e.g. during pause) */
   setVisible(visible: boolean): void {
+    this.clickZone.setVisible(visible);
     this.inventoryUI.setVisible(visible);
     this.phoneUI.setVisible(visible);
   }
@@ -108,6 +114,15 @@ export class SceneHUD {
     this.mapBg.setDepth(DEPTH.UI + 5);
     this.drawPanel();
     this.drawTerrain();
+
+    this.clickZone = this.scene.add.rectangle(PX + PW / 2, PY + PH / 2, PW, PH, 0x000000, 0);
+    this.clickZone.setScrollFactor(0);
+    this.clickZone.setDepth(DEPTH.UI + 8);
+    this.clickZone.setInteractive({ useHandCursor: true });
+    this.clickZone.on('pointerdown', () => {
+      InputGuard.consume();
+      EventBus.emit('ui:open-pause-menu', {});
+    });
 
     // Dynamic player dot layer
     this.dotG = this.scene.add.graphics();
@@ -162,6 +177,7 @@ export class SceneHUD {
       case 'fishing':        this.drawFishingTerrain(g);      break;
       case 'garden':         this.drawGardenTerrain(g);       break;
       case 'bench':          this.drawBenchTerrain(g);        break;
+      case 'homestead':      this.drawHomesteadTerrain(g);    break;
       case 'player_house':   this.drawPlayerHouseTerrain(g);  break;
       case 'house_interior': this.drawHouseInteriorTerrain(g); break;
     }
@@ -320,6 +336,44 @@ export class SceneHUD {
     this.drawMinimapBorder(g);
   }
 
+  // ── Terrain: Homestead ────────────────────────────────────────
+  private drawHomesteadTerrain(g: Phaser.GameObjects.Graphics): void {
+    g.fillStyle(0x5a9e3a, 1);
+    g.fillRect(IX, IY, MM_W, MM_H);
+
+    g.fillStyle(0x8a6434, 0.85);
+    g.fillRect(IX + MM_W * 0.84, IY, MM_W * 0.10, MM_H);
+    g.fillRect(IX + MM_W * 0.24, IY + MM_H * 0.43, MM_W * 0.62, MM_H * 0.10);
+
+    g.fillStyle(0xc8956a, 1);
+    g.fillRect(IX + MM_W * 0.11, IY + MM_H * 0.12, MM_W * 0.24, MM_H * 0.23);
+    g.fillStyle(0x7b3f24, 1);
+    g.fillTriangle(
+      IX + MM_W * 0.09, IY + MM_H * 0.13,
+      IX + MM_W * 0.23, IY + MM_H * 0.02,
+      IX + MM_W * 0.37, IY + MM_H * 0.13,
+    );
+
+    g.fillStyle(0x6e4b26, 1);
+    g.fillRect(IX + MM_W * 0.10, IY + MM_H * 0.60, MM_W * 0.30, MM_H * 0.24);
+    g.fillStyle(0x58a33b, 1);
+    for (let x = 0.14; x < 0.39; x += 0.06) {
+      g.fillCircle(IX + MM_W * x, IY + MM_H * 0.70, 1.7);
+    }
+
+    g.lineStyle(1, 0x8b5a2b, 1);
+    g.strokeRect(IX + MM_W * 0.63, IY + MM_H * 0.46, MM_W * 0.25, MM_H * 0.24);
+    g.fillStyle(0xf3efe2, 1);
+    g.fillEllipse(IX + MM_W * 0.71, IY + MM_H * 0.56, 8, 4);
+    g.fillStyle(0xd9c2a3, 1);
+    g.fillEllipse(IX + MM_W * 0.79, IY + MM_H * 0.62, 7, 4);
+
+    g.fillStyle(0xf2a65a, 0.7);
+    g.fillTriangle(IX + MM_W - 2, IY + MM_H * 0.50, IX + MM_W - 7, IY + MM_H * 0.46, IX + MM_W - 7, IY + MM_H * 0.54);
+
+    this.drawMinimapBorder(g);
+  }
+
   // ── Terrain: House Interior (NPC house) ───────────────────────
   private drawHouseInteriorTerrain(g: Phaser.GameObjects.Graphics): void {
     // Roof strip
@@ -438,6 +492,7 @@ export class SceneHUD {
       case 'fishing':        return 'Pantai';
       case 'garden':         return 'Kebun';
       case 'bench':          return 'Taman';
+      case 'homestead':      return 'Halaman Rumah';
       case 'player_house':   return 'Rumahku';
       case 'house_interior': return 'Rumah NPC';
       default:               return '???';
@@ -449,6 +504,7 @@ export class SceneHUD {
       case 'fishing':        return '#4fa3d1';
       case 'garden':         return '#66bb66';
       case 'bench':          return '#f2d65a';
+      case 'homestead':      return '#8fd05a';
       case 'player_house':   return '#f2a65a';
       case 'house_interior': return '#c8956a';
       default:               return '#cccccc';

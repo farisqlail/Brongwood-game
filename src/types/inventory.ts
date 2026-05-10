@@ -60,6 +60,22 @@ export const ITEM_DEFS: Record<string, InventoryItem> = {
     color: 0x4488cc,
     icon: 'gem',
   },
+  carrot: {
+    id: 'carrot',
+    name: 'Wortel',
+    description: 'Wortel segar dari kebun rumah.',
+    color: 0xe87524,
+    icon: 'circle',
+    textureKey: 'farm-wortel',
+  },
+  red_onion: {
+    id: 'red_onion',
+    name: 'Bawang Merah',
+    description: 'Bawang merah matang dari petak kebun.',
+    color: 0xc73357,
+    icon: 'circle',
+    textureKey: 'farm-bawang_merah_7',
+  },
 
   // === Meats ===
   meat_1: {

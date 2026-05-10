@@ -136,7 +136,6 @@ export class WorldScene extends Phaser.Scene {
 
     // Pause menu (ESC key + minimap click)
     this.pauseMenu = new PauseMenuUI(this);
-    EventBus.on('ui:open-pause-menu', () => { if (!this.pauseMenu.opened) this.pauseMenu.open(); });
 
     bootstrapGameplayAudio(this);
     proceduralAudio.startWind(0.3);
@@ -161,7 +160,7 @@ export class WorldScene extends Phaser.Scene {
 
       if (px > mw - 50)      this.transitionToActivityMap('FishingScene');
       else if (py < 50)      this.transitionToActivityMap('GardenScene');
-      else if (px < 50)      this.transitionToActivityMap('BenchScene');
+      else if (px < 50)      this.transitionToActivityMap('HomesteadScene');
       else if (py > mh - 50) this.transitionToActivityMap('BenchScene'); // fallback bawah
     }
 
@@ -351,39 +350,6 @@ export class WorldScene extends Phaser.Scene {
     const houseY = ts * 8;
     const doorW = ts * 1.2;
     const doorH = ts * 0.6;
-
-    // Visual: "My House" sign above the door area
-    const signGraphics = this.add.graphics();
-    signGraphics.setDepth(DEPTH.ENTITIES - 1);
-    // Sign board
-    signGraphics.fillStyle(0x8b6b3d, 1);
-    signGraphics.fillRoundedRect(houseX - 24, houseY - 30, 48, 14, 2);
-    signGraphics.lineStyle(1, 0x5c3a1e, 1);
-    signGraphics.strokeRoundedRect(houseX - 24, houseY - 30, 48, 14, 2);
-
-    const houseLabel = this.add.text(houseX, houseY - 23, 'My House', {
-      fontSize: '6px',
-      color: '#ffffff',
-      fontFamily: 'monospace',
-      fontStyle: 'bold',
-    });
-    houseLabel.setOrigin(0.5);
-    houseLabel.setDepth(DEPTH.ENTITIES);
-
-    // Door indicator (glowing doorway)
-    const doorGlow = this.add.graphics();
-    doorGlow.setDepth(DEPTH.GROUND_DECOR + 1);
-    doorGlow.fillStyle(0xf2a65a, 0.15);
-    doorGlow.fillRect(houseX - doorW / 2, houseY - doorH / 2, doorW, doorH);
-    doorGlow.lineStyle(1, 0xf2a65a, 0.4);
-    doorGlow.strokeRect(houseX - doorW / 2, houseY - doorH / 2, doorW, doorH);
-
-    // Door icon
-    const doorIcon = this.add.text(houseX, houseY, '\u{1F3E0}', {
-      fontSize: '12px',
-    });
-    doorIcon.setOrigin(0.5);
-    doorIcon.setDepth(DEPTH.ENTITIES);
 
     // Overlap zone for entering the house
     const enterZone = this.add.zone(houseX, houseY, doorW, doorH);
@@ -640,10 +606,6 @@ export class WorldScene extends Phaser.Scene {
     ];
 
     this.activityZoneUI.createZones(this.player.sprite, zoneConfigs);
-    this.createZoneMarkers(zoneConfigs);
-
-    // Edge exit indicators (tanda arah ke activity map)
-    this.createEdgeIndicators();
 
     // Minimap markers
     const minimapMarkers = zoneConfigs.map(z => ({
@@ -790,6 +752,7 @@ export class WorldScene extends Phaser.Scene {
       case 'fishing':    return { name: 'Fishing',    icon: '\u{1F3A3}', color: 0x4488cc };
       case 'bench_sit':  return { name: 'Bench',      icon: '\u{1F4BA}', color: 0x88aa66 };
       case 'gardening':  return { name: 'Garden',     icon: '\u{1F331}', color: 0x66bb66 };
+      case 'animal_care': return { name: 'Animals',    icon: '\u{1F404}', color: 0xc49a6c };
       case 'stargazing': return { name: 'Stargaze',   icon: '\u2B50',    color: 0xccaa44 };
       default:           return { name: '???',        icon: '?',         color: 0xaaaaaa };
     }
@@ -847,7 +810,6 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private onShutdown(): void {
-    EventBus.removeAll('ui:open-pause-menu');
     gameManager.clearSceneSystems();
     gameManager.pauseGameplay();
     this.eventSystem.destroy();

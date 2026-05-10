@@ -60,7 +60,6 @@ export class FishingScene extends Phaser.Scene {
 
     this.buildBackground();
     this.buildDock();
-    this.buildExitSign();
 
     // Player masuk dari sisi kiri (di pantai, di atas pasir)
     this.player = new Player(this, 30, SHORE_Y + 45);
@@ -83,8 +82,6 @@ export class FishingScene extends Phaser.Scene {
       width: 160,
       height: 40,
     }]);
-
-    this.buildZoneMarker(340, SHORE_Y + 10, '🎣', 'Mancing');
 
     // E key
     this.input.keyboard!

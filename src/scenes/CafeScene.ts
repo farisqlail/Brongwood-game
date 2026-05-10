@@ -19,6 +19,13 @@ import { ITEM_DEFS } from '@/types/inventory';
 const CAFE_W = 640; // pixels
 const CAFE_H = 400; // pixels
 
+const CAFE_TABLES = [
+  { x: 170, y: 236, key: 'house2-meja-horizontal', scale: 1.15, collider: { w: 92, h: 44 } },
+  { x: 470, y: 236, key: 'house2-meja-horizontal', scale: 1.15, collider: { w: 92, h: 44 } },
+  { x: 92,  y: 154, key: 'house2-meja-vertical',   scale: 0.85, collider: { w: 36, h: 72 } },
+  { x: 548, y: 154, key: 'house2-meja-vertical',   scale: 0.85, collider: { w: 36, h: 72 } },
+] as const;
+
 export class CafeScene extends Phaser.Scene {
   private player!: Player;
   private barista!: NPC;
@@ -51,35 +58,7 @@ export class CafeScene extends Phaser.Scene {
   create(): void {
     this.exiting = false;
 
-    // Background
-    this.add.rectangle(CAFE_W / 2, CAFE_H / 2, CAFE_W, CAFE_H, 0x5a4030).setDepth(DEPTH.GROUND);
-
-    // Floor pattern
-    for (let x = 0; x < CAFE_W; x += 32) {
-      for (let y = 0; y < CAFE_H; y += 32) {
-        if ((x / 32 + y / 32) % 2 === 0) {
-          this.add.rectangle(x + 16, y + 16, 31, 31, 0x6a5040, 0.4).setDepth(DEPTH.GROUND);
-        }
-      }
-    }
-
-    // Walls
-    this.add.rectangle(CAFE_W / 2, 16, CAFE_W, 32, 0x3a2820).setDepth(DEPTH.GROUND_DECOR);
-    this.add.rectangle(16, CAFE_H / 2, 32, CAFE_H, 0x3a2820).setDepth(DEPTH.GROUND_DECOR);
-    this.add.rectangle(CAFE_W - 16, CAFE_H / 2, 32, CAFE_H, 0x3a2820).setDepth(DEPTH.GROUND_DECOR);
-
-    // Counter
-    this.add.rectangle(CAFE_W / 2, 100, 300, 16, 0x8a6040).setDepth(DEPTH.ENTITIES);
-
-    // Tables
-    this.add.rectangle(180, 240, 60, 40, 0x7a5838).setDepth(DEPTH.ENTITIES);
-    this.add.rectangle(460, 240, 60, 40, 0x7a5838).setDepth(DEPTH.ENTITIES);
-
-    // Exit indicator
-    const exitLabel = this.add.text(CAFE_W / 2, CAFE_H - 20, '[ EXIT - walk down ]', {
-      fontSize: '8px', color: '#f2a65a', fontFamily: 'monospace',
-    }).setOrigin(0.5).setDepth(DEPTH.UI);
-    this.tweens.add({ targets: exitLabel, alpha: 0.3, duration: 700, yoyo: true, repeat: -1 });
+    this.buildInterior();
 
     // Player (no world bounds — free to walk to exit)
     this.player = new Player(this, CAFE_W / 2, CAFE_H - 80);
@@ -95,6 +74,7 @@ export class CafeScene extends Phaser.Scene {
     this.physics.add.collider(this.player.sprite, wallLeft as unknown as Phaser.Physics.Arcade.StaticBody);
     this.physics.add.collider(this.player.sprite, wallRight as unknown as Phaser.Physics.Arcade.StaticBody);
     this.physics.add.collider(this.player.sprite, counterBody as unknown as Phaser.Physics.Arcade.StaticBody);
+    this.createTableColliders();
 
     // Barista
     this.barista = new NPC(this, {
@@ -134,6 +114,7 @@ export class CafeScene extends Phaser.Scene {
     // Stop outdoor audio
     proceduralAudio.stopBirds();
     proceduralAudio.stopWind();
+    proceduralAudio.stopRain();
 
     // Fade in
     this.cameras.main.fadeIn(400, 0, 0, 0);
@@ -184,6 +165,122 @@ export class CafeScene extends Phaser.Scene {
       this.barista.faceToward(this.player.x, this.player.y);
       this.dialogueSystem.start(BARISTA_DIALOGUE);
       this.promptText.setVisible(false);
+    }
+  }
+
+  private buildInterior(): void {
+    this.add.rectangle(CAFE_W / 2, CAFE_H / 2, CAFE_W, CAFE_H, 0x5a4030).setDepth(DEPTH.GROUND);
+
+    // Warm wooden floor planks.
+    for (let y = 40; y < CAFE_H; y += 18) {
+      this.add.rectangle(CAFE_W / 2, y, CAFE_W, 1, 0x3a2618, 0.24).setDepth(DEPTH.GROUND);
+    }
+    for (let x = 48; x < CAFE_W - 48; x += 52) {
+      this.add.rectangle(x, CAFE_H / 2, 1, CAFE_H - 56, 0x6a5040, 0.18).setDepth(DEPTH.GROUND);
+    }
+
+    // Soft rugs / worn floor patches.
+    const floorG = this.add.graphics().setDepth(DEPTH.GROUND);
+    const patches = [
+      { x: 160, y: 240, w: 132, h: 78, c: 0x70443a },
+      { x: 470, y: 240, w: 132, h: 78, c: 0x70443a },
+      { x: 320, y: 318, w: 170, h: 34, c: 0x3d3026 },
+    ];
+    for (const p of patches) {
+      floorG.fillStyle(p.c, 0.24);
+      floorG.fillRoundedRect(p.x - p.w / 2, p.y - p.h / 2, p.w, p.h, 6);
+    }
+
+    // Walls and trim.
+    this.add.rectangle(CAFE_W / 2, 16, CAFE_W, 32, 0x3a2820).setDepth(DEPTH.GROUND_DECOR);
+    this.add.rectangle(16, CAFE_H / 2, 32, CAFE_H, 0x3a2820).setDepth(DEPTH.GROUND_DECOR);
+    this.add.rectangle(CAFE_W - 16, CAFE_H / 2, 32, CAFE_H, 0x3a2820).setDepth(DEPTH.GROUND_DECOR);
+    this.add.rectangle(CAFE_W / 2, 42, CAFE_W - 64, 5, 0x7a5838).setDepth(DEPTH.GROUND_DECOR + 1);
+
+    // Windows and wall decor.
+    for (const x of [120, 520]) {
+      this.add.rectangle(x, 29, 54, 20, 0x203858).setDepth(DEPTH.GROUND_DECOR + 2);
+      this.add.rectangle(x, 29, 48, 14, 0x5fa8c8, 0.45).setDepth(DEPTH.GROUND_DECOR + 3);
+      this.add.rectangle(x, 29, 2, 18, 0xe0c08a).setDepth(DEPTH.GROUND_DECOR + 4);
+      this.add.rectangle(x, 29, 54, 2, 0xe0c08a).setDepth(DEPTH.GROUND_DECOR + 4);
+    }
+
+    this.add.rectangle(320, 31, 92, 18, 0x4a3020).setDepth(DEPTH.GROUND_DECOR + 2);
+    this.add.text(320, 31, 'BRONGWOOD CAFE', {
+      fontSize: '7px', color: '#f2a65a', fontFamily: 'monospace', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(DEPTH.GROUND_DECOR + 3);
+
+    // Counter with shelves and cups.
+    this.add.rectangle(CAFE_W / 2, 98, 316, 20, 0x8a6040).setDepth(DEPTH.ENTITIES);
+    this.add.rectangle(CAFE_W / 2, 86, 300, 8, 0xb08050).setDepth(DEPTH.ENTITIES + 1);
+    this.add.rectangle(CAFE_W / 2, 110, 330, 8, 0x5c3a24).setDepth(DEPTH.ENTITIES + 1);
+    for (let x = 205; x <= 435; x += 46) {
+      this.add.rectangle(x, 76, 24, 8, 0x2d2018).setDepth(DEPTH.GROUND_DECOR + 2);
+      this.add.rectangle(x - 5, 70, 6, 8, 0xf0d0a0).setDepth(DEPTH.GROUND_DECOR + 3);
+      this.add.rectangle(x + 5, 70, 6, 8, 0xd8e0e0).setDepth(DEPTH.GROUND_DECOR + 3);
+    }
+
+    // Tables from house tilemap assets.
+    for (const table of CAFE_TABLES) {
+      const img = this.add.image(table.x, table.y, table.key);
+      img.setScale(table.scale);
+      img.setDepth(table.y);
+      this.addTableDetails(table.x, table.y);
+      this.addTableChairs(table.x, table.y, table.key === 'house2-meja-horizontal');
+    }
+  }
+
+  private addTableDetails(x: number, y: number): void {
+    const g = this.add.graphics().setDepth(y + 1);
+
+    // Cups/plates on top.
+    g.fillStyle(0xf0e0c0, 0.95);
+    g.fillCircle(x - 10, y - 7, 4);
+    g.fillCircle(x + 11, y + 5, 4);
+    g.fillStyle(0x7c3f2c, 0.9);
+    g.fillCircle(x - 10, y - 7, 2);
+  }
+
+  private addTableChairs(x: number, y: number, horizontal: boolean): void {
+    if (horizontal) {
+      this.placeChair(x - 62, y - 6, 'utility-kursi-vertical', 0.9);
+      this.placeChair(x + 62, y - 6, 'utility-kursi-vertical', 0.9);
+      this.placeChair(x, y + 42, 'utility-kursi-horizontal', 0.9);
+    } else {
+      this.placeChair(x - 34, y - 22, 'utility-kursi-vertical', 0.82);
+      this.placeChair(x + 34, y + 22, 'utility-kursi-vertical', 0.82);
+    }
+  }
+
+  private placeChair(x: number, y: number, key: string, scale: number): void {
+    const chair = this.add.image(x, y, key);
+    chair.setScale(scale);
+    chair.setDepth(y - 2);
+  }
+
+  private createTableColliders(): void {
+    for (const table of CAFE_TABLES) {
+      const x = table.x - table.collider.w / 2;
+      const y = table.y - table.collider.h / 2;
+      const body = this.physics.add.staticBody(x, y, table.collider.w, table.collider.h);
+      this.physics.add.collider(this.player.sprite, body as unknown as Phaser.Physics.Arcade.StaticBody);
+
+      const horizontal = table.key === 'house2-meja-horizontal';
+      const chairs = horizontal
+        ? [
+            { x: table.x - 70, y: table.y - 22, w: 16, h: 30 },
+            { x: table.x + 54, y: table.y - 22, w: 16, h: 30 },
+            { x: table.x - 10, y: table.y + 26, w: 20, h: 24 },
+          ]
+        : [
+            { x: table.x - 42, y: table.y - 38, w: 18, h: 28 },
+            { x: table.x + 24, y: table.y + 8, w: 18, h: 28 },
+          ];
+
+      for (const chair of chairs) {
+        const chairBody = this.physics.add.staticBody(chair.x, chair.y, chair.w, chair.h);
+        this.physics.add.collider(this.player.sprite, chairBody as unknown as Phaser.Physics.Arcade.StaticBody);
+      }
     }
   }
 

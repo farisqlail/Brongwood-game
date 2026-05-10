@@ -34,6 +34,7 @@ export class PreloadScene extends Phaser.Scene {
     const land = 'assets/tilemaps/land';
     this.load.image('land-floor-2', `${land}/Floors_Tiles 2.png`);
     this.load.image('land-floor-3', `${land}/Floors_Tiles 3.png`);
+    this.load.image('land-floor-4', `${land}/Floors_Tiles 4.png`);
     this.load.image('land-water-2', `${land}/Water_tiles 2.png`);
     this.load.image('land-water-3', `${land}/Water_tiles 3.png`);
     this.load.image('land-water-4', `${land}/Water_tiles 4.png`);
@@ -46,6 +47,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('house2-genteng', `${houseV2}/genteng_1.png`);
     this.load.image('house2-genteng-horizontal', `${houseV2}/genteng_horizontal_1.png`);
     this.load.image('house2-genteng-kayu-tengah', `${houseV2}/genteng_kayu_tengah_1.png`);
+    this.load.image('house2-house-1', `${houseV2}/house_1.png`);
     this.load.image('house2-jendela-kaca', `${houseV2}/jendela_kaca_1.png`);
     this.load.image('house2-kasur', `${houseV2}/kasur_1.png`);
     this.load.image('house2-lemari-buku', `${houseV2}/lemari_buku_1.png`);
@@ -57,6 +59,56 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('house2-tanaman', `${houseV2}/tanaman_1.png`);
     this.load.image('house2-tembok-kayu', `${houseV2}/tembok_kayu_1.png`);
     this.load.image('house2-tempat-bunga', `${houseV2}/tempat_bunga_kayu_1.png`);
+
+    // === FARM / CROPS ===
+    const farm = 'assets/tilemaps/farm';
+    this.load.image('farm-tile-2', `${farm}/tilemap_farm_2.png`);
+    const carrotFiles = [
+      'bibit_wortel', 'wortel_1', 'wortel_2', 'wortel_3', 'wortel_4', 'wortel_5',
+      'wortel_5_busuk', 'wortel_busuk', 'wortel', 'box_wortel',
+      'karung_wortel', 'karung_wortel_buka',
+    ];
+    for (const name of carrotFiles) {
+      this.load.image(`farm-${name}`, `${farm}/wortel/${name}.png`);
+    }
+    const onionFiles = [
+      'bibit_bawang_merah', 'bawang_merah_1', 'bawang_merah_2', 'bawang_merah_3',
+      'bawang_merah_4', 'bawang_merah_5', 'bawang_merah_6', 'bawang_merah_7',
+      'bawang_merah_6_busuk', 'bawang_merah_7_busuk', 'box_bawang_merah',
+      'karung_bawang_merah', 'karung_bawang_merah_buka',
+    ];
+    for (const name of onionFiles) {
+      this.load.image(`farm-${name}`, `${farm}/bawang/${name}.png`);
+    }
+
+    // === UTILITIES / INTERACTABLE OBJECTS ===
+    const ember = 'assets/tilemaps/utilities/ember';
+    const emberFiles = [
+      'ember_1', 'ember_2', 'ember_2_1', 'ember_2_2',
+      'ember_3_1', 'ember_3_2', 'ember_4_1', 'ember_4_2',
+    ];
+    for (const name of emberFiles) {
+      this.load.image(`utility-${name}`, `${ember}/${name}.png`);
+    }
+
+    const utilityBox = 'assets/tilemaps/utilities/box';
+    const utilityBoxFiles = [
+      'box_1', 'box_2', 'box_3', 'box_4',
+      'circle_box_1', 'circle_box_2', 'circle_box_3',
+      'peti_1', 'peti_2',
+    ];
+    for (const name of utilityBoxFiles) {
+      this.load.image(`utility-${name}`, `${utilityBox}/${name}.png`);
+    }
+
+    const utilityFence = 'assets/tilemaps/utilities/pagar';
+    this.load.image('utility-pagar-horizontal', `${utilityFence}/pagar_horizontal.png`);
+    this.load.image('utility-pagar-vertical-kecil', `${utilityFence}/pagar_vertical_kecil.png`);
+    this.load.image('utility-pagar-vertical-panjang', `${utilityFence}/pagar_vertical_panjang.png`);
+
+    const utilityChair = 'assets/tilemaps/utilities/kursi';
+    this.load.image('utility-kursi-horizontal', `${utilityChair}/kursi_kayu_horizontal.png`);
+    this.load.image('utility-kursi-vertical', `${utilityChair}/kursi_kayu_vertical.png`);
 
     // Shadow (1-6) — used as grass/ground cover
     for (let i = 1; i <= 6; i++) {
@@ -76,6 +128,12 @@ export class PreloadScene extends Phaser.Scene {
     // Decor/Trees (1-17)
     for (let i = 1; i <= 17; i++) {
       this.load.image(`decor-${i}`, `assets/sprites/tileset/2 Objects/3 Decor/${i}.png`);
+    }
+
+    // Trees from tilemaps/trees. Do not load dry_tree variants for gameplay trees.
+    const treeAssets = 'assets/tilemaps/trees';
+    for (let i = 1; i <= 4; i++) {
+      this.load.image(`tile-tree-${i}`, `${treeAssets}/tree_${i}.png`);
     }
 
     // Box (1-5)

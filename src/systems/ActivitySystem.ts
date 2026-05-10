@@ -39,7 +39,7 @@ import { gameManager } from '@/managers/GameManager';
 // TYPES
 // ============================================================
 
-export type ActivityId = 'fishing' | 'gardening' | 'cafe_sit' | 'bench_sit' | 'stargazing';
+export type ActivityId = 'fishing' | 'gardening' | 'animal_care' | 'cafe_sit' | 'bench_sit' | 'stargazing';
 
 export type ActivityState = 'idle' | 'prompt' | 'starting' | 'active' | 'ending';
 
@@ -115,6 +115,20 @@ export const ACTIVITY_CONFIGS: Record<ActivityId, ActivityConfig> = {
       { id: 'flower_grew', text: 'A small bud appeared. It should bloom in a few days.', chance: 0.5 },
       { id: 'watered', text: 'The soil is moist. The plants look happy.', chance: 0.4 },
       { id: 'butterfly', text: 'A butterfly landed on your hand. A quiet moment.', chance: 0.1 },
+    ],
+  },
+  animal_care: {
+    id: 'animal_care',
+    name: 'Animal Care',
+    durationMinutes: 20,
+    promptText: 'Care for the animals',
+    advancesTime: true,
+    cameraZoom: 1.1,
+    cancellable: true,
+    outcomes: [
+      { id: 'fed', text: 'The animals eat calmly. The pen feels warmer now.', chance: 0.45 },
+      { id: 'brushed', text: 'You brush the animals and tidy the straw.', chance: 0.35 },
+      { id: 'trusted', text: 'One animal follows your hand for a moment.', chance: 0.2 },
     ],
   },
   cafe_sit: {

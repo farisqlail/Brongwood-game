@@ -56,6 +56,7 @@ class GameManagerImpl {
   // --- State ---
   private _initialized: boolean = false;
   private _gameplayActive: boolean = false;
+  public gameFlags: Record<string, boolean | number | string> = {};
 
   constructor() {
     this.time = new TimeSystem();
@@ -130,7 +131,7 @@ class GameManagerImpl {
       relationships: this.relationships.serialize(),
       completedEvents: [],
       dialogueFlags: {},
-      gameFlags: {},
+      gameFlags: this.gameFlags,
     });
   }
 
@@ -140,6 +141,7 @@ class GameManagerImpl {
 
     this.time.deserialize(data.time);
     this.relationships.deserialize(data.relationships);
+    this.gameFlags = data.gameFlags ?? {};
     this.npcSchedules.evaluateAll();
 
     return data;
@@ -149,6 +151,7 @@ class GameManagerImpl {
     const defaults = SaveSystem.createNewGameData();
     this.time.setTime(defaults.time.hour, defaults.time.minute, defaults.time.day);
     this.relationships.initRelationship('rika');
+    this.gameFlags = {};
     this.npcSchedules.evaluateAll();
   }
 }
