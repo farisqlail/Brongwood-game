@@ -483,32 +483,25 @@ export class FishingScene extends Phaser.Scene {
   }
 
   private buildDock(): void {
-    const g = this.add.graphics().setDepth(DEPTH.GROUND_DECOR);
-
-    // Papan dermaga (coklat kayu tua)
     const dockX = 240;
-    const dockW = 180;
     const dockY = SHORE_Y - 15;
+    const bridgeY = dockY + 13;
 
-    // Badan dermaga
-    g.fillStyle(0x6b4c2a, 1);
-    g.fillRect(dockX, dockY, dockW, 18);
+    const pieces = [
+      { key: 'land-bridge-small-left', x: dockX + 16 },
+      { key: 'land-bridge-small', x: dockX + 44 },
+      { key: 'land-bridge-small', x: dockX + 68 },
+      { key: 'land-bridge-small', x: dockX + 92 },
+      { key: 'land-bridge-small', x: dockX + 116 },
+      { key: 'land-bridge-small', x: dockX + 140 },
+      { key: 'land-bridge-small-right', x: dockX + 167 },
+    ];
 
-    // Garis papan
-    g.lineStyle(1, 0x4a3020, 0.6);
-    for (let x = dockX + 20; x < dockX + dockW; x += 20) {
-      g.lineBetween(x, dockY, x, dockY + 18);
+    for (const piece of pieces) {
+      this.add
+        .image(piece.x, bridgeY, piece.key)
+        .setDepth(DEPTH.GROUND_DECOR + 1);
     }
-
-    // Tiang dermaga
-    g.fillStyle(0x4a3020, 1);
-    g.fillRect(dockX + 10, dockY + 18, 6, 30);
-    g.fillRect(dockX + dockW - 16, dockY + 18, 6, 30);
-    g.fillRect(dockX + dockW / 2 - 3, dockY + 18, 6, 30);
-
-    // Pagar dermaga kecil
-    g.lineStyle(2, 0x5c3a1e, 1);
-    g.lineBetween(dockX, dockY, dockX + dockW, dockY);
   }
 
   private buildExitSign(): void {

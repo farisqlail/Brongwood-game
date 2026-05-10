@@ -35,6 +35,9 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('land-floor-2', `${land}/Floors_Tiles 2.png`);
     this.load.image('land-floor-3', `${land}/Floors_Tiles 3.png`);
     this.load.image('land-floor-4', `${land}/Floors_Tiles 4.png`);
+    this.load.image('land-bridge-small', `${land}/jembatan_kecil.png`);
+    this.load.image('land-bridge-small-left', `${land}/jembatan_kecil_sisi_kiri.png`);
+    this.load.image('land-bridge-small-right', `${land}/jembatan_kecil_sisi_kanan.png`);
     this.load.image('land-water-2', `${land}/Water_tiles 2.png`);
     this.load.image('land-water-3', `${land}/Water_tiles 3.png`);
     this.load.image('land-water-4', `${land}/Water_tiles 4.png`);
@@ -48,6 +51,8 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('house2-genteng-horizontal', `${houseV2}/genteng_horizontal_1.png`);
     this.load.image('house2-genteng-kayu-tengah', `${houseV2}/genteng_kayu_tengah_1.png`);
     this.load.image('house2-house-1', `${houseV2}/house_1.png`);
+    this.load.image('house2-rumah-indo-1', `${houseV2}/rumah_indo_1.png`);
+    this.load.image('house2-rumah-indo-2', `${houseV2}/rumah_indo_2.png`);
     this.load.image('house2-jendela-kaca', `${houseV2}/jendela_kaca_1.png`);
     this.load.image('house2-kasur', `${houseV2}/kasur_1.png`);
     this.load.image('house2-lemari-buku', `${houseV2}/lemari_buku_1.png`);

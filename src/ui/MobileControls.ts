@@ -38,6 +38,7 @@ export class MobileControls {
   // State
   private _joystickState: JoystickState = { isActive: false, forceX: 0, forceY: 0 };
   private _visible: boolean = false;
+  private _gameVisible: boolean = true;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -59,15 +60,22 @@ export class MobileControls {
     this._actionPressed = false; // consume
     return pressed;
   }
-  get visible(): boolean { return this._visible; }
+  get visible(): boolean { return this._visible && this._gameVisible; }
 
   /** Show or hide the controls (e.g. during dialogue). No-op on non-touch devices. */
   setGameVisible(visible: boolean): void {
     if (!this._visible) return;
+    this._gameVisible = visible;
     this.joystickBase.setVisible(visible);
     this.joystickThumb.setVisible(visible);
     this.actionBtn.setVisible(visible);
     this.actionBtnText.setVisible(visible);
+    if (!visible) {
+      this._actionPressed = false;
+      this.joystickPointer = null;
+      this._joystickState = { isActive: false, forceX: 0, forceY: 0 };
+      this.joystickThumb.setPosition(this.baseX, this.baseY);
+    }
   }
 
   destroy(): void {
@@ -131,6 +139,8 @@ export class MobileControls {
   }
 
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
+    if (!this._gameVisible) return;
+
     // If a UI element already consumed this pointer event, ignore it
     if (InputGuard.check()) return;
 
@@ -159,12 +169,16 @@ export class MobileControls {
   }
 
   private onPointerMove(pointer: Phaser.Input.Pointer): void {
+    if (!this._gameVisible) return;
+
     if (this.joystickPointer && pointer.id === this.joystickPointer.id) {
       this.updateJoystick(pointer);
     }
   }
 
   private onPointerUp(pointer: Phaser.Input.Pointer): void {
+    if (!this._gameVisible) return;
+
     if (this.joystickPointer && pointer.id === this.joystickPointer.id) {
       this.joystickPointer = null;
       this._joystickState = { isActive: false, forceX: 0, forceY: 0 };

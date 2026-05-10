@@ -45,6 +45,8 @@ export class VegetationSystem {
 
     this.placeGrassGround();
     this.placeHouses();
+    this.placeIndonesianHouse();
+    this.placeIndonesianHouse2();
     this.placeDecor();
     this.placeStones();
     this.placeBoxes();
@@ -186,7 +188,6 @@ export class VegetationSystem {
       { x: ts * 7.5, y: ts * 1.5, variant: 2, scale: 0.8 },
       { x: ts * 12.5, y: ts * 1.5, variant: 3, scale: 0.75 },
       { x: ts * 4, y: ts * 8, variant: 4, scale: 0.7 },
-      { x: ts * 11, y: ts * 8, variant: 1, scale: 0.7 },
     ];
 
     for (let i = 0; i < houses.length; i++) {
@@ -236,6 +237,48 @@ export class VegetationSystem {
       col.body!.setSize(55 * h.scale, 35 * h.scale);
       col.refreshBody();
     }
+  }
+
+  private placeIndonesianHouse2(): void {
+    const key = 'house2-rumah-indo-2';
+    if (!this.scene.textures.exists(key)) return;
+
+    const ts = GAME_CONFIG.TILE_SIZE;
+    const x = ts * 11;
+    const y = ts * 8.5;
+    const scale = 0.20;
+
+    const sprite = this.scene.add.image(x, y, key);
+    sprite.setScale(scale);
+    sprite.setOrigin(0.5, 0.76);
+    sprite.setDepth(y);
+    this.staticProps.push(sprite);
+
+    const col = this.collisionGroup.create(x - 4, y - 40, '_collider') as Phaser.Physics.Arcade.Sprite;
+    col.setVisible(false);
+    col.setDisplaySize(132, 104);
+    col.refreshBody();
+  }
+
+  private placeIndonesianHouse(): void {
+    const key = 'house2-rumah-indo-1';
+    if (!this.scene.textures.exists(key)) return;
+
+    const ts = GAME_CONFIG.TILE_SIZE;
+    const x = ts * 7.5;
+    const y = ts * 8.5;
+    const scale = 0.20;
+
+    const sprite = this.scene.add.image(x, y, key);
+    sprite.setScale(scale);
+    sprite.setOrigin(0.5, 0.76);
+    sprite.setDepth(y);
+    this.staticProps.push(sprite);
+
+    const col = this.collisionGroup.create(x - 4, y - 40, '_collider') as Phaser.Physics.Arcade.Sprite;
+    col.setVisible(false);
+    col.setDisplaySize(132, 104);
+    col.refreshBody();
   }
 
   // ============================================================

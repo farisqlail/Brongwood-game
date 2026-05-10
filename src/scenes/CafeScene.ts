@@ -36,6 +36,16 @@ export class CafeScene extends Phaser.Scene {
   private exiting: boolean = false;
   private coffeeOrdered: boolean = false;
 
+  private readonly onPlayerLocked = (payload: { locked: boolean }) => {
+    if (payload.locked) this.player.freeze();
+    else this.player.unfreeze();
+  };
+
+  private readonly onDialogueStarted = () => {
+    this.mobileControls.setGameVisible(false);
+    this.promptText.setVisible(false);
+  };
+
   // Named handlers so we can remove them from EventBus on shutdown
   private readonly onChoiceMade = (p: GameEvents['dialogue:choice-made']) => {
     if (p.dialogueId === 'barista_chat' && p.choiceId === 'coffee') {
@@ -45,6 +55,7 @@ export class CafeScene extends Phaser.Scene {
 
   private readonly onDialogueEnded = () => {
     this.barista.unfreeze();
+    this.mobileControls.setGameVisible(true);
     if (this.coffeeOrdered) {
       this.coffeeOrdered = false;
       this.giveCoffee();
@@ -68,7 +79,7 @@ export class CafeScene extends Phaser.Scene {
     const wallTop = this.physics.add.staticBody(0, 0, CAFE_W, 40);
     const wallLeft = this.physics.add.staticBody(0, 0, 40, CAFE_H);
     const wallRight = this.physics.add.staticBody(CAFE_W - 40, 0, 40, CAFE_H);
-    const counterBody = this.physics.add.staticBody(CAFE_W / 2 - 150, 92, 300, 16);
+    const counterBody = this.physics.add.staticBody(CAFE_W / 2 - 156, 82, 312, 44);
 
     this.physics.add.collider(this.player.sprite, wallTop as unknown as Phaser.Physics.Arcade.StaticBody);
     this.physics.add.collider(this.player.sprite, wallLeft as unknown as Phaser.Physics.Arcade.StaticBody);
@@ -108,6 +119,8 @@ export class CafeScene extends Phaser.Scene {
     this.mobileControls = new MobileControls(this);
 
     // Dialogue events
+    EventBus.on('event:player-locked', this.onPlayerLocked, this);
+    EventBus.on('dialogue:started', this.onDialogueStarted, this);
     EventBus.on('dialogue:choice-made', this.onChoiceMade, this);
     EventBus.on('dialogue:ended',       this.onDialogueEnded, this);
 
@@ -120,6 +133,8 @@ export class CafeScene extends Phaser.Scene {
     this.cameras.main.fadeIn(400, 0, 0, 0);
 
     this.events.on('shutdown', () => {
+      EventBus.off('event:player-locked', this.onPlayerLocked);
+      EventBus.off('dialogue:started', this.onDialogueStarted);
       EventBus.off('dialogue:choice-made', this.onChoiceMade);
       EventBus.off('dialogue:ended',       this.onDialogueEnded);
       this.dialogueSystem.destroy();
@@ -132,7 +147,7 @@ export class CafeScene extends Phaser.Scene {
     if (this.exiting) return;
 
     // Mobile joystick
-    if (this.mobileControls.visible) {
+    if (this.mobileControls.visible && !this.dialogueSystem.isActive) {
       const js = this.mobileControls.joystickState;
       this.player.setJoystickInput(js.isActive, js.forceX, js.forceY);
       if (this.mobileControls.actionPressed) this.tryInteract();
@@ -210,10 +225,12 @@ export class CafeScene extends Phaser.Scene {
       fontSize: '7px', color: '#f2a65a', fontFamily: 'monospace', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(DEPTH.GROUND_DECOR + 3);
 
-    // Counter with shelves and cups.
-    this.add.rectangle(CAFE_W / 2, 98, 316, 20, 0x8a6040).setDepth(DEPTH.ENTITIES);
-    this.add.rectangle(CAFE_W / 2, 86, 300, 8, 0xb08050).setDepth(DEPTH.ENTITIES + 1);
-    this.add.rectangle(CAFE_W / 2, 110, 330, 8, 0x5c3a24).setDepth(DEPTH.ENTITIES + 1);
+    // Barista counter uses the wooden table object from the house tilemap.
+    for (let i = 0; i < 4; i++) {
+      const counter = this.add.image(206 + i * 76, 101, 'house2-meja-horizontal');
+      counter.setScale(1.06);
+      counter.setDepth(DEPTH.ENTITIES);
+    }
     for (let x = 205; x <= 435; x += 46) {
       this.add.rectangle(x, 76, 24, 8, 0x2d2018).setDepth(DEPTH.GROUND_DECOR + 2);
       this.add.rectangle(x - 5, 70, 6, 8, 0xf0d0a0).setDepth(DEPTH.GROUND_DECOR + 3);

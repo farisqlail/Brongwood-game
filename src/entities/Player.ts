@@ -92,6 +92,7 @@ export class Player {
   /** Disable movement (for dialogue, cutscenes) */
   freeze(): void {
     this.movementSystem.setEnabled(false);
+    this.setJoystickInput(false, 0, 0);
     this.sprite.setVelocity(0, 0);
   }
 
