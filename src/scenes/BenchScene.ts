@@ -24,12 +24,17 @@ import { SceneHUD } from '@/ui/SceneHUD';
 import { SceneAtmosphere } from '@/systems/SceneAtmosphere';
 import { EventBus } from '@/core/EventBus';
 import { gameManager } from '@/managers/GameManager';
+import { AudioSystem } from '@/systems/AudioSystem';
+import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
 
 const W = GAME_CONFIG.WIDTH;
 const H = GAME_CONFIG.HEIGHT;
 
-const PATH_Y  = 155;   // Y tengah jalur setapak
-const SKY_H   = 80;    // tinggi area langit
+const PATH_Y      = 155; // Y tengah jalur setapak
+const PATH_HALF_H = 28;  // jalan utama lebih lebar: total 56px
+const PATH_TOP    = PATH_Y - PATH_HALF_H;
+const PATH_BOTTOM = PATH_Y + PATH_HALF_H;
+const SKY_H       = 80;  // tinggi area langit
 
 export class BenchScene extends Phaser.Scene {
   private player!: Player;
@@ -40,10 +45,18 @@ export class BenchScene extends Phaser.Scene {
   private hud!: SceneHUD;
   private atmosphere!: SceneAtmosphere;
   private nightSky!: Phaser.GameObjects.Graphics;
+  private ownedAudioSystem: AudioSystem | null = null;
   private lanternGlows: Phaser.GameObjects.Graphics[] = [];
   private fireflyGs:    Phaser.GameObjects.Graphics[] = [];
   private butterflies:  Phaser.GameObjects.Graphics[] = [];
+  private grassTufts:   Phaser.GameObjects.Graphics[] = [];
+  private skyGrassObjects: Phaser.GameObjects.Image[] = [];
+  private lightFlickerTime = 0;
   private exiting = false;
+  private readonly onPlayerLocked = (payload: { locked: boolean }) => {
+    if (payload.locked) this.player.freeze();
+    else this.player.unfreeze();
+  };
 
   constructor() {
     super({ key: 'BenchScene' });
@@ -78,13 +91,14 @@ export class BenchScene extends Phaser.Scene {
     // Zona duduk di bangku
     this.activityZoneUI.createZones(this.player.sprite, [{
       id: 'bench_sit',
-      x: 170,
-      y: PATH_Y - 20,
-      width: 100,
-      height: 50,
+      x: 150,
+      y: PATH_TOP - 50,
+      width: 120,
+      height: 38,
     }]);
 
-    this.buildZoneMarker(220, PATH_Y + 5, '🪑', 'Duduk');
+    this.buildZoneMarker(210, PATH_TOP - 12, '🪑', 'Duduk');
+    this.createObjectColliders();
 
     // E key
     this.input.keyboard!
@@ -97,10 +111,7 @@ export class BenchScene extends Phaser.Scene {
         }
       });
 
-    EventBus.on('event:player-locked', (payload: { locked: boolean }) => {
-      if (payload.locked) this.player.freeze();
-      else this.player.unfreeze();
-    }, this);
+    EventBus.on('event:player-locked', this.onPlayerLocked, this);
 
     this.mobileControls = new MobileControls(this);
 
@@ -111,6 +122,8 @@ export class BenchScene extends Phaser.Scene {
 
     this.hud = new SceneHUD(this, 'bench', W, H);
     this.atmosphere = new SceneAtmosphere(this);
+    gameManager.startGameplay();
+    this.ownedAudioSystem = bootstrapGameplayAudio(this);
 
     this.events.on('shutdown', this.onShutdown, this);
     this.events.on('wake',     this.onWake,     this);
@@ -119,6 +132,7 @@ export class BenchScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     gameManager.update(delta);
     this.atmosphere.update(delta);
+    this.lightFlickerTime += delta;
     const nightA = this.getNightAlpha();
     this.nightSky.setAlpha(nightA);
     this.updateNightElements(nightA);
@@ -260,67 +274,45 @@ export class BenchScene extends Phaser.Scene {
   private buildPath(): void {
     const g = this.add.graphics().setDepth(DEPTH.GROUND_DECOR);
 
-    // Jalur batu (abu-abu)
+    // Jalur batu utama (lebih lebar agar nyaman dilalui)
     g.fillStyle(0x9a9070, 1);
-    g.fillRect(0, PATH_Y - 15, W, 32);
+    g.fillRect(0, PATH_TOP, W, PATH_HALF_H * 2);
+
+    g.fillStyle(0x80765d, 0.5);
+    g.fillRect(0, PATH_TOP, W, 4);
+    g.fillRect(0, PATH_BOTTOM - 4, W, 4);
 
     // Batu-batu individual
     g.fillStyle(0x8a8060, 1);
     for (let x = 10; x < W; x += 28) {
-      g.fillRoundedRect(x, PATH_Y - 12, 18, 10, 2);
+      g.fillRoundedRect(x, PATH_TOP + 8, 18, 10, 2);
       g.fillRoundedRect(x + 10, PATH_Y + 2, 14, 8, 2);
+      g.fillRoundedRect(x - 4, PATH_BOTTOM - 16, 16, 8, 2);
     }
 
     // Tepi rumput
     g.fillStyle(0x4a8020, 1);
-    g.fillRect(0, PATH_Y - 16, W, 3);
-    g.fillRect(0, PATH_Y + 17, W, 3);
+    g.fillRect(0, PATH_TOP - 2, W, 3);
+    g.fillRect(0, PATH_BOTTOM, W, 3);
   }
 
   private buildBench(): void {
-    const g = this.add.graphics().setDepth(DEPTH.ENTITIES - 1);
-    const bx = 170;
-    const by = PATH_Y - 22;
-
-    // Sandaran belakang
-    g.fillStyle(0x6b4c2a, 1);
-    g.fillRect(bx, by, 80, 8);
-    g.fillRect(bx + 5, by, 4, 20);
-    g.fillRect(bx + 71, by, 4, 20);
-
-    // Dudukan
-    g.fillStyle(0x7a5838, 1);
-    g.fillRect(bx, by + 12, 80, 10);
-
-    // Kaki bangku
-    g.fillStyle(0x4a3020, 1);
-    g.fillRect(bx + 8,  by + 22, 6, 14);
-    g.fillRect(bx + 66, by + 22, 6, 14);
-
-    // Garis papan kayu
-    g.lineStyle(1, 0x4a3020, 0.4);
-    g.lineBetween(bx + 20, by, bx + 20, by + 8);
-    g.lineBetween(bx + 40, by, bx + 40, by + 8);
-    g.lineBetween(bx + 60, by, bx + 60, by + 8);
-
-    // Pot bunga kecil di ujung bangku
-    const pfG = this.add.graphics().setDepth(DEPTH.ENTITIES);
-    pfG.fillStyle(0x8b4513, 1);
-    pfG.fillRect(bx - 16, by + 8, 14, 10);
-    pfG.fillStyle(0x3a9020, 1);
-    pfG.fillCircle(bx - 9, by + 4, 8);
-    pfG.fillStyle(0xff6688, 0.8);
-    pfG.fillCircle(bx - 9, by + 2, 4);
+    this.add
+      .image(210, PATH_TOP - 4, 'house2-bangku-taman')
+      .setOrigin(0.5, 1)
+      .setScale(1.05)
+      .setDepth(DEPTH.ENTITIES - 1);
   }
 
   private buildExitSign(): void {
     const g = this.add.graphics().setDepth(DEPTH.ENTITIES);
+    const signY = PATH_TOP - 22;
     g.fillStyle(0x8b6b3d, 1);
-    g.fillRoundedRect(W - 50, PATH_Y - 8, 46, 14, 2);
+    g.fillRoundedRect(W - 54, signY, 48, 14, 2);
     g.lineStyle(1, 0x5c3a1e, 1);
-    g.strokeRoundedRect(W - 50, PATH_Y - 8, 46, 14, 2);
+    g.strokeRoundedRect(W - 54, signY, 48, 14, 2);
 
-    this.add.text(W - 27, PATH_Y - 1, 'Kota →', {
+    this.add.text(W - 30, signY + 7, 'Kota →', {
       fontSize: '5px', color: '#ffffff', fontFamily: 'monospace',
     }).setOrigin(0.5).setDepth(DEPTH.ENTITIES + 1);
   }
@@ -347,11 +339,11 @@ export class BenchScene extends Phaser.Scene {
     const iconTxt = this.add.text(x, y - 72, icon, { fontSize: '10px' })
       .setOrigin(0.5).setDepth(DEPTH.ENTITIES);
 
-    // Pohon kiri dan kanan
-    this.drawTree(60,  90);
-    this.drawTree(420, 85);
-    this.drawTree(120, 75);
-    this.drawTree(370, 95);
+    // Pohon ditempatkan di pinggir jalan, bukan di badan jalan.
+    this.drawTree(60,  45);
+    this.drawTree(420, 48);
+    this.drawTree(115, PATH_BOTTOM + 18);
+    this.drawTree(370, PATH_BOTTOM + 12);
 
     this.tweens.add({ targets: iconTxt, y: y - 76, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   }
@@ -397,14 +389,39 @@ export class BenchScene extends Phaser.Scene {
   }
 
   // ── Helai rumput di tepi langit dan jalur ──────────────────────
+  private createObjectColliders(): void {
+    this.addColliderBox(0, 0, W, SKY_H + 4); // batas langit
+
+    this.addColliderBox(166, PATH_TOP - 36, 88, 30); // bench
+    this.addColliderBox(188, PATH_TOP - 72, 44, 58); // activity sign
+    this.addColliderBox(W - 54, PATH_TOP - 22, 48, 16); // exit sign
+
+    this.addColliderBox(300, PATH_BOTTOM + 3, 20, 74); // lower lantern
+    this.addColliderBox(420, PATH_TOP - 76, 20, 74); // upper lantern
+
+    this.addTreeCollider(60, 45);
+    this.addTreeCollider(420, 48);
+    this.addTreeCollider(115, PATH_BOTTOM + 18);
+    this.addTreeCollider(370, PATH_BOTTOM + 12);
+  }
+
+  private addTreeCollider(x: number, y: number): void {
+    this.addColliderBox(x - 18, y + 24, 36, 42);
+  }
+
+  private addColliderBox(x: number, y: number, width: number, height: number): void {
+    const body = this.physics.add.staticBody(x, y, width, height);
+    this.physics.add.collider(this.player.sprite, body as unknown as Phaser.Physics.Arcade.StaticBody);
+  }
+
   private buildGrassDetail(): void {
     const g = this.add.graphics().setDepth(DEPTH.GROUND - 3);
 
     // Helai rumput di batas langit-rumput
-    for (let x = 0; x < W; x += 3) {
+    for (let x = 0; x < W; x += 5) {
       const h   = 4 + ((x * 7919) % 7);
       const col = x % 4 === 0 ? 0x5a9a30 : 0x4a8a20;
-      g.fillStyle(col, 0.65 + (x % 3) * 0.12);
+      g.fillStyle(col, 0.25 + (x % 3) * 0.08);
       g.fillRect(x, SKY_H - h, 2, h + 1);
     }
 
@@ -412,18 +429,100 @@ export class BenchScene extends Phaser.Scene {
     for (let x = 0; x < W; x += 4) {
       const h = 3 + ((x * 3571) % 5);
       g.fillStyle(0x5a9030, 0.55);
-      g.fillRect(x,     PATH_Y - 17 - h, 1, h);
-      g.fillRect(x + 2, PATH_Y - 17 - (h - 1), 1, h - 1);
+      g.fillRect(x,     PATH_TOP - 3 - h, 1, h);
+      g.fillRect(x + 2, PATH_TOP - 3 - (h - 1), 1, h - 1);
     }
     // Tepi bawah jalur
     for (let x = 0; x < W; x += 4) {
       const h = 2 + ((x * 2713) % 4);
       g.fillStyle(0x4a8020, 0.50);
-      g.fillRect(x, PATH_Y + 17, 1, h);
+      g.fillRect(x, PATH_BOTTOM + 2, 1, h);
     }
+
+    this.spawnAnimatedGrassTufts();
+    this.spawnSkyGrassObjects();
   }
 
   // ── Bunga tersebar di rumput ────────────────────────────────────
+  private spawnAnimatedGrassTufts(): void {
+    const zones = [
+      { y: PATH_TOP - 10, spread: 16, count: 42 },
+      { y: PATH_BOTTOM + 10, spread: 20, count: 48 },
+      { y: PATH_BOTTOM + 34, spread: 26, count: 24 },
+    ];
+
+    for (const zone of zones) {
+      for (let i = 0; i < zone.count; i++) {
+        const x = (i * 73.137 + zone.y * 0.37) % W;
+        const y = zone.y + (((i * 41.71) % 1) - 0.5) * zone.spread;
+        const tuft = this.createGrassTuft(x, y, i);
+        this.grassTufts.push(tuft);
+      }
+    }
+  }
+
+  private createGrassTuft(x: number, y: number, seed: number): Phaser.GameObjects.Graphics {
+    const tuft = this.add.graphics().setDepth(DEPTH.GROUND_DECOR + 1);
+    const bladeCount = 4 + (seed % 4);
+    const heightBase = 6 + (seed % 5);
+    const colors = [0x5aa02f, 0x4b8a24, 0x6db43a, 0x3f7420];
+
+    for (let i = 0; i < bladeCount; i++) {
+      const offset = (i - bladeCount / 2) * 1.8;
+      const height = heightBase + ((seed + i * 3) % 5);
+      const lean = ((seed * 11 + i * 7) % 9) - 4;
+      tuft.lineStyle(1, colors[(seed + i) % colors.length], 0.72);
+      tuft.lineBetween(offset, 0, offset + lean, -height);
+    }
+
+    tuft.setPosition(x, y);
+
+    this.tweens.add({
+      targets: tuft,
+      angle: { from: -2 - (seed % 3), to: 2 + (seed % 4) },
+      scaleX: { from: 0.94, to: 1.08 },
+      duration: 900 + (seed % 7) * 170,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+      delay: (seed % 9) * 90,
+    });
+
+    return tuft;
+  }
+
+  private spawnSkyGrassObjects(): void {
+    const rows = [
+      { y: SKY_H + 8, count: 14, scale: 0.42 },
+      { y: SKY_H + 24, count: 10, scale: 0.36 },
+    ];
+
+    for (const row of rows) {
+      for (let i = 0; i < row.count; i++) {
+        const x = ((i * 37 + row.y * 1.9) % (W + 36)) - 18;
+        const y = row.y + (((i * 19.73) % 1) - 0.5) * 10;
+        const key = `grass-${(i % 6) + 1}`;
+        const grass = this.add.image(x, y, key)
+          .setScale(row.scale + (i % 3) * 0.04)
+          .setDepth(DEPTH.GROUND_DECOR + 2)
+          .setAlpha(0.82);
+
+        this.tweens.add({
+          targets: grass,
+          angle: { from: -1.8 - (i % 2), to: 1.8 + (i % 3) },
+          x: x + (((i % 2) * 2 - 1) * 1.5),
+          duration: 1300 + (i % 6) * 180,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+          delay: i * 65,
+        });
+
+        this.skyGrassObjects.push(grass);
+      }
+    }
+  }
+
   private buildFlowers(): void {
     const palette: [number, number][] = [
       [0xffffff, 0xffee88], // daisy putih
@@ -437,8 +536,8 @@ export class BenchScene extends Phaser.Scene {
 
     for (let i = 0; i < 34; i++) {
       const fx = ((i * 137.508) % 1) * W;
-      const fy = SKY_H + 10 + ((i * 73.137) % 1) * (PATH_Y - SKY_H - 22);
-      if (fy > PATH_Y - 19 && fy < PATH_Y + 19) continue; // lewati jalur
+      const fy = SKY_H + 10 + ((i * 73.137) % 1) * (PATH_TOP - SKY_H - 14);
+      if (fy > PATH_TOP - 6 && fy < PATH_BOTTOM + 6) continue; // lewati jalur
       const [petal, center] = palette[i % palette.length];
 
       // Batang
@@ -459,9 +558,13 @@ export class BenchScene extends Phaser.Scene {
 
   // ── Lampu taman (tiang + cahaya malam) ─────────────────────────
   private buildLanterns(): void {
-    const posts = [310, 420];
-    for (const lx of posts) {
-      const ly = PATH_Y - 38;
+    const posts = [
+      { x: 310, y: PATH_BOTTOM + 19 },
+      { x: 430, y: PATH_TOP - 60 },
+    ];
+    for (const post of posts) {
+      const lx = post.x;
+      const ly = post.y;
       const g  = this.add.graphics().setDepth(DEPTH.ENTITIES);
 
       // Tiang
@@ -480,10 +583,14 @@ export class BenchScene extends Phaser.Scene {
 
       // Lingkaran cahaya malam (alpha di-update tiap frame)
       const glow = this.add.graphics().setDepth(DEPTH.ENTITIES - 1);
-      glow.fillStyle(0xffe890, 0.40);
-      glow.fillCircle(lx, ly - 8, 38);
-      glow.fillStyle(0xffe890, 0.55);
-      glow.fillCircle(lx, ly - 8, 18);
+      glow.fillStyle(0xffeeb0, 0.10);
+      glow.fillEllipse(lx, ly - 2, 82, 52);
+      glow.fillStyle(0xffd56a, 0.11);
+      glow.fillEllipse(lx, ly + 18, 62, 34);
+      glow.fillStyle(0xfff3bf, 0.26);
+      glow.fillCircle(lx, ly - 8, 24);
+      glow.fillStyle(0xffffff, 0.30);
+      glow.fillCircle(lx, ly - 8, 9);
       glow.setAlpha(0);
       this.lanternGlows.push(glow);
     }
@@ -504,7 +611,7 @@ export class BenchScene extends Phaser.Scene {
       lg.fillEllipse(0, 0, ew, eh);
       lg.setPosition(sx, sy);
 
-      const fallDist = PATH_Y + 15 - sy;
+      const fallDist = PATH_TOP - 8 - sy;
       const dur      = 5000 + Math.random() * 5000;
       const swayX    = (Math.random() < 0.5 ? 1 : -1) * (18 + Math.random() * 28);
 
@@ -531,8 +638,8 @@ export class BenchScene extends Phaser.Scene {
   // ── Kunang-kunang (hanya malam) ─────────────────────────────────
   private spawnFireflies(): void {
     const clusters = [
-      { cx: 70,  cy: 125 }, { cx: 160, cy: 115 },
-      { cx: 340, cy: 120 }, { cx: 430, cy: 110 },
+      { cx: 70,  cy: 110 }, { cx: 160, cy: 104 },
+      { cx: 325, cy: PATH_BOTTOM + 34 }, { cx: 430, cy: 106 },
     ];
     for (let i = 0; i < 22; i++) {
       const cl = clusters[i % clusters.length];
@@ -609,8 +716,12 @@ export class BenchScene extends Phaser.Scene {
   // ── Update elemen malam setiap frame ───────────────────────────
   private updateNightElements(nightAlpha: number): void {
     // Lampu taman — menyala saat sore/malam
-    for (const glow of this.lanternGlows) {
-      glow.setAlpha(Math.min(nightAlpha * 1.3, 0.85));
+    for (let i = 0; i < this.lanternGlows.length; i++) {
+      const glow = this.lanternGlows[i];
+      const flicker = 0.88 + Math.sin(this.lightFlickerTime * 0.006 + i * 1.7) * 0.07
+        + Math.sin(this.lightFlickerTime * 0.017 + i) * 0.03;
+      glow.setAlpha(Math.min(nightAlpha * 1.15 * flicker, 0.82));
+      glow.setScale(1 + (flicker - 0.9) * 0.08);
     }
     // Kunang-kunang — muncul di malam
     const showFF = nightAlpha > 0.15;
@@ -645,11 +756,20 @@ export class BenchScene extends Phaser.Scene {
   }
 
   private onShutdown(): void {
-    EventBus.off('event:player-locked', undefined, this);
+    EventBus.off('event:player-locked', this.onPlayerLocked);
     this.mobileControls.destroy();
     this.activityZoneUI.destroy();
     this.pauseMenu.destroy();
     this.hud.destroy();
     this.atmosphere.destroy();
+    for (const tuft of this.grassTufts) tuft.destroy();
+    this.grassTufts = [];
+    for (const grass of this.skyGrassObjects) grass.destroy();
+    this.skyGrassObjects = [];
+    this.ownedAudioSystem?.destroy();
+    if (this.ownedAudioSystem) {
+      gameManager.registerSceneSystems({ audio: null });
+      this.ownedAudioSystem = null;
+    }
   }
 }

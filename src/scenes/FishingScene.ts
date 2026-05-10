@@ -24,6 +24,8 @@ import { SceneHUD } from '@/ui/SceneHUD';
 import { SceneAtmosphere } from '@/systems/SceneAtmosphere';
 import { EventBus } from '@/core/EventBus';
 import { gameManager } from '@/managers/GameManager';
+import { AudioSystem } from '@/systems/AudioSystem';
+import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
 
 const W = GAME_CONFIG.WIDTH;   // 480
 const H = GAME_CONFIG.HEIGHT;  // 300
@@ -40,7 +42,12 @@ export class FishingScene extends Phaser.Scene {
   private hud!: SceneHUD;
   private atmosphere!: SceneAtmosphere;
   private nightSky!: Phaser.GameObjects.Graphics;
+  private ownedAudioSystem: AudioSystem | null = null;
   private exiting = false;
+  private readonly onPlayerLocked = (payload: { locked: boolean }) => {
+    if (payload.locked) this.player.freeze();
+    else this.player.unfreeze();
+  };
 
   constructor() {
     super({ key: 'FishingScene' });
@@ -91,10 +98,7 @@ export class FishingScene extends Phaser.Scene {
       });
 
     // Freeze/unfreeze player saat activity berlangsung
-    EventBus.on('event:player-locked', (payload: { locked: boolean }) => {
-      if (payload.locked) this.player.freeze();
-      else this.player.unfreeze();
-    }, this);
+    EventBus.on('event:player-locked', this.onPlayerLocked, this);
 
     this.mobileControls = new MobileControls(this);
 
@@ -106,6 +110,8 @@ export class FishingScene extends Phaser.Scene {
 
     this.hud = new SceneHUD(this, 'fishing', W, H);
     this.atmosphere = new SceneAtmosphere(this);
+    gameManager.startGameplay();
+    this.ownedAudioSystem = bootstrapGameplayAudio(this);
 
     this.events.on('shutdown', this.onShutdown, this);
     this.events.on('wake',     this.onWake,     this);
@@ -592,11 +598,16 @@ export class FishingScene extends Phaser.Scene {
   }
 
   private onShutdown(): void {
-    EventBus.off('event:player-locked', undefined, this);
+    EventBus.off('event:player-locked', this.onPlayerLocked);
     this.mobileControls.destroy();
     this.activityZoneUI.destroy();
     this.pauseMenu.destroy();
     this.hud.destroy();
     this.atmosphere.destroy();
+    this.ownedAudioSystem?.destroy();
+    if (this.ownedAudioSystem) {
+      gameManager.registerSceneSystems({ audio: null });
+      this.ownedAudioSystem = null;
+    }
   }
 }

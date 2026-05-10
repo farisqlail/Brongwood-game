@@ -24,9 +24,20 @@ import { SceneHUD } from '@/ui/SceneHUD';
 import { SceneAtmosphere } from '@/systems/SceneAtmosphere';
 import { EventBus } from '@/core/EventBus';
 import { gameManager } from '@/managers/GameManager';
+import { AudioSystem } from '@/systems/AudioSystem';
+import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
 
 const W = GAME_CONFIG.WIDTH;
 const H = GAME_CONFIG.HEIGHT;
+const MAIN_PATH_X = W / 2;
+const MAIN_PATH_HALF_W = 24;
+const BOTTOM_PATH_Y = H - 58;
+const TREE_POSITIONS = [
+  { x: 24,  y: 28 },
+  { x: 456, y: 24 },
+  { x: 24,  y: 232 },
+  { x: 456, y: 228 },
+] as const;
 
 export class GardenScene extends Phaser.Scene {
   private player!: Player;
@@ -36,7 +47,12 @@ export class GardenScene extends Phaser.Scene {
   private pauseMenu!: PauseMenuUI;
   private hud!: SceneHUD;
   private atmosphere!: SceneAtmosphere;
+  private ownedAudioSystem: AudioSystem | null = null;
   private exiting = false;
+  private readonly onPlayerLocked = (payload: { locked: boolean }) => {
+    if (payload.locked) this.player.freeze();
+    else this.player.unfreeze();
+  };
 
   constructor() {
     super({ key: 'GardenScene' });
@@ -48,6 +64,7 @@ export class GardenScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, W, H);
 
     this.buildBackground();
+    this.buildFieldDetails();
     this.buildGardenBeds();
     this.buildTrees();
     this.buildExitSign();
@@ -66,13 +83,14 @@ export class GardenScene extends Phaser.Scene {
     // Zona berkebun — di tengah kebun
     this.activityZoneUI.createZones(this.player.sprite, [{
       id: 'gardening',
-      x: 170,
-      y: 140,
-      width: 140,
-      height: 60,
+      x: 48,
+      y: 156,
+      width: 104,
+      height: 62,
     }]);
 
-    this.buildZoneMarker(240, 165, '🌱', 'Berkebun');
+    this.buildZoneMarker(100, 188, '🌱', 'Berkebun');
+    this.createObjectColliders();
 
     // E key
     this.input.keyboard!
@@ -85,10 +103,7 @@ export class GardenScene extends Phaser.Scene {
         }
       });
 
-    EventBus.on('event:player-locked', (payload: { locked: boolean }) => {
-      if (payload.locked) this.player.freeze();
-      else this.player.unfreeze();
-    }, this);
+    EventBus.on('event:player-locked', this.onPlayerLocked, this);
 
     this.mobileControls = new MobileControls(this);
 
@@ -99,6 +114,8 @@ export class GardenScene extends Phaser.Scene {
 
     this.hud = new SceneHUD(this, 'garden', W, H);
     this.atmosphere = new SceneAtmosphere(this);
+    gameManager.startGameplay();
+    this.ownedAudioSystem = bootstrapGameplayAudio(this);
 
     this.events.on('shutdown', this.onShutdown, this);
     this.events.on('wake',     this.onWake,     this);
@@ -138,51 +155,97 @@ export class GardenScene extends Phaser.Scene {
   private buildBackground(): void {
     const g = this.add.graphics().setDepth(DEPTH.GROUND - 2);
 
-    // Langit pagi (kuning-biru)
-    g.fillGradientStyle(0x87ceeb, 0x87ceeb, 0xd4f0ff, 0xd4f0ff, 1);
-    g.fillRect(0, 0, W, 75);
+    // Full kebun dari atas sampai bawah, tanpa strip langit.
+    g.fillGradientStyle(0x6aa642, 0x6aa642, 0x3f7a2a, 0x3f7a2a, 1);
+    g.fillRect(0, 0, W, H);
 
-    // Bukit jauh (hijau muda)
-    g.fillStyle(0x6aab3e, 0.7);
-    for (let x = -20; x < W + 20; x += 80) {
-      g.fillCircle(x, 80, 55);
+    // Patch tanah dan rumput agar bidang terasa luas, bukan panel datar.
+    const patchColors: Array<[number, number]> = [
+      [0x4f8b31, 0.24], [0x76b34c, 0.18], [0x2f6421, 0.16],
+      [0x8a6a34, 0.12], [0x5d9b39, 0.18],
+    ];
+    for (let i = 0; i < 46; i++) {
+      const x = ((i * 137.508) % 1) * W;
+      const y = ((i * 73.137) % 1) * H;
+      const [color, alpha] = patchColors[i % patchColors.length];
+      g.fillStyle(color, alpha);
+      g.fillEllipse(x, y, 48 + (i % 6) * 18, 14 + (i % 5) * 8);
     }
 
-    // Rumput taman (hijau cerah)
-    g.fillGradientStyle(0x5a9e3a, 0x5a9e3a, 0x4a8c2e, 0x4a8c2e, 1);
-    g.fillRect(0, 65, W, H - 65);
+    // Jalan utama berupa tanah padat, bukan jalur abu-abu.
+    g.fillStyle(0x8a6434, 0.92);
+    g.fillRect(MAIN_PATH_X - MAIN_PATH_HALF_W, 0, MAIN_PATH_HALF_W * 2, H);
+    g.fillRect(0, BOTTOM_PATH_Y - 12, W, 26);
 
-    // Jalur setapak (abu pasir)
-    g.fillStyle(0xb8a880, 0.6);
-    g.fillRect(W / 2 - 16, 65, 32, H - 65);
-    g.fillRect(0, H - 60, W, 20);
+    g.fillStyle(0xa77b44, 0.45);
+    g.fillRect(MAIN_PATH_X - MAIN_PATH_HALF_W + 4, 0, MAIN_PATH_HALF_W * 2 - 8, H);
+    g.fillRect(0, BOTTOM_PATH_Y - 8, W, 18);
 
-    // Batu-batu jalur
-    g.fillStyle(0xa09070, 0.4);
-    for (let y = 80; y < H - 60; y += 16) {
-      g.fillRect(W / 2 - 14, y, 12, 8);
-      g.fillRect(W / 2 + 2,  y + 5, 12, 8);
+    // Tepi jalur yang tidak terlalu kaku.
+    g.fillStyle(0x5f7c32, 0.35);
+    g.fillRect(MAIN_PATH_X - MAIN_PATH_HALF_W - 3, 0, 3, BOTTOM_PATH_Y - 12);
+    g.fillRect(MAIN_PATH_X + MAIN_PATH_HALF_W, 0, 3, BOTTOM_PATH_Y - 12);
+    g.fillRect(0, BOTTOM_PATH_Y - 15, W, 3);
+    g.fillRect(0, BOTTOM_PATH_Y + 14, W, 3);
+
+    // Variasi tanah di jalan utama.
+    g.fillStyle(0x6e4b26, 0.26);
+    for (let y = 8; y < H - 42; y += 14) {
+      g.fillEllipse(MAIN_PATH_X - 10, y, 16, 5);
+      g.fillEllipse(MAIN_PATH_X + 11, y + 7, 14, 4);
     }
 
-    // Awan
-    const cloudG = this.add.graphics().setDepth(DEPTH.GROUND);
-    cloudG.fillStyle(0xffffff, 0.9);
-    this.drawCloud(cloudG, 70,  20, 45);
-    this.drawCloud(cloudG, 380, 12, 38);
+    // Jalur horizontal bawah dibuat lebih organik dengan jejak tanah kecil.
+    for (let x = 8; x < W; x += 26) {
+      g.fillEllipse(x, BOTTOM_PATH_Y - 2 + ((x * 17) % 9), 18, 6);
+    }
   }
 
-  private drawCloud(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number): void {
-    g.fillCircle(x,      y,     r * 0.55);
-    g.fillCircle(x + r * 0.5,  y + 2, r * 0.48);
-    g.fillCircle(x - r * 0.45, y + 4, r * 0.42);
-    g.fillRect(x - r * 0.45, y, r * 1.0, r * 0.5);
+  private buildFieldDetails(): void {
+    const g = this.add.graphics().setDepth(DEPTH.GROUND_DECOR - 1);
+
+    // Furrow / bekas garu di lahan.
+    g.lineStyle(1, 0x2f6421, 0.22);
+    for (let y = 22; y < H - 80; y += 14) {
+      g.beginPath();
+      for (let x = 0; x <= W; x += 8) {
+        const yy = y + Math.sin(x * 0.035 + y * 0.13) * 2.2;
+        if (x === 0) g.moveTo(x, yy);
+        else g.lineTo(x, yy);
+      }
+      g.strokePath();
+    }
+
+    // Rumput kecil tersebar.
+    for (let i = 0; i < 150; i++) {
+      const x = ((i * 97.31) % 1) * W;
+      const y = ((i * 53.77) % 1) * (H - 22) + 8;
+      if (this.isOnMainPath(x, y, 10)) continue;
+
+      const h = 4 + (i % 6);
+      const col = i % 3 === 0 ? 0x83c65a : i % 3 === 1 ? 0x4d8a2e : 0x2f6a22;
+      g.lineStyle(1, col, 0.58);
+      g.lineBetween(x, y, x - 2, y - h);
+      g.lineBetween(x + 1, y, x + 3, y - h + 1);
+    }
+
+    // Batu dan daun kecil sebagai noise visual.
+    for (let i = 0; i < 58; i++) {
+      const x = ((i * 41.91) % 1) * W;
+      const y = ((i * 83.17) % 1) * H;
+      if (this.isOnMainPath(x, y, 8)) continue;
+      const isPebble = i % 4 === 0;
+      g.fillStyle(isPebble ? 0x8d8066 : 0x6faa36, isPebble ? 0.42 : 0.30);
+      g.fillEllipse(x, y, isPebble ? 5 : 7, isPebble ? 3 : 2);
+    }
   }
 
   private buildGardenBeds(): void {
     const beds = [
-      { x: 60,  y: 130, w: 90, h: 55 },
-      { x: 195, y: 130, w: 90, h: 55 },
-      { x: 330, y: 130, w: 90, h: 55 },
+      { x: 48,  y: 64,  w: 104, h: 62 },
+      { x: 328, y: 64,  w: 104, h: 62 },
+      { x: 48,  y: 156, w: 104, h: 62 },
+      { x: 328, y: 156, w: 104, h: 62 },
     ];
 
     const g = this.add.graphics().setDepth(DEPTH.GROUND_DECOR);
@@ -209,6 +272,13 @@ export class GardenScene extends Phaser.Scene {
       // Tanaman di dalam bed
       this.drawPlants(bed.x + bed.w / 2, bed.y + bed.h / 2);
     }
+
+    // Pagar rendah / patok tepi kebun atas.
+    g.fillStyle(0x6b4c2a, 1);
+    for (let x = 12; x < W; x += 34) {
+      g.fillRect(x, 12, 5, 18);
+      g.fillRect(x + 2, 17, 28, 4);
+    }
   }
 
   private drawPlants(cx: number, cy: number): void {
@@ -229,14 +299,7 @@ export class GardenScene extends Phaser.Scene {
   }
 
   private buildTrees(): void {
-    const treePositions = [
-      { x: 30,  y: 90 },
-      { x: 80,  y: 75 },
-      { x: 400, y: 85 },
-      { x: 450, y: 70 },
-    ];
-
-    for (const t of treePositions) {
+    for (const t of TREE_POSITIONS) {
       this.drawTree(t.x, t.y);
     }
   }
@@ -244,17 +307,55 @@ export class GardenScene extends Phaser.Scene {
   private drawTree(x: number, y: number): void {
     const g = this.add.graphics().setDepth(DEPTH.ENTITIES - 1);
 
-    // Batang
-    g.fillStyle(0x6b4c2a, 1);
-    g.fillRect(x - 5, y + 30, 10, 40);
+    // Bayangan pohon di tanah
+    g.fillStyle(0x1a4008, 0.15);
+    g.fillEllipse(x + 5, y + 62, 56, 12);
 
-    // Mahkota 3 lapis
-    g.fillStyle(0x2e7d1a, 1);
-    g.fillTriangle(x - 30, y + 35, x, y - 5, x + 30, y + 35);
-    g.fillStyle(0x3a9922, 1);
-    g.fillTriangle(x - 24, y + 20, x, y - 20, x + 24, y + 20);
-    g.fillStyle(0x4ab030, 1);
-    g.fillTriangle(x - 18, y + 5, x, y - 35, x + 18, y + 5);
+    // Batang pohon
+    g.fillStyle(0x5c3a1e, 1);
+    g.fillRect(x - 5, y + 28, 10, 36);
+    g.fillStyle(0x6e4826, 1);
+    g.fillRect(x - 3, y + 30, 3, 32);
+    g.lineStyle(1, 0x3a2010, 0.35);
+    g.lineBetween(x + 2, y + 34, x + 3, y + 58);
+
+    // Daun berbentuk circle berlapis seperti map taman.
+    g.fillStyle(0x1e4c0a, 0.9);
+    g.fillCircle(x,       y + 10, 28);
+    g.fillCircle(x - 18,  y + 20, 20);
+    g.fillCircle(x + 20,  y + 16, 22);
+
+    g.fillStyle(0x2e7010, 0.9);
+    g.fillCircle(x - 10,  y + 2,  24);
+    g.fillCircle(x + 12,  y + 6,  22);
+    g.fillCircle(x,       y - 8,  18);
+    g.fillCircle(x - 22,  y + 8,  15);
+    g.fillCircle(x + 22,  y + 6,  15);
+
+    g.fillStyle(0x3e8820, 0.88);
+    g.fillCircle(x - 5,   y - 4,  16);
+    g.fillCircle(x + 9,   y - 2,  14);
+    g.fillCircle(x - 13,  y + 6,  12);
+    g.fillCircle(x + 16,  y - 2,  12);
+
+    g.fillStyle(0x5cc030, 0.38);
+    g.fillCircle(x - 8,   y - 10, 11);
+    g.fillCircle(x + 4,   y - 12, 8);
+  }
+
+  private createObjectColliders(): void {
+    for (const tree of TREE_POSITIONS) {
+      this.addTreeCollider(tree.x, tree.y);
+    }
+  }
+
+  private addTreeCollider(x: number, y: number): void {
+    this.addColliderBox(x - 18, y + 24, 36, 42);
+  }
+
+  private addColliderBox(x: number, y: number, width: number, height: number): void {
+    const body = this.physics.add.staticBody(x, y, width, height);
+    this.physics.add.collider(this.player.sprite, body as unknown as Phaser.Physics.Arcade.StaticBody);
   }
 
   private buildExitSign(): void {
@@ -295,6 +396,12 @@ export class GardenScene extends Phaser.Scene {
     this.tweens.add({ targets: iconTxt, y: y - 60, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   }
 
+  private isOnMainPath(x: number, y: number, padding: number = 0): boolean {
+    const onVertical = Math.abs(x - MAIN_PATH_X) < MAIN_PATH_HALF_W + padding && y < BOTTOM_PATH_Y + 16;
+    const onBottom = y > BOTTOM_PATH_Y - 12 - padding;
+    return onVertical || onBottom;
+  }
+
   // ============================================================
   // TRANSITIONS
   // ============================================================
@@ -320,11 +427,16 @@ export class GardenScene extends Phaser.Scene {
   }
 
   private onShutdown(): void {
-    EventBus.off('event:player-locked', undefined, this);
+    EventBus.off('event:player-locked', this.onPlayerLocked);
     this.mobileControls.destroy();
     this.activityZoneUI.destroy();
     this.pauseMenu.destroy();
     this.hud.destroy();
     this.atmosphere.destroy();
+    this.ownedAudioSystem?.destroy();
+    if (this.ownedAudioSystem) {
+      gameManager.registerSceneSystems({ audio: null });
+      this.ownedAudioSystem = null;
+    }
   }
 }

@@ -108,10 +108,11 @@ export class VegetationSystem {
       this.staticProps.push(sprite);
     }
 
-    // Add some actual grass sprites on top for variety
+    // Add actual grass sprites on top for variety.
+    // These are intentionally more visible than shadow ground cover, but still avoid the main road.
     if (!this.scene.textures.exists('grass-1')) return;
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 180; i++) {
       const x = ts * 1 + Math.random() * (mapW - ts * 2);
       const y = ts * 1 + Math.random() * (mapH - ts * 2);
 
@@ -125,8 +126,51 @@ export class VegetationSystem {
 
       const sprite = this.scene.add.image(x, y, key);
       sprite.setDepth(DEPTH.GROUND_DECOR + 1);
-      sprite.setScale(0.35 + Math.random() * 0.3);
+      sprite.setScale(0.28 + Math.random() * 0.36);
+      sprite.setAlpha(0.78 + Math.random() * 0.22);
       this.staticProps.push(sprite);
+
+      if (i % 2 === 0) {
+        this.animatedProps.push({
+          sprite,
+          baseX: x,
+          baseY: y,
+          phase: Math.random() * Math.PI * 2,
+          swayAmount: 0.25 + Math.random() * 0.35,
+          swaySpeed: 0.7 + Math.random() * 0.6,
+        });
+      }
+    }
+
+    // Denser grass clusters near the top and bottom fields so the town feels less empty.
+    const clusterRows = [2.7, 3.35, 6.45, 7.15, 8.7];
+    for (let i = 0; i < 140; i++) {
+      const row = clusterRows[i % clusterRows.length];
+      const x = ts * 0.5 + Math.random() * (mapW - ts);
+      const y = ts * row + (Math.random() - 0.5) * ts * 0.45;
+
+      const tileY = Math.floor(y / ts);
+      if (tileY >= 4 && tileY <= 5) continue;
+
+      const variant = Phaser.Math.Between(1, 6);
+      const key = `grass-${variant}`;
+      const tex = this.scene.textures.get(key);
+      if (!tex || tex.key === '__MISSING' || !tex.getSourceImage()) continue;
+
+      const sprite = this.scene.add.image(x, y, key);
+      sprite.setDepth(DEPTH.GROUND_DECOR + 1);
+      sprite.setScale(0.22 + Math.random() * 0.28);
+      sprite.setAlpha(0.65 + Math.random() * 0.25);
+      this.staticProps.push(sprite);
+
+      this.animatedProps.push({
+        sprite,
+        baseX: x,
+        baseY: y,
+        phase: Math.random() * Math.PI * 2,
+        swayAmount: 0.2 + Math.random() * 0.25,
+        swaySpeed: 0.55 + Math.random() * 0.45,
+      });
     }
   }
 

@@ -32,6 +32,8 @@ import { MobileControls } from '@/ui/MobileControls';
 import { SceneHUD } from '@/ui/SceneHUD';
 import { SceneAtmosphere } from '@/systems/SceneAtmosphere';
 import { gameManager } from '@/managers/GameManager';
+import { AudioSystem } from '@/systems/AudioSystem';
+import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
 
 // ─── Room dimensions ──────────────────────────────────────────
 const ROOM_W = 480;
@@ -52,6 +54,7 @@ export class HouseInteriorScene extends Phaser.Scene {
   private mobileControls!: MobileControls;
   private hud!: SceneHUD;
   private atmosphere!: SceneAtmosphere;
+  private ownedAudioSystem: AudioSystem | null = null;
   private exiting = false;
 
   constructor() {
@@ -82,6 +85,8 @@ export class HouseInteriorScene extends Phaser.Scene {
     this.mobileControls = new MobileControls(this);
     this.hud = new SceneHUD(this, 'house_interior', ROOM_W, ROOM_H);
     this.atmosphere = new SceneAtmosphere(this);
+    gameManager.startGameplay();
+    this.ownedAudioSystem = bootstrapGameplayAudio(this);
 
     // Label exit
     const exitLabel = this.add
@@ -359,5 +364,10 @@ export class HouseInteriorScene extends Phaser.Scene {
     this.mobileControls.destroy();
     this.hud.destroy();
     this.atmosphere.destroy();
+    this.ownedAudioSystem?.destroy();
+    if (this.ownedAudioSystem) {
+      gameManager.registerSceneSystems({ audio: null });
+      this.ownedAudioSystem = null;
+    }
   }
 }

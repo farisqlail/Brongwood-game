@@ -83,8 +83,8 @@ class GameManagerImpl {
   }
 
   registerSceneSystems(systems: Partial<SceneSystems>): void {
-    if (systems.atmosphere) this._sceneSystems.atmosphere = systems.atmosphere;
-    if (systems.audio) this._sceneSystems.audio = systems.audio;
+    if ('atmosphere' in systems) this._sceneSystems.atmosphere = systems.atmosphere ?? null;
+    if ('audio' in systems) this._sceneSystems.audio = systems.audio ?? null;
   }
 
   clearSceneSystems(): void {

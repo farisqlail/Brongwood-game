@@ -18,7 +18,7 @@ import { EventSystem } from '@/systems/EventSystem';
 import { DialogueSystem } from '@/dialogue/DialogueSystem';
 import { gameManager } from '@/managers/GameManager';
 import { EventBus } from '@/core/EventBus';
-import { TEXTURE_KEYS, AUDIO_KEYS } from '@config/assets.manifest';
+import { TEXTURE_KEYS } from '@config/assets.manifest';
 import { RAINY_NIGHT_FLOWER_SHOP } from '@/dialogue/events/RainyNightFlowerShop';
 import { getRikaDialogue } from '@/dialogue/RikaDialogue';
 import { TOWN_NPCS } from '@config/npcs.config';
@@ -31,6 +31,7 @@ import { PhoneUI } from '@/ui/PhoneUI';
 import { ActivityZoneUI, ActivityZoneConfig } from '@/ui/ActivityZoneUI';
 import { ActivitySystem } from '@/systems/ActivitySystem';
 import { PauseMenuUI } from '@/ui/PauseMenuUI';
+import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
 
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
@@ -137,26 +138,9 @@ export class WorldScene extends Phaser.Scene {
     this.pauseMenu = new PauseMenuUI(this);
     EventBus.on('ui:open-pause-menu', () => { if (!this.pauseMenu.opened) this.pauseMenu.open(); });
 
-    // Restore saved BGM volume
-    const savedBgmVol = parseFloat(localStorage.getItem('brongwood_bgm_volume') ?? '0.4');
-    this.audioSystem.setBGMVolume(isNaN(savedBgmVol) ? 0.4 : savedBgmVol);
-
-    // Mulai audio segera. Jika browser masih lock AudioContext (autoplay policy),
-    // Phaser akan unlock otomatis saat interaksi pertama dan emit 'unlocked'.
-    const startAudio = () => {
-      proceduralAudio.init();
-      proceduralAudio.resume();
-      proceduralAudio.startWind(0.3);
-      proceduralAudio.startBirds();
-      this.audioSystem.playBGM(AUDIO_KEYS.BGM_DOWNTOWN);
-    };
-
-    if (this.sound.locked) {
-      this.sound.once('unlocked', startAudio);
-    } else {
-      startAudio();
-    }
-
+    bootstrapGameplayAudio(this);
+    proceduralAudio.startWind(0.3);
+    proceduralAudio.startBirds();
 
     this.events.on('shutdown', this.onShutdown, this);
     this.events.on('wake', this.onWake, this);
