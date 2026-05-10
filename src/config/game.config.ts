@@ -61,5 +61,6 @@ export const SCENE_KEYS = {
   BOOT: 'BootScene',
   PRELOAD: 'PreloadScene',
   MAIN_MENU: 'MainMenuScene',
+  NEW_GAME_PROLOGUE: 'NewGamePrologueScene',
   WORLD: 'WorldScene',
 } as const;

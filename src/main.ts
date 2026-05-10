@@ -26,6 +26,7 @@ import { GAME_CONFIG } from './config/game.config';
 import { BootScene } from './scenes/BootScene';
 import { PreloadScene } from './scenes/PreloadScene';
 import { MainMenuScene } from './scenes/MainMenuScene';
+import { NewGamePrologueScene } from './scenes/NewGamePrologueScene';
 import { WorldScene } from './scenes/WorldScene';
 import { CafeScene } from './scenes/CafeScene';
 import { PlayerHouseScene } from './scenes/PlayerHouseScene';
@@ -68,7 +69,7 @@ const config: Phaser.Types.Core.GameConfig = {
   },
 
   // Scene registration order (first scene auto-starts)
-  scene: [BootScene, PreloadScene, MainMenuScene, WorldScene, CafeScene, PlayerHouseScene, HouseInteriorScene, FishingScene, GardenScene, BenchScene, HomesteadScene],
+  scene: [BootScene, PreloadScene, MainMenuScene, NewGamePrologueScene, WorldScene, CafeScene, PlayerHouseScene, HouseInteriorScene, FishingScene, GardenScene, BenchScene, HomesteadScene],
 
   // Input configuration
   input: {

@@ -154,9 +154,10 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   private startNewGame(): void {
+    gameManager.newGame();
     this.cameras.main.fadeOut(500, 0x1a, 0x1a, 0x2e);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start(SCENE_KEYS.WORLD);
+      this.scene.start(SCENE_KEYS.NEW_GAME_PROLOGUE);
     });
   }
 

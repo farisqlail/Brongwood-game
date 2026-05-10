@@ -28,6 +28,7 @@ import { StorySystem } from '@/systems/StorySystem';
 import { SaveSystem, SaveData } from '@/systems/SaveSystem';
 import { InventorySystem } from '@/systems/InventorySystem';
 import { RIKA_MESSAGES } from '@/dialogue/messages/RikaMessages';
+import { TOWN_NPCS } from '@config/npcs.config';
 
 /**
  * Scene-dependent systems that need a Phaser scene reference.
@@ -76,8 +77,7 @@ class GameManagerImpl {
     if (this._initialized) return;
     this._initialized = true;
 
-    // Initialize relationships
-    this.relationships.initRelationship('rika');
+    this.initializeRelationships();
 
     // Register Rika's phone messages
     this.phone.scheduleAll(RIKA_MESSAGES);
@@ -141,6 +141,7 @@ class GameManagerImpl {
 
     this.time.deserialize(data.time);
     this.relationships.deserialize(data.relationships);
+    this.initializeRelationships();
     this.gameFlags = data.gameFlags ?? {};
     this.npcSchedules.evaluateAll();
 
@@ -150,9 +151,17 @@ class GameManagerImpl {
   newGame(): void {
     const defaults = SaveSystem.createNewGameData();
     this.time.setTime(defaults.time.hour, defaults.time.minute, defaults.time.day);
-    this.relationships.initRelationship('rika');
+    this.relationships.deserialize({});
+    this.initializeRelationships();
     this.gameFlags = {};
     this.npcSchedules.evaluateAll();
+  }
+
+  private initializeRelationships(): void {
+    this.relationships.initRelationship('rika');
+    for (const npc of TOWN_NPCS) {
+      this.relationships.initRelationship(npc.id);
+    }
   }
 }
 

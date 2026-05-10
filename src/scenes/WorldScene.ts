@@ -577,6 +577,7 @@ export class WorldScene extends Phaser.Scene {
     // For town NPCs, find their dialogue from config
     const npcData = TOWN_NPCS.find(n => n.id === npc.id);
     if (npcData) {
+      gameManager.relationships.recordInteraction(npc.id, gameManager.time.day);
       this.dialogueSystem.start(npcData.dialogue);
     }
   }
