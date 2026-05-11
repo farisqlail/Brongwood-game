@@ -12,7 +12,16 @@
 import Phaser from 'phaser';
 import { AnimationSystem } from '@/systems/AnimationSystem';
 import { DEPTH } from '@config/game.config';
+import { TEXTURE_KEYS } from '@config/assets.manifest';
 import { Direction } from '@/types';
+
+const RIKA_NEW_DISPLAY_SCALE = 0.075;
+const RIKA_NEW_BODY_WIDTH = 180;
+const RIKA_NEW_BODY_HEIGHT = 80;
+const RIKA_NEW_BODY_OFFSET_X = 32;
+const RIKA_NEW_BODY_OFFSET_Y = 348;
+const RIKA_NEW_DEPTH_OFFSET = 380;
+const RIKA_NEW_IDLE_DOWN_FRAME = 16;
 
 export interface NPCConfig {
   id: string;
@@ -39,17 +48,24 @@ export class NPC {
 
     // Create sprite
     this.sprite = scene.physics.add.sprite(config.x, config.y, config.textureKey, 0);
-    this.sprite.setScale(config.scale ?? 0.7);
+    const isRika = config.textureKey === TEXTURE_KEYS.RIKA;
+    if (isRika) this.sprite.setFrame(RIKA_NEW_IDLE_DOWN_FRAME);
+    this.sprite.setScale(config.scale ?? (isRika ? RIKA_NEW_DISPLAY_SCALE : 0.7));
     this.sprite.setImmovable(true);
 
     // Physics body (so player can't walk through)
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
-    body.setSize(22, 12);
-    body.setOffset(35, 76); // Rika is 92x92
+    if (isRika) {
+      body.setSize(RIKA_NEW_BODY_WIDTH, RIKA_NEW_BODY_HEIGHT);
+      body.setOffset(RIKA_NEW_BODY_OFFSET_X, RIKA_NEW_BODY_OFFSET_Y);
+    } else {
+      body.setSize(22, 12);
+      body.setOffset(35, 76);
+    }
     body.setImmovable(true);
 
     // Depth sorting
-    this.sprite.setDepth(config.y + 76);
+    this.sprite.setDepth(config.y + (isRika ? RIKA_NEW_DEPTH_OFFSET : 76));
 
     // Animation system
     this.animationSystem = new AnimationSystem();

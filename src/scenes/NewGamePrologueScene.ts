@@ -11,6 +11,13 @@ interface PrologueObject {
   lines: string[];
 }
 
+const NEW_LAIL_DISPLAY_SCALE = 0.1;
+const NEW_LAIL_IDLE_DOWN_FRAME = 16;
+const NEW_LAIL_BODY_WIDTH = 180;
+const NEW_LAIL_BODY_HEIGHT = 80;
+const NEW_LAIL_BODY_OFFSET_X = 90;
+const NEW_LAIL_BODY_OFFSET_Y = 610;
+
 const RESIGNATION_SHOTS = [
   TEXTURE_KEYS.PROLOGUE_SCENE_3_1,
   TEXTURE_KEYS.PROLOGUE_SCENE_3_2,
@@ -308,12 +315,12 @@ export class NewGamePrologueScene extends Phaser.Scene {
       D: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D),
     };
 
-    this.player = this.physics.add.sprite(158, 176, TEXTURE_KEYS.PLAYER, 0);
-    this.player.setScale(0.58);
+    this.player = this.physics.add.sprite(158, 176, TEXTURE_KEYS.PLAYER, NEW_LAIL_IDLE_DOWN_FRAME);
+    this.player.setScale(NEW_LAIL_DISPLAY_SCALE);
     this.player.setCollideWorldBounds(true);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
-    body.setSize(18, 10);
-    body.setOffset(35, 74);
+    body.setSize(NEW_LAIL_BODY_WIDTH, NEW_LAIL_BODY_HEIGHT);
+    body.setOffset(NEW_LAIL_BODY_OFFSET_X, NEW_LAIL_BODY_OFFSET_Y);
 
     const walls = [
       this.physics.add.staticBody(62, 38, 356, 8),
@@ -536,8 +543,8 @@ export class NewGamePrologueScene extends Phaser.Scene {
   }
 
   private createMinimarketLail(): void {
-    this.player = this.physics.add.sprite(46, 204, TEXTURE_KEYS.PLAYER, 0);
-    this.player.setScale(0.58);
+    this.player = this.physics.add.sprite(46, 204, TEXTURE_KEYS.PLAYER, NEW_LAIL_IDLE_DOWN_FRAME);
+    this.player.setScale(NEW_LAIL_DISPLAY_SCALE);
     this.player.setDepth(this.player.y + 20);
   }
 

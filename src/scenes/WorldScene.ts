@@ -270,7 +270,6 @@ export class WorldScene extends Phaser.Scene {
       textureKey: TEXTURE_KEYS.RIKA,
       x: rikaSpawnX,
       y: rikaY,
-      scale: 0.7,
       direction: 'down',
       interactionRadius: 50,
     });

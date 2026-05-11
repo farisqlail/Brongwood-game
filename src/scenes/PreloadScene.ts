@@ -13,6 +13,10 @@ import { TEXTURE_KEYS } from '@config/assets.manifest';
 
 // Animation frame count per direction
 const FRAMES_PER_DIR = 6;
+const NEW_LAIL_FRAME_WIDTH = 360;
+const NEW_LAIL_FRAME_HEIGHT = 708;
+const NEW_RIKA_FRAME_WIDTH = 244;
+const NEW_RIKA_FRAME_HEIGHT = 428;
 
 // Directions we use for gameplay (4 cardinal)
 const DIRECTIONS = ['south', 'north', 'west', 'east'] as const;
@@ -169,30 +173,30 @@ export class PreloadScene extends Phaser.Scene {
       this.load.image(`house-${i}`, `assets/sprites/tileset/2 Objects/7 House/${i}.png`);
     }
 
-    // === LAIL walk animation frames ===
-    const lailAnimId = 'animation-9bfaed7f';
-    for (const dir of DIRECTIONS) {
-      for (let i = 0; i < FRAMES_PER_DIR; i++) {
-        const key = `lail-walk-${dir}-${i}`;
-        const path = `assets/sprites/characters/lail/animations/${lailAnimId}/${dir}/frame_${String(i).padStart(3, '0')}.png`;
-        this.load.image(key, path);
-      }
-    }
-    for (const dir of DIRECTIONS) {
-      this.load.image(`lail-idle-${dir}`, `assets/sprites/characters/lail/rotations/${dir}.png`);
+    // === LAIL new character frames ===
+    const lailNew = 'assets/sprites/characters/lail/new';
+    const lailNewFiles = [
+      'hadap_depan', 'hadap_belakang', 'hadap_kiri', 'hadap_kanan',
+      'jalan_depan_1', 'jalan_depan_2',
+      'jalan_belakang_1', 'jalan_belakang_2',
+      'jalan_kiri_1', 'jalan_kiri_2', 'jalan_kiri_3',
+      'jalan_kanan_1', 'jalan_kanan_2', 'jalan_kanan_3', 'jalan_kanan_4',
+    ];
+    for (const name of lailNewFiles) {
+      this.load.image(`lail-new-${name}`, `${lailNew}/${name}.png`);
     }
 
-    // === RIKA walk animation frames ===
-    const rikaAnimId = 'animation-c3630455';
-    for (const dir of DIRECTIONS) {
-      for (let i = 0; i < FRAMES_PER_DIR; i++) {
-        const key = `rika-walk-${dir}-${i}`;
-        const path = `assets/sprites/characters/rika/animations/${rikaAnimId}/${dir}/frame_${String(i).padStart(3, '0')}.png`;
-        this.load.image(key, path);
-      }
-    }
-    for (const dir of DIRECTIONS) {
-      this.load.image(`rika-idle-${dir}`, `assets/sprites/characters/rika/rotations/${dir}.png`);
+    // === RIKA new character frames ===
+    const rikaNew = 'assets/sprites/characters/rika/new';
+    const rikaNewFiles = [
+      'hadap_depan', 'hadap_belakang', 'hadap_kiri', 'hadap_kanan',
+      'jalan_depan_1', 'jalan_depan_2', 'jalan_depan_3',
+      'jalan_belakang_1', 'jalan_belakang_2', 'jalan_belakang_3', 'jalan_belakang_4',
+      'jalan_kiri_1', 'jalan_kiri_2', 'jalan_kiri_3', 'jalan_kiri_4',
+      'jalan_kanan_1', 'jalan_kanan_2', 'jalan_kanan_3', 'jalan_kanan_4',
+    ];
+    for (const name of rikaNewFiles) {
+      this.load.image(`rika-new-${name}`, `${rikaNew}/${name}.png`);
     }
   }
 
@@ -200,12 +204,12 @@ export class PreloadScene extends Phaser.Scene {
     // Tileset loaded from real PNG (FieldsTileset.png) — no placeholder generation needed
 
     // Build character spritesheets from real animation frames
-    this.buildCharacterSpritesheet(TEXTURE_KEYS.PLAYER, 'lail', 88);
-    this.buildCharacterSpritesheet(TEXTURE_KEYS.RIKA, 'rika', 92);
+    this.buildNewLailSpritesheet();
+    this.buildNewRikaSpritesheet();
 
     // Create animations
-    this.createCharacterAnimations(TEXTURE_KEYS.PLAYER, 'lail');
-    this.createCharacterAnimations(TEXTURE_KEYS.RIKA, 'rika');
+    this.createNewLailAnimations();
+    this.createNewRikaAnimations();
 
     // Generate 10 NPC placeholder sprites (different colors)
     this.generateNPCSprites();
@@ -377,6 +381,238 @@ export class PreloadScene extends Phaser.Scene {
         frameIndex++;
       }
     }
+  }
+
+  private buildNewLailSpritesheet(): void {
+    if (this.textures.exists(TEXTURE_KEYS.PLAYER)) return;
+
+    const cols = 4;
+    const rows = 5;
+    const canvas = this.textures.createCanvas(
+      TEXTURE_KEYS.PLAYER,
+      NEW_LAIL_FRAME_WIDTH * cols,
+      NEW_LAIL_FRAME_HEIGHT * rows,
+    );
+    if (!canvas) return;
+
+    const ctx = canvas.getContext();
+    const walkFrames: Record<string, string[]> = {
+      south: ['jalan_depan_1', 'jalan_depan_2'],
+      north: ['jalan_belakang_1', 'jalan_belakang_2'],
+      west: ['jalan_kiri_1', 'jalan_kiri_2', 'jalan_kiri_3'],
+      east: ['jalan_kanan_1', 'jalan_kanan_2', 'jalan_kanan_3', 'jalan_kanan_4'],
+    };
+    const idleFrames: Record<string, string> = {
+      south: 'hadap_depan',
+      north: 'hadap_belakang',
+      west: 'hadap_kiri',
+      east: 'hadap_kanan',
+    };
+
+    const getSourceImage = (sourceKey: string): HTMLImageElement | HTMLCanvasElement | null => {
+      const tex = this.textures.get(`lail-new-${sourceKey}`);
+      if (!tex || tex.key === '__MISSING') return null;
+
+      return tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement | null;
+    };
+
+    const idleTargetHeights: Record<string, number> = {
+      south: getSourceImage(idleFrames.south)?.height ?? NEW_LAIL_FRAME_HEIGHT,
+      north: getSourceImage(idleFrames.north)?.height ?? NEW_LAIL_FRAME_HEIGHT,
+      west: getSourceImage(idleFrames.west)?.height ?? NEW_LAIL_FRAME_HEIGHT,
+      east: getSourceImage(idleFrames.east)?.height ?? NEW_LAIL_FRAME_HEIGHT,
+    };
+
+    const drawFrame = (sourceKey: string, col: number, row: number, targetHeight?: number): void => {
+      const src = getSourceImage(sourceKey);
+      if (!src) return;
+
+      const scale = targetHeight ? targetHeight / src.height : 1;
+      const drawWidth = src.width * scale;
+      const drawHeight = src.height * scale;
+      const x = col * NEW_LAIL_FRAME_WIDTH + (NEW_LAIL_FRAME_WIDTH - drawWidth) / 2;
+      const y = (row + 1) * NEW_LAIL_FRAME_HEIGHT - drawHeight;
+      ctx.drawImage(src, x, y, drawWidth, drawHeight);
+    };
+
+    DIRECTIONS.forEach((dir, rowIdx) => {
+      const frames = walkFrames[dir];
+      frames.forEach((frame, col) => drawFrame(frame, col, rowIdx, idleTargetHeights[dir]));
+    });
+
+    DIRECTIONS.forEach((dir, col) => {
+      drawFrame(idleFrames[dir], col, 4);
+    });
+
+    canvas.refresh();
+
+    for (let row = 0; row < rows; row++) {
+      const colCount = row === 4 ? DIRECTIONS.length : cols;
+      for (let col = 0; col < colCount; col++) {
+        this.textures.get(TEXTURE_KEYS.PLAYER).add(
+          row * cols + col,
+          0,
+          col * NEW_LAIL_FRAME_WIDTH,
+          row * NEW_LAIL_FRAME_HEIGHT,
+          NEW_LAIL_FRAME_WIDTH,
+          NEW_LAIL_FRAME_HEIGHT,
+        );
+      }
+    }
+  }
+
+  private createNewLailAnimations(): void {
+    if (this.anims.exists('lail-walk-down')) return;
+
+    const walkFrameCounts: Record<string, number> = {
+      south: 2,
+      north: 2,
+      west: 3,
+      east: 4,
+    };
+
+    DIRECTIONS.forEach((dir, dirIdx) => {
+      const gameDir = DIR_TO_KEY[dir];
+      const rowStartFrame = dirIdx * 4;
+      const frameCount = walkFrameCounts[dir];
+
+      this.anims.create({
+        key: `lail-walk-${gameDir}`,
+        frames: this.anims.generateFrameNumbers(TEXTURE_KEYS.PLAYER, {
+          start: rowStartFrame,
+          end: rowStartFrame + frameCount - 1,
+        }),
+        frameRate: 7,
+        repeat: -1,
+      });
+
+      this.anims.create({
+        key: `lail-idle-${gameDir}`,
+        frames: [{ key: TEXTURE_KEYS.PLAYER, frame: 16 + dirIdx }],
+        frameRate: 1,
+        repeat: 0,
+      });
+    });
+  }
+
+  private buildNewRikaSpritesheet(): void {
+    if (this.textures.exists(TEXTURE_KEYS.RIKA)) return;
+
+    const cols = 4;
+    const rows = 5;
+    const canvas = this.textures.createCanvas(
+      TEXTURE_KEYS.RIKA,
+      NEW_RIKA_FRAME_WIDTH * cols,
+      NEW_RIKA_FRAME_HEIGHT * rows,
+    );
+    if (!canvas) return;
+
+    const ctx = canvas.getContext();
+    const walkFrames: Record<string, string[]> = {
+      south: ['jalan_depan_1', 'jalan_depan_2', 'jalan_depan_3'],
+      north: ['jalan_belakang_1', 'jalan_belakang_2', 'jalan_belakang_3', 'jalan_belakang_4'],
+      west: ['jalan_kiri_1', 'jalan_kiri_2', 'jalan_kiri_3', 'jalan_kiri_4'],
+      east: ['jalan_kanan_1', 'jalan_kanan_2', 'jalan_kanan_3', 'jalan_kanan_4'],
+    };
+    const idleFrames: Record<string, string> = {
+      south: 'hadap_depan',
+      north: 'hadap_belakang',
+      west: 'hadap_kiri',
+      east: 'hadap_kanan',
+    };
+
+    const getSourceImage = (sourceKey: string): HTMLImageElement | HTMLCanvasElement | null => {
+      const tex = this.textures.get(`rika-new-${sourceKey}`);
+      if (!tex || tex.key === '__MISSING') return null;
+
+      return tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement | null;
+    };
+
+    const idleTargetHeights: Record<string, number> = {
+      south: getSourceImage(idleFrames.south)?.height ?? NEW_RIKA_FRAME_HEIGHT,
+      north: getSourceImage(idleFrames.north)?.height ?? NEW_RIKA_FRAME_HEIGHT,
+      west: getSourceImage(idleFrames.west)?.height ?? NEW_RIKA_FRAME_HEIGHT,
+      east: getSourceImage(idleFrames.east)?.height ?? NEW_RIKA_FRAME_HEIGHT,
+    };
+
+    const drawFrame = (sourceKey: string, col: number, row: number, targetHeight?: number): void => {
+      const src = getSourceImage(sourceKey);
+      if (!src) return;
+
+      const scale = targetHeight ? targetHeight / src.height : 1;
+      const drawWidth = src.width * scale;
+      const drawHeight = src.height * scale;
+      const x = col * NEW_RIKA_FRAME_WIDTH + (NEW_RIKA_FRAME_WIDTH - drawWidth) / 2;
+      const y = (row + 1) * NEW_RIKA_FRAME_HEIGHT - drawHeight;
+      ctx.drawImage(src, x, y, drawWidth, drawHeight);
+    };
+
+    DIRECTIONS.forEach((dir, rowIdx) => {
+      const frames = walkFrames[dir];
+      frames.forEach((frame, col) => drawFrame(frame, col, rowIdx, idleTargetHeights[dir]));
+    });
+
+    DIRECTIONS.forEach((dir, col) => {
+      drawFrame(idleFrames[dir], col, 4);
+    });
+
+    canvas.refresh();
+
+    for (let row = 0; row < rows; row++) {
+      const colCount = row === 4 ? DIRECTIONS.length : cols;
+      for (let col = 0; col < colCount; col++) {
+        this.textures.get(TEXTURE_KEYS.RIKA).add(
+          row * cols + col,
+          0,
+          col * NEW_RIKA_FRAME_WIDTH,
+          row * NEW_RIKA_FRAME_HEIGHT,
+          NEW_RIKA_FRAME_WIDTH,
+          NEW_RIKA_FRAME_HEIGHT,
+        );
+      }
+    }
+  }
+
+  private createNewRikaAnimations(): void {
+    if (this.anims.exists('rika-walk-down')) return;
+
+    const walkFrameCounts: Record<string, number> = {
+      south: 3,
+      north: 4,
+      west: 4,
+      east: 4,
+    };
+
+    DIRECTIONS.forEach((dir, dirIdx) => {
+      const gameDir = DIR_TO_KEY[dir];
+      const rowStartFrame = dirIdx * 4;
+      const frameCount = walkFrameCounts[dir];
+
+      this.anims.create({
+        key: `rika-walk-${gameDir}`,
+        frames: this.anims.generateFrameNumbers(TEXTURE_KEYS.RIKA, {
+          start: rowStartFrame,
+          end: rowStartFrame + frameCount - 1,
+        }),
+        frameRate: 7,
+        repeat: -1,
+      });
+
+      const idleFrame = 16 + dirIdx;
+      this.anims.create({
+        key: `rika-idle-${gameDir}`,
+        frames: [{ key: TEXTURE_KEYS.RIKA, frame: idleFrame }],
+        frameRate: 1,
+        repeat: 0,
+      });
+
+      this.anims.create({
+        key: `rika-talk-${gameDir}`,
+        frames: [{ key: TEXTURE_KEYS.RIKA, frame: idleFrame }],
+        frameRate: 1,
+        repeat: 0,
+      });
+    });
   }
 
   /**
