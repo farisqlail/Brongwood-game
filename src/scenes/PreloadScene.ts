@@ -27,6 +27,10 @@ export class PreloadScene extends Phaser.Scene {
     this.createLoadingBar();
     AssetLoader.loadAll(this);
 
+    // === PROLOGUE SCENES ===
+    this.load.image(TEXTURE_KEYS.PROLOGUE_SCENE_1, 'assets/sceenes/sceene_1.png');
+    this.load.image(TEXTURE_KEYS.PROLOGUE_SCENE_2, 'assets/sceenes/sceene_2.png');
+
     // === TILESETS ===
     this.load.image(TEXTURE_KEYS.TILESET_BRONGWOOD, 'assets/sprites/tileset/1 Tiles/FieldsTileset.png');
 

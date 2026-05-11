@@ -16,9 +16,18 @@ export class NewGamePrologueScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
   private promptText!: Phaser.GameObjects.Text;
-  private monologueText!: Phaser.GameObjects.Text;
+  private dialogueContainer!: Phaser.GameObjects.Container;
+  private dialogueBox!: Phaser.GameObjects.Rectangle;
+  private dialogueText!: Phaser.GameObjects.Text;
+  private dialogueIndicator!: Phaser.GameObjects.Text;
+  private uiCamera: Phaser.Cameras.Scene2D.Camera | null = null;
   private objects: PrologueObject[] = [];
   private nearestObject: PrologueObject | null = null;
+  private dialogueLines: string[] = [];
+  private dialogueIndex = 0;
+  private dialogueOnComplete: (() => void) | null = null;
+  private unlockAfterDialogue = false;
+  private dialogueActive = false;
   private locked = true;
   private ending = false;
   private audioCtx: AudioContext | null = null;
@@ -40,11 +49,16 @@ export class NewGamePrologueScene extends Phaser.Scene {
     this.buildApartment();
     this.createPlayer();
     this.createUI();
+    this.setupUICamera();
 
     this.cameras.main.fadeIn(1800, 0, 0, 0);
     this.time.delayedCall(1700, () => this.startApartmentAutoSequence());
 
     this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E).on('down', () => this.interact());
+    this.input.keyboard!.on('keydown-ENTER', this.advanceDialogue, this);
+    this.input.keyboard!.on('keydown-SPACE', this.advanceDialogue, this);
+    this.input.keyboard!.on('keydown-Z', this.advanceDialogue, this);
+    this.input.on('pointerdown', this.advanceDialogue, this);
     this.events.once('shutdown', () => this.cleanupAudio());
   }
 
@@ -75,8 +89,7 @@ export class NewGamePrologueScene extends Phaser.Scene {
   }
 
   private startApartmentAutoSequence(): void {
-    this.locked = true;
-    this.showTimedLines([
+    this.showDialogueSequence([
       '00:41',
       'Deadline lagi besok.',
       'Sudah dingin.',
@@ -84,65 +97,11 @@ export class NewGamePrologueScene extends Phaser.Scene {
       'Client revision',
       'Missed call: Mom',
       'Tidak ada tombol untuk membalas.',
-    ], () => this.walkToWindow());
+    ], () => this.walkToWindow(), false);
   }
 
   private buildApartment(): void {
-    const g = this.add.graphics();
-    g.setDepth(DEPTH.GROUND);
-
-    g.fillStyle(0x090b12, 1);
-    g.fillRect(0, 0, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
-
-    g.fillStyle(0x18121a, 1);
-    g.fillRect(62, 42, 356, 212);
-    g.lineStyle(2, 0x2b2633, 1);
-    g.strokeRect(62, 42, 356, 212);
-
-    // Window and city lights.
-    g.fillStyle(0x050814, 1);
-    g.fillRect(292, 50, 108, 62);
-    g.lineStyle(1, 0x2a3856, 1);
-    g.strokeRect(292, 50, 108, 62);
-    for (let i = 0; i < 38; i++) {
-      const x = 298 + ((i * 19) % 94);
-      const y = 56 + ((i * 23) % 48);
-      g.fillStyle(i % 3 === 0 ? 0xffd27a : i % 3 === 1 ? 0x80bfff : 0xf2f0d0, 0.55);
-      g.fillRect(x, y, 2, 1);
-    }
-
-    // Desk, monitor, chair, clutter.
-    g.fillStyle(0x4a3027, 1);
-    g.fillRect(92, 126, 132, 28);
-    g.fillStyle(0x1f1512, 1);
-    g.fillRect(104, 154, 10, 44);
-    g.fillRect(204, 154, 10, 44);
-    g.fillStyle(0x10172a, 1);
-    g.fillRect(128, 91, 62, 34);
-    g.fillStyle(0x8fb8ff, 0.35);
-    g.fillRect(133, 96, 52, 24);
-    g.fillStyle(0x2b2d39, 1);
-    g.fillRect(149, 125, 20, 5);
-
-    g.fillStyle(0x2c1f20, 1);
-    g.fillRect(120, 176, 54, 32);
-    g.fillStyle(0x151018, 1);
-    g.fillRect(134, 165, 28, 14);
-
-    g.fillStyle(0x1b1a24, 1);
-    g.fillRect(260, 170, 84, 38);
-    g.fillStyle(0x31252a, 1);
-    g.fillRect(74, 214, 64, 24);
-
-    for (const p of [
-      { x: 234, y: 132, w: 18, h: 5 },
-      { x: 242, y: 140, w: 24, h: 5 },
-      { x: 202, y: 102, w: 12, h: 8 },
-      { x: 355, y: 130, w: 20, h: 5 },
-    ]) {
-      g.fillStyle(0x6e6576, 0.75);
-      g.fillRect(p.x, p.y, p.w, p.h);
-    }
+    this.addSceneBackdrop(TEXTURE_KEYS.PROLOGUE_SCENE_1);
 
     this.add.text(156, 82, '00:41', {
       fontSize: '8px',
@@ -216,15 +175,39 @@ export class NewGamePrologueScene extends Phaser.Scene {
       padding: { x: 8, y: 4 },
     }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI).setVisible(false);
 
-    this.monologueText = this.add.text(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT - 62, '', {
+    const boxWidth = GAME_CONFIG.WIDTH - 24;
+    const boxHeight = 58;
+    this.dialogueContainer = this.add.container(12, GAME_CONFIG.HEIGHT - boxHeight - 10);
+    this.dialogueContainer.setScrollFactor(0).setDepth(DEPTH.UI + 5).setVisible(false).setAlpha(0);
+
+    this.dialogueBox = this.add.rectangle(0, 0, boxWidth, boxHeight, 0x121422, 0.94);
+    this.dialogueBox.setOrigin(0, 0);
+    this.dialogueBox.setStrokeStyle(1, 0xf2a65a, 0.65);
+    this.dialogueContainer.add(this.dialogueBox);
+
+    this.dialogueText = this.add.text(12, 10, '', {
       fontSize: '9px',
-      color: '#d8e4ff',
+      color: '#ffffff',
       fontFamily: 'monospace',
-      align: 'center',
-      wordWrap: { width: GAME_CONFIG.WIDTH - 80 },
-      backgroundColor: '#050610cc',
-      padding: { x: 10, y: 6 },
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI + 2).setVisible(false);
+      lineSpacing: 3,
+      wordWrap: { width: boxWidth - 34 },
+    });
+    this.dialogueContainer.add(this.dialogueText);
+
+    this.dialogueIndicator = this.add.text(boxWidth - 18, boxHeight - 17, 'v', {
+      fontSize: '8px',
+      color: '#f2a65a',
+      fontFamily: 'monospace',
+    });
+    this.dialogueContainer.add(this.dialogueIndicator);
+
+    this.tweens.add({
+      targets: this.dialogueIndicator,
+      alpha: 0.2,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+    });
   }
 
   private updateInteractionPrompt(): void {
@@ -247,48 +230,61 @@ export class NewGamePrologueScene extends Phaser.Scene {
   }
 
   private interact(): void {
+    if (this.dialogueActive) {
+      this.advanceDialogue();
+      return;
+    }
     if (this.locked || this.ending || !this.nearestObject) return;
     this.playNotification(0.05);
-    this.showLines(this.nearestObject.lines);
+    this.showDialogueSequence(this.nearestObject.lines, null, true);
   }
 
-  private showLines(lines: string[]): void {
-    this.locked = true;
-    this.player.setVelocity(0, 0);
-    let index = 0;
-    const next = () => {
-      if (index >= lines.length) {
-        this.monologueText.setVisible(false);
-        this.locked = false;
-        return;
-      }
-      this.showLine(lines[index]);
-      index++;
-      this.time.delayedCall(1500, next);
-    };
-    next();
-  }
-
-  private showTimedLines(lines: string[], onComplete: () => void, hold = 1450): void {
+  private showDialogueSequence(
+    lines: string[],
+    onComplete: (() => void) | null = null,
+    unlockAfterDialogue = false,
+  ): void {
     this.locked = true;
     this.player?.setVelocity(0, 0);
-    let index = 0;
-    const next = () => {
-      if (index >= lines.length) {
-        this.monologueText.setVisible(false);
-        onComplete();
-        return;
-      }
-      this.showLine(lines[index]);
-      index++;
-      this.time.delayedCall(hold, next);
-    };
-    next();
+    this.promptText?.setVisible(false);
+    this.dialogueLines = lines;
+    this.dialogueIndex = 0;
+    this.dialogueOnComplete = onComplete;
+    this.unlockAfterDialogue = unlockAfterDialogue;
+    this.dialogueActive = true;
+    this.showDialogueLine();
   }
 
-  private showLine(text: string): void {
-    this.monologueText.setText(text).setAlpha(0).setVisible(true);
-    this.tweens.add({ targets: this.monologueText, alpha: 1, duration: 220 });
+  private showDialogueLine(): void {
+    const line = this.dialogueLines[this.dialogueIndex] ?? '';
+    this.dialogueText.setText(line);
+    this.dialogueContainer.setPosition(12, GAME_CONFIG.HEIGHT - 68);
+    this.dialogueContainer.setScale(1);
+    this.dialogueContainer.setVisible(true).setAlpha(0);
+    this.tweens.add({ targets: this.dialogueContainer, alpha: 1, duration: 160 });
+  }
+
+  private advanceDialogue(): void {
+    if (!this.dialogueActive) return;
+
+    this.dialogueIndex++;
+    if (this.dialogueIndex < this.dialogueLines.length) {
+      this.showDialogueLine();
+      return;
+    }
+
+    this.dialogueActive = false;
+    this.dialogueContainer.setVisible(false);
+    const onComplete = this.dialogueOnComplete;
+    this.dialogueOnComplete = null;
+    this.dialogueLines = [];
+
+    if (this.unlockAfterDialogue) {
+      this.locked = false;
+      this.unlockAfterDialogue = false;
+    }
+
+    onComplete?.();
   }
 
   private startWindowSequence(): void {
@@ -299,10 +295,9 @@ export class NewGamePrologueScene extends Phaser.Scene {
     this.cameras.main.pan(346, 80, 1800, 'Sine.easeInOut');
     this.cameras.main.zoomTo(1.75, 2600, 'Sine.easeInOut');
     this.time.delayedCall(1600, () => {
-      this.showLine('Aku bahkan sudah lupa kapan terakhir kali merasa tenang.');
-    });
-    this.time.delayedCall(4300, () => {
-      this.cameras.main.fadeOut(1800, 0, 0, 0);
+      this.showDialogueSequence(['Aku bahkan sudah lupa kapan terakhir kali merasa tenang.'], () => {
+        this.cameras.main.fadeOut(1800, 0, 0, 0);
+      }, false);
     });
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.cleanupAudio();
@@ -311,11 +306,10 @@ export class NewGamePrologueScene extends Phaser.Scene {
   }
 
   private walkToWindow(): void {
-    this.monologueText.setVisible(false);
+    this.dialogueContainer.setVisible(false);
     this.tweens.add({
       targets: this.player,
-      x: 332,
-      y: 83,
+      y: 232,
       duration: 2600,
       ease: 'Sine.easeInOut',
       onUpdate: () => this.player.setDepth(this.player.y + 20),
@@ -334,6 +328,7 @@ export class NewGamePrologueScene extends Phaser.Scene {
     this.buildMinimarket();
     this.createMinimarketLail();
     this.createUI();
+    this.setupUICamera();
 
     this.cameras.main.fadeIn(1200, 0, 0, 0);
     this.time.delayedCall(1200, () => {
@@ -342,77 +337,35 @@ export class NewGamePrologueScene extends Phaser.Scene {
   }
 
   private buildMinimarket(): void {
-    const g = this.add.graphics().setDepth(DEPTH.GROUND);
-    g.fillStyle(0x05070d, 1);
-    g.fillRect(0, 0, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
+    this.addSceneBackdrop(TEXTURE_KEYS.PROLOGUE_SCENE_2);
 
-    // Rainy street.
-    g.fillStyle(0x121a25, 1);
-    g.fillRect(0, 0, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
+    const g = this.add.graphics().setDepth(DEPTH.GROUND_DECOR);
     for (let i = 0; i < 55; i++) {
       const x = (i * 37) % GAME_CONFIG.WIDTH;
       const y = (i * 53) % GAME_CONFIG.HEIGHT;
       g.lineStyle(1, 0x8db5d8, 0.22);
       g.lineBetween(x, y, x - 4, y + 10);
     }
+  }
 
-    // Minimarket building: cold white light, empty.
-    g.fillStyle(0x1d2430, 1);
-    g.fillRect(70, 62, 340, 168);
-    g.lineStyle(2, 0xdce8ff, 0.85);
-    g.strokeRect(70, 62, 340, 168);
-    g.fillStyle(0xe8f4ff, 0.92);
-    g.fillRect(82, 76, 316, 66);
-    g.fillStyle(0x9bb4ce, 0.35);
-    g.fillRect(90, 84, 88, 50);
-    g.fillRect(190, 84, 96, 50);
-    g.fillRect(298, 84, 88, 50);
-    g.fillStyle(0x2c3848, 1);
-    g.fillRect(82, 152, 316, 68);
+  private addSceneBackdrop(textureKey: string): Phaser.GameObjects.Image {
+    const bg = this.add.image(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, textureKey);
+    const scale = Math.max(GAME_CONFIG.WIDTH / bg.width, GAME_CONFIG.HEIGHT / bg.height);
+    bg.setScale(scale);
+    bg.setDepth(DEPTH.GROUND);
+    return bg;
+  }
 
-    this.add.text(240, 70, '24 MINI', {
-      fontSize: '12px',
-      color: '#1b2b3a',
-      fontFamily: 'monospace',
-      fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(DEPTH.GROUND_DECOR);
-
-    // Counter, cashier, vending shelves.
-    g.fillStyle(0x5f6d7e, 1);
-    g.fillRect(286, 168, 92, 24);
-    g.fillStyle(0x202633, 1);
-    g.fillRect(330, 116, 56, 34);
-    g.fillStyle(0xf1c8a6, 1);
-    g.fillRect(344, 152, 16, 24);
-    g.fillStyle(0x1d1b29, 1);
-    g.fillRect(341, 144, 22, 10);
-    g.fillStyle(0x6f7a8c, 1);
-    g.fillRect(94, 158, 84, 38);
-    g.fillRect(194, 158, 58, 38);
-
-    // Bench/seat and canned coffee.
-    g.fillStyle(0x343d4c, 1);
-    g.fillRect(140, 212, 84, 10);
-    g.fillRect(150, 222, 8, 18);
-    g.fillRect(208, 222, 8, 18);
-    g.fillStyle(0xb56b35, 1);
-    g.fillRect(244, 202, 8, 14);
-    g.fillStyle(0xe8dcc5, 1);
-    g.fillRect(244, 204, 8, 4);
-
-    // TV with warm Brongwood images.
-    g.fillStyle(0x11131c, 1);
-    g.fillRect(220, 88, 72, 44);
-    g.fillStyle(0xffb65c, 0.9);
-    g.fillRect(225, 93, 62, 34);
-    g.fillStyle(0x395f8f, 0.9);
-    g.fillRect(225, 110, 62, 17);
-    g.fillStyle(0xffdd8f, 1);
-    for (let i = 0; i < 8; i++) {
-      g.fillCircle(232 + i * 7, 102 + (i % 2) * 4, 2);
+  private setupUICamera(): void {
+    if (this.uiCamera) {
+      this.cameras.remove(this.uiCamera);
     }
-    g.fillStyle(0x26384d, 1);
-    g.fillRect(250, 128, 12, 6);
+
+    this.uiCamera = this.cameras.add(0, 0, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
+    this.uiCamera.setScroll(0, 0);
+    this.uiCamera.setZoom(1);
+    this.uiCamera.ignore(this.children.list.filter((child) => child !== this.promptText && child !== this.dialogueContainer));
+    this.cameras.main.ignore([this.promptText, this.dialogueContainer]);
   }
 
   private createMinimarketLail(): void {
@@ -422,20 +375,21 @@ export class NewGamePrologueScene extends Phaser.Scene {
   }
 
   private walkMinimarketPath(): void {
-    this.showLine('Gerimis menempel di jaket Lail.');
-    this.tweens.add({
-      targets: this.player,
-      x: 234,
-      y: 198,
-      duration: 2900,
-      ease: 'Sine.easeInOut',
-      onUpdate: () => this.player.setDepth(this.player.y + 20),
-      onComplete: () => this.buyCoffeeSequence(),
-    });
+    this.showDialogueSequence(['Gerimis menempel di jaket Lail.'], () => {
+      this.tweens.add({
+        targets: this.player,
+        x: 234,
+        y: 198,
+        duration: 2900,
+        ease: 'Sine.easeInOut',
+        onUpdate: () => this.player.setDepth(this.player.y + 20),
+        onComplete: () => this.buyCoffeeSequence(),
+      });
+    }, false);
   }
 
   private buyCoffeeSequence(): void {
-    this.showTimedLines(['Kopi kaleng. Hangat sebentar, pahit setelahnya.'], () => {
+    this.showDialogueSequence(['Kopi kaleng. Hangat sebentar, pahit setelahnya.'], () => {
       this.tweens.add({
         targets: this.player,
         x: 178,
@@ -445,20 +399,20 @@ export class NewGamePrologueScene extends Phaser.Scene {
         onUpdate: () => this.player.setDepth(this.player.y + 20),
         onComplete: () => this.tvAnnouncementSequence(),
       });
-    }, 1500);
+    }, false);
   }
 
   private tvAnnouncementSequence(): void {
     this.cameras.main.pan(256, 110, 1300, 'Sine.easeInOut');
     this.cameras.main.zoomTo(1.35, 1600, 'Sine.easeInOut');
     this.time.delayedCall(1100, () => {
-      this.showTimedLines([
+      this.showDialogueSequence([
         'TV: Festival Musim Panas Brongwood akan dimulai minggu depan.',
         'Danau. Lentera. Laut. Festival malam.',
         'Warna hangat itu terasa seperti dunia lain.',
         'Kasir: Tempat kecil begitu masih ada ya...',
         'Brongwood...',
-      ], () => this.finishPrologue(), 1750);
+      ], () => this.finishPrologue(), false);
     });
   }
 

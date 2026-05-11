@@ -69,6 +69,8 @@ export const TEXTURE_KEYS = {
   PORTRAIT_LAIL: 'portrait_lail',
   PORTRAIT_RIKA: 'portrait_rika',
   DIALOGUE_BOX: 'dialogue_box',
+  PROLOGUE_SCENE_1: 'prologue_scene_1',
+  PROLOGUE_SCENE_2: 'prologue_scene_2',
 } as const;
 
 /**
