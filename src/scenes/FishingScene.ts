@@ -106,7 +106,7 @@ export class FishingScene extends Phaser.Scene {
       .on('down', () => this.pauseMenu.toggle());
 
     this.hud = new SceneHUD(this, 'fishing', W, H);
-    this.atmosphere = new SceneAtmosphere(this);
+    this.atmosphere = new SceneAtmosphere(this, { lighting: 'morning_coastal' });
     gameManager.startGameplay();
     this.ownedAudioSystem = bootstrapGameplayAudio(this);
 

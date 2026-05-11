@@ -92,7 +92,7 @@ export class HouseInteriorScene extends Phaser.Scene {
       .on('down', () => this.pauseMenu.toggle());
 
     this.hud = new SceneHUD(this, 'house_interior', ROOM_W, ROOM_H);
-    this.atmosphere = new SceneAtmosphere(this, { weather: false });
+    this.atmosphere = new SceneAtmosphere(this, { weather: false, lighting: 'flower_shop' });
     gameManager.startGameplay();
     this.ownedAudioSystem = bootstrapGameplayAudio(this);
     proceduralAudio.stopRain();

@@ -34,7 +34,7 @@ import { PLAYER_CONFIG } from '@config/game.config';
 import { TEXTURE_KEYS } from '@config/assets.manifest';
 import { Direction } from '@/types';
 
-const NEW_LAIL_DISPLAY_SCALE = 0.1;
+const NEW_LAIL_DISPLAY_SCALE = 0.12;
 const NEW_LAIL_IDLE_DOWN_FRAME = 16;
 const NEW_LAIL_BODY_WIDTH = 180;
 const NEW_LAIL_BODY_HEIGHT = 80;

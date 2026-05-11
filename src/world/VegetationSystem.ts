@@ -24,7 +24,7 @@ interface AnimatedSprite {
 export class VegetationSystem {
   private scene: Phaser.Scene;
   private animatedProps: AnimatedSprite[] = [];
-  private staticProps: Phaser.GameObjects.Image[] = [];
+  private staticProps: Phaser.GameObjects.GameObject[] = [];
   private time: number = 0;
 
   /** All collidable objects — player and NPCs cannot pass through */
@@ -45,6 +45,7 @@ export class VegetationSystem {
 
     this.placeGrassGround();
     this.placeHouses();
+    this.placeRikaFlowerShop();
     this.placeUpperIndonesianBuildings();
     this.placeIndonesianHouse();
     this.placeIndonesianHouse2();
@@ -100,7 +101,7 @@ export class VegetationSystem {
         // Fallback: green rectangle
         const rect = this.scene.add.rectangle(x, y, 10, 10, 0x4a7a4a, 0.3);
         rect.setDepth(DEPTH.GROUND_DECOR);
-        this.staticProps.push(rect as unknown as Phaser.GameObjects.Image);
+        this.staticProps.push(rect);
         continue;
       }
 
@@ -186,7 +187,6 @@ export class VegetationSystem {
 
     const houses: Array<{ x: number; y: number; variant: number; scale: number }> = [
       { x: ts * 7.5, y: ts * 1.5, variant: 2, scale: 0.8 },
-      { x: ts * 12.5, y: ts * 1.5, variant: 3, scale: 0.75 },
       { x: ts * 4, y: ts * 8, variant: 4, scale: 0.7 },
     ];
 
@@ -201,8 +201,8 @@ export class VegetationSystem {
       sprite.setOrigin(0.5, 0.7);
       this.staticProps.push(sprite);
 
-      // Label + entrance indicator for the cafe (house index 1 = middle top)
-      if (i === 1) {
+      // Label + entrance indicator for the cafe (middle top house)
+      if (i === 0) {
         const label = this.scene.add.text(h.x, h.y - 30 * h.scale, 'CAFE', {
           fontSize: '7px',
           color: '#f2a65a',
@@ -239,6 +239,38 @@ export class VegetationSystem {
     }
   }
 
+  private placeRikaFlowerShop(): void {
+    const key = 'house2-toko-rika';
+    if (!this.scene.textures.exists(key)) return;
+
+    const ts = GAME_CONFIG.TILE_SIZE;
+    const x = ts * 12.25;
+    const y = ts * 2.15;
+    const scale = 0.16;
+
+    const sprite = this.scene.add.image(x, y, key);
+    sprite.setScale(scale);
+    sprite.setOrigin(0.5, 0.76);
+    sprite.setDepth(y);
+    this.staticProps.push(sprite);
+
+    const label = this.scene.add.text(x, y - 86, 'TOKO BUNGA RIKA', {
+      fontSize: '7px',
+      color: '#ffd6ec',
+      fontFamily: 'monospace',
+      backgroundColor: '#1a102088',
+      padding: { x: 4, y: 2 },
+    });
+    label.setOrigin(0.5);
+    label.setDepth(DEPTH.ABOVE_PLAYER + 1);
+    this.staticProps.push(label);
+
+    const col = this.collisionGroup.create(x - 4, y - 40, '_collider') as Phaser.Physics.Arcade.Sprite;
+    col.setVisible(false);
+    col.setDisplaySize(112, 88);
+    col.refreshBody();
+  }
+
   private placeIndonesianHouse2(): void {
     const key = 'house2-rumah-indo-2';
     if (!this.scene.textures.exists(key)) return;
@@ -265,7 +297,6 @@ export class VegetationSystem {
     const buildings = [
       { key: 'house2-rumah-indo-5', x: ts * 2.5, y: ts * 2.15, scale: 0.20 },
       { key: 'house2-rumah-indo-4', x: ts * 4.6, y: ts * 2.15, scale: 0.20 },
-      { key: 'house2-toko-indo-1', x: ts * 10.4, y: ts * 2.15, scale: 0.20 },
     ];
 
     for (const building of buildings) {

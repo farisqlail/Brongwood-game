@@ -45,6 +45,7 @@ const C_ROAD   = 0x7a6a52;
 const C_TREE   = 0x1c3e18;
 const C_HOUSE  = 0x7a4828;
 const C_CAFE   = 0xc87820;
+const C_FLOWER = 0xd889ac;
 const C_WATER  = 0x1a3a6a;
 
 /** Activity zone marker data for minimap display */
@@ -220,10 +221,10 @@ export class MinimapSystem {
     }
 
     // 5. Houses (3 top row, 2 bottom row)
-    const houses: Array<{ tx: number; ty: number; cafe?: true }> = [
+    const houses: Array<{ tx: number; ty: number; cafe?: true; flower?: true }> = [
       { tx: 2.5,  ty: 1.5 },
       { tx: 7.5,  ty: 1.5, cafe: true },   // cafe
-      { tx: 12.5, ty: 1.5 },
+      { tx: 12.25, ty: 2.15, flower: true },
       { tx: 4,    ty: 8   },
       { tx: 11,   ty: 8   },
     ];
@@ -232,7 +233,7 @@ export class MinimapSystem {
     for (const h of houses) {
       const mx = IX + (h.tx * ts / this.mapW) * MM_W;
       const my = IY + (h.ty * ts / this.mapH) * MM_H;
-      g.fillStyle(h.cafe ? C_CAFE : C_HOUSE, 1);
+      g.fillStyle(h.flower ? C_FLOWER : h.cafe ? C_CAFE : C_HOUSE, 1);
       g.fillRect(mx - hW / 2, my - hH / 2, hW, hH);
     }
 

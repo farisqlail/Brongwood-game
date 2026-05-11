@@ -75,6 +75,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('house2-rumah-indo-4', `${houseV2}/rumah_indo_4.png`);
     this.load.image('house2-rumah-indo-5', `${houseV2}/rumah_indo_5.png`);
     this.load.image('house2-toko-indo-1', `${houseV2}/toko_indo_1.png`);
+    this.load.image('house2-toko-rika', `${houseV2}/toko_rika.png`);
     this.load.image('house2-jendela-kaca', `${houseV2}/jendela_kaca_1.png`);
     this.load.image('house2-kasur', `${houseV2}/kasur_1.png`);
     this.load.image('house2-lemari-buku', `${houseV2}/lemari_buku_1.png`);

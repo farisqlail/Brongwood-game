@@ -11,6 +11,7 @@ import { NPC } from '@/entities/NPC';
 import { TilemapManager } from '@/world/TilemapManager';
 import { ParsedMapData } from '@/types/tilemap';
 import { AtmosphereSystem } from '@/systems/AtmosphereSystem';
+import { CinematicLightingSystem } from '@/systems/CinematicLightingSystem';
 import { AudioSystem } from '@/systems/AudioSystem';
 import { WeatherSystem } from '@/systems/WeatherSystem';
 import { VegetationSystem } from '@/world/VegetationSystem';
@@ -43,6 +44,7 @@ export class WorldScene extends Phaser.Scene {
 
   // Systems
   private atmosphereSystem!: AtmosphereSystem;
+  private cinematicLighting!: CinematicLightingSystem;
   private audioSystem!: AudioSystem;
   private weatherSystem!: WeatherSystem;
   private vegetationSystem!: VegetationSystem;
@@ -187,6 +189,7 @@ export class WorldScene extends Phaser.Scene {
     this.rika.update(delta);
     for (const npc of this.townNPCs) npc.update(delta);
     this.weatherSystem.update(delta);
+    this.updateCinematicLighting(delta);
     this.vegetationSystem.update(delta);
     this.particleSystem.update(delta);
     this.minimapSystem.update(this.player.x, this.player.y, this.rika, this.townNPCs, this.weatherSystem.isRaining);
@@ -443,6 +446,7 @@ export class WorldScene extends Phaser.Scene {
 
   private initializeSystems(): void {
     this.atmosphereSystem = new AtmosphereSystem(this, gameManager.time);
+    this.cinematicLighting = new CinematicLightingSystem(this, 'cozy_world');
     this.audioSystem = new AudioSystem(this);
     this.weatherSystem = new WeatherSystem(this);
     this.vegetationSystem = new VegetationSystem(this);
@@ -475,6 +479,19 @@ export class WorldScene extends Phaser.Scene {
       oneShot: true,
       priority: 100,
     });
+  }
+
+  private updateCinematicLighting(delta: number): void {
+    const period = gameManager.time.period;
+    const rainyNight = this.weatherSystem.isRaining && (period === 'night' || period === 'late_night');
+    if (rainyNight) {
+      this.cinematicLighting.setProfile('rainy_night');
+    } else if (period === 'dawn' || period === 'morning') {
+      this.cinematicLighting.setProfile('morning_coastal');
+    } else {
+      this.cinematicLighting.setProfile('cozy_world');
+    }
+    this.cinematicLighting.update(delta);
   }
 
   private setupEventListeners(): void {
@@ -815,6 +832,7 @@ export class WorldScene extends Phaser.Scene {
     this.eventSystem.destroy();
     this.dialogueSystem.destroy();
     this.weatherSystem.destroy();
+    this.cinematicLighting.destroy();
     this.vegetationSystem.destroy();
     this.particleSystem.destroy();
     this.rika.destroy();

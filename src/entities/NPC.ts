@@ -15,7 +15,7 @@ import { DEPTH } from '@config/game.config';
 import { TEXTURE_KEYS } from '@config/assets.manifest';
 import { Direction } from '@/types';
 
-const RIKA_NEW_DISPLAY_SCALE = 0.075;
+const RIKA_NEW_DISPLAY_SCALE = 0.11;
 const RIKA_NEW_BODY_WIDTH = 180;
 const RIKA_NEW_BODY_HEIGHT = 80;
 const RIKA_NEW_BODY_OFFSET_X = 32;

@@ -15,6 +15,7 @@ import { EventBus, GameEvents } from '@/core/EventBus';
 import { proceduralAudio } from '@/audio/ProceduralAudio';
 import { MobileControls } from '@/ui/MobileControls';
 import { ITEM_DEFS } from '@/types/inventory';
+import { CinematicLightingSystem } from '@/systems/CinematicLightingSystem';
 
 const CAFE_W = 640; // pixels
 const CAFE_H = 400; // pixels
@@ -33,6 +34,7 @@ export class CafeScene extends Phaser.Scene {
   private mobileControls!: MobileControls;
   private promptText!: Phaser.GameObjects.Text;
   private nearbyNPC: NPC | null = null;
+  private lighting!: CinematicLightingSystem;
   private exiting: boolean = false;
   private coffeeOrdered: boolean = false;
 
@@ -70,6 +72,7 @@ export class CafeScene extends Phaser.Scene {
     this.exiting = false;
 
     this.buildInterior();
+    this.lighting = new CinematicLightingSystem(this, 'flower_shop');
 
     // Player (no world bounds — free to walk to exit)
     this.player = new Player(this, CAFE_W / 2, CAFE_H - 80);
@@ -140,11 +143,13 @@ export class CafeScene extends Phaser.Scene {
       this.dialogueSystem.destroy();
       this.barista.destroy();
       this.mobileControls.destroy();
+      this.lighting.destroy();
     });
   }
 
   update(_time: number, delta: number): void {
     if (this.exiting) return;
+    this.lighting.update(delta);
 
     // Mobile joystick
     if (this.mobileControls.visible && !this.dialogueSystem.isActive) {
