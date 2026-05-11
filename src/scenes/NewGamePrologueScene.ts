@@ -11,6 +11,158 @@ interface PrologueObject {
   lines: string[];
 }
 
+const RESIGNATION_SHOTS = [
+  TEXTURE_KEYS.PROLOGUE_SCENE_3_1,
+  TEXTURE_KEYS.PROLOGUE_SCENE_3_2,
+  TEXTURE_KEYS.PROLOGUE_SCENE_3_3,
+  TEXTURE_KEYS.PROLOGUE_SCENE_3_4,
+  TEXTURE_KEYS.PROLOGUE_SCENE_3_5,
+  TEXTURE_KEYS.PROLOGUE_SCENE_3_6,
+] as const;
+
+const RESIGNATION_LINES: readonly string[][] = [
+  [
+    'Subject: Pengunduran diri.',
+    'Aku membaca ulang kalimat pertama sampai lima kali.',
+    'Tidak ada versi yang terasa benar. Hanya ada versi yang selesai.',
+  ],
+  [
+    'Apartemen ini tidak pernah luas.',
+    'Tapi saat dibereskan, barangnya seperti punya cara sendiri untuk bertambah.',
+    'Satu kardus untuk dibawa. Dua kardus untuk tidak dipikirkan dulu.',
+  ],
+  [
+    'Meja dijual ke orang yang datang tepat waktu.',
+    'Kursi ditawar terlalu rendah, tapi aku iya-kan juga.',
+    'Aku baru sadar beberapa benda tidak penting sampai harus melepasnya.',
+  ],
+  [
+    'Kabel monitor agak keras dicabut.',
+    'Suara kecilnya membuat ruangan terasa resmi kosong.',
+    'Seperti pekerjaan itu akhirnya berhenti ikut bernapas di sini.',
+  ],
+  [
+    'Aku mengecek saklar, jendela, pintu.',
+    'Hal-hal biasa. Hal-hal yang menahan orang agar tidak panik.',
+    'Di luar, hari tetap berjalan seperti tidak ada keputusan besar.',
+  ],
+  [
+    'Sebelum keluar, aku melihat sekali lagi.',
+    'Tidak ada tepuk tangan. Tidak ada musik besar.',
+    'Hanya ruangan kosong, dan aku yang akhirnya mematikan lampu.',
+  ],
+] as const;
+
+interface VisualNovelSequence {
+  shots: readonly string[];
+  lines: readonly (readonly string[])[];
+  music: 'resignation' | 'train' | 'arrival' | 'theme';
+  onComplete: () => void;
+}
+
+const TRAIN_SHOTS = [
+  'prologue_scene_4_1',
+  'prologue_scene_4_2',
+  'prologue_scene_4_3',
+  'prologue_scene_4_4',
+  'prologue_scene_4_5',
+] as const;
+
+const TRAIN_LINES = [
+  [
+    'Rel kereta berbunyi pelan di bawah hujan.',
+    'Kota mundur di balik kaca, seperti sesuatu yang tidak lagi memanggil.',
+    'Aku tidak tahu apa yang aku cari.',
+  ],
+  [
+    'Aku duduk dekat jendela karena tidak tahu harus melihat ke mana lagi.',
+    'Lampu gedung tinggi pecah jadi garis-garis basah.',
+    'Untuk pertama kalinya malam ini, tidak ada yang perlu kubalas.',
+  ],
+  [
+    'Aku membuka HP.',
+    'Tidak ada notifikasi baru.',
+    'Aneh. Sunyinya tidak menyakitkan. Hanya sunyi.',
+  ],
+  [
+    'Gedung tinggi berubah jadi sawah neon, lalu jalan padat, lalu laut gelap.',
+    'Dunia di luar seperti mengganti napasnya sendiri.',
+    'Tapi aku tahu aku tidak bisa terus hidup seperti itu.',
+  ],
+  [
+    'Hutan mulai muncul di sisi rel.',
+    'Aku menyandarkan kepala ke kaca yang dingin.',
+    'Kalau aku tidak menemukan apa-apa di sana, setidaknya aku sudah pergi.',
+  ],
+] as const;
+
+const ARRIVAL_SHOTS = [
+  'prologue_scene_5_1',
+  'prologue_scene_5_2',
+  'prologue_scene_5_3',
+  'prologue_scene_5_4',
+] as const;
+
+const ARRIVAL_LINES = [
+  [
+    'Announcer: Brongwood Station.',
+    'Musik berhenti perlahan. Yang tersisa hanya rem kereta dan pagi.',
+    'Kabut tipis menunggu di luar pintu.',
+  ],
+  [
+    'Stasiunnya kecil. Terlalu kecil untuk terburu-buru.',
+    'Ada suara burung, angin pagi, dan ombak yang jauh sekali.',
+    'Tidak ada objective marker. Tidak ada instruksi. Hanya jalan.',
+  ],
+  [
+    'Poster Festival: Summer Lantern Festival - 7 Days Left.',
+    'Cafe kecil masih tutup.',
+    'Di seberang jalan, toko bunga sudah menyalakan lampunya.',
+  ],
+  [
+    'Aku berjalan tanpa tahu harus ke mana.',
+    'Anehnya, untuk pertama kalinya, itu tidak terasa seperti masalah.',
+    'Brongwood terasa pelan. Mungkin aku bisa ikut pelan.',
+  ],
+] as const;
+
+const RIKA_SHOTS = [
+  'prologue_scene_6_1',
+  'prologue_scene_6_2',
+  'prologue_scene_6_3',
+  'prologue_scene_6_4',
+  'prologue_scene_6_5',
+] as const;
+
+const RIKA_LINES = [
+  [
+    'Bell pintu berbunyi kecil.',
+    'Udara di dalam toko bunga hangat, kontras dengan pagi di luar.',
+    'Rika sedang menyusun bunga dan belum melihatku.',
+  ],
+  [
+    'Rika: Maaf, kami belum buka.',
+    'Lail: Oh... maaf.',
+    'Rika akhirnya menoleh. Diam sebentar.',
+  ],
+  [
+    'Rika melihat koper di samping kakiku.',
+    'Rika: Pendatang baru?',
+    'Lail: Kelihatan ya?',
+  ],
+  [
+    'Rika: Orang sini jarang kelihatan bingung milih mie instan dan bunga sekaligus.',
+    'Aku tertawa kecil.',
+    'Rasanya asing, tapi tidak buruk.',
+  ],
+  [
+    'Rika: Brongwood kota kecil.',
+    'Rika: Kalau terlalu lama tinggal di sini... waktu berjalan aneh.',
+    'Lail: Mungkin itu yang aku butuhkan.',
+    'Rika diam sebentar. Lalu tersenyum kecil.',
+  ],
+] as const;
+
 export class NewGamePrologueScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -21,6 +173,12 @@ export class NewGamePrologueScene extends Phaser.Scene {
   private dialogueText!: Phaser.GameObjects.Text;
   private dialogueIndicator!: Phaser.GameObjects.Text;
   private uiCamera: Phaser.Cameras.Scene2D.Camera | null = null;
+  private vnCaption: Phaser.GameObjects.Container | null = null;
+  private vnImage: Phaser.GameObjects.Image | null = null;
+  private vnSequence: VisualNovelSequence | null = null;
+  private vnShotIndex = 0;
+  private vnLineIndex = 0;
+  private vnInputLocked = false;
   private objects: PrologueObject[] = [];
   private nearestObject: PrologueObject | null = null;
   private dialogueLines: string[] = [];
@@ -28,6 +186,7 @@ export class NewGamePrologueScene extends Phaser.Scene {
   private dialogueOnComplete: (() => void) | null = null;
   private unlockAfterDialogue = false;
   private dialogueActive = false;
+  private visualNovelMode = false;
   private locked = true;
   private ending = false;
   private audioCtx: AudioContext | null = null;
@@ -36,6 +195,7 @@ export class NewGamePrologueScene extends Phaser.Scene {
   private rumbleOsc: OscillatorNode | null = null;
   private rainSource: AudioBufferSourceNode | null = null;
   private pianoTimer: Phaser.Time.TimerEvent | null = null;
+  private ambienceTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor() {
     super({ key: SCENE_KEYS.NEW_GAME_PROLOGUE });
@@ -63,6 +223,8 @@ export class NewGamePrologueScene extends Phaser.Scene {
   }
 
   update(): void {
+    if (this.visualNovelMode) return;
+
     if (!this.player || this.locked) {
       this.player?.setVelocity(0, 0);
       return;
@@ -265,6 +427,11 @@ export class NewGamePrologueScene extends Phaser.Scene {
   }
 
   private advanceDialogue(): void {
+    if (this.visualNovelMode) {
+      this.advanceVisualNovelSequence();
+      return;
+    }
+
     if (!this.dialogueActive) return;
 
     this.dialogueIndex++;
@@ -412,7 +579,7 @@ export class NewGamePrologueScene extends Phaser.Scene {
         'Warna hangat itu terasa seperti dunia lain.',
         'Kasir: Tempat kecil begitu masih ada ya...',
         'Brongwood...',
-      ], () => this.finishPrologue(), false);
+      ], () => this.startResignationSequence(), false);
     });
   }
 
@@ -421,6 +588,222 @@ export class NewGamePrologueScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.cleanupAudio();
       this.scene.start(SCENE_KEYS.WORLD);
+    });
+  }
+
+  private startResignationSequence(): void {
+    this.startVisualNovelSequence({
+      shots: RESIGNATION_SHOTS,
+      lines: RESIGNATION_LINES,
+      music: 'resignation',
+      onComplete: () => this.startTrainSequence(),
+    });
+  }
+
+  private startTrainSequence(): void {
+    this.startVisualNovelSequence({
+      shots: TRAIN_SHOTS,
+      lines: TRAIN_LINES,
+      music: 'train',
+      onComplete: () => this.startArrivalSequence(),
+    });
+  }
+
+  private startArrivalSequence(): void {
+    this.startVisualNovelSequence({
+      shots: ARRIVAL_SHOTS,
+      lines: ARRIVAL_LINES,
+      music: 'arrival',
+      onComplete: () => this.startRikaSequence(),
+    });
+  }
+
+  private startRikaSequence(): void {
+    this.startVisualNovelSequence({
+      shots: RIKA_SHOTS,
+      lines: RIKA_LINES,
+      music: 'theme',
+      onComplete: () => this.showTitleCard(),
+    });
+  }
+
+  private startVisualNovelSequence(sequence: VisualNovelSequence): void {
+    this.visualNovelMode = true;
+    this.locked = true;
+    this.dialogueActive = false;
+    this.vnSequence = sequence;
+    this.vnShotIndex = 0;
+    this.vnLineIndex = 0;
+    this.cleanupAudio();
+    this.createVisualNovelAudio(sequence.music);
+
+    this.removeUICamera();
+    this.children.removeAll(true);
+    this.physics.world.colliders.destroy();
+    this.cameras.main.setZoom(1);
+    this.cameras.main.centerOn(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2);
+    this.cameras.main.setBackgroundColor(0x000000);
+    this.cameras.main.fadeIn(900, 0, 0, 0);
+
+    this.playVisualNovelShot(0);
+  }
+
+  private playVisualNovelShot(index: number): void {
+    if (!this.vnSequence || index >= this.vnSequence.shots.length) {
+      this.vnSequence?.onComplete();
+      return;
+    }
+
+    this.vnShotIndex = index;
+    this.vnLineIndex = 0;
+    this.vnInputLocked = true;
+
+    const image = this.addSceneBackdrop(this.vnSequence.shots[index]);
+    this.vnImage = image;
+    image.setAlpha(0);
+    this.tweens.add({
+      targets: image,
+      alpha: 1,
+      duration: 700,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        this.showVisualNovelCaption(this.vnSequence?.lines[index]?.[0] ?? '');
+        this.vnInputLocked = false;
+      },
+    });
+  }
+
+  private advanceVisualNovelSequence(): void {
+    if (this.vnInputLocked || !this.vnSequence) return;
+
+    const lines = this.vnSequence.lines[this.vnShotIndex] ?? [];
+    this.vnLineIndex++;
+    if (this.vnLineIndex < lines.length) {
+      this.showVisualNovelCaption(lines[this.vnLineIndex]);
+      return;
+    }
+
+    if (this.vnShotIndex === this.vnSequence.shots.length - 1) {
+      this.vnInputLocked = true;
+      this.destroyVisualNovelCaption();
+      if (this.vnSequence.shots === RESIGNATION_SHOTS) {
+        this.turnOffApartmentLight(() => this.vnSequence?.onComplete());
+      } else {
+        this.fadeOutVisualNovelImage(() => this.vnSequence?.onComplete());
+      }
+      return;
+    }
+
+    this.vnInputLocked = true;
+    this.fadeOutVisualNovelImage(() => this.playVisualNovelShot(this.vnShotIndex + 1));
+  }
+
+  private fadeOutVisualNovelImage(onComplete: () => void): void {
+    const image = this.vnImage;
+    const caption = this.vnCaption;
+    this.tweens.add({
+      targets: [image, caption].filter(Boolean),
+      alpha: 0,
+      duration: 650,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        image?.destroy();
+        this.vnImage = null;
+        this.destroyVisualNovelCaption();
+        onComplete();
+      },
+    });
+  }
+
+  private showVisualNovelCaption(text: string): void {
+    this.destroyVisualNovelCaption();
+
+    const boxWidth = GAME_CONFIG.WIDTH - 34;
+    const boxHeight = 56;
+    const x = 17;
+    const y = GAME_CONFIG.HEIGHT - boxHeight - 16;
+
+    const container = this.add.container(x, y);
+    container.setDepth(DEPTH.UI + 10);
+    container.setAlpha(0);
+
+    const box = this.add.rectangle(0, 0, boxWidth, boxHeight, 0x0d0f18, 0.78);
+    box.setOrigin(0, 0);
+    box.setStrokeStyle(1, 0xc8b37a, 0.38);
+    container.add(box);
+
+    const line = this.add.text(12, 12, text, {
+      fontSize: '9px',
+      color: '#f3eee0',
+      fontFamily: 'monospace',
+      lineSpacing: 3,
+      wordWrap: { width: boxWidth - 24 },
+    });
+    container.add(line);
+
+    const indicator = this.add.text(boxWidth - 18, boxHeight - 17, 'v', {
+      fontSize: '8px',
+      color: '#c8b37a',
+      fontFamily: 'monospace',
+    });
+    container.add(indicator);
+
+    this.vnCaption = container;
+    this.tweens.add({
+      targets: container,
+      alpha: 1,
+      duration: 650,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  private destroyVisualNovelCaption(): void {
+    this.vnCaption?.destroy();
+    this.vnCaption = null;
+  }
+
+  private turnOffApartmentLight(onComplete: () => void): void {
+    const blackout = this.add.rectangle(0, 0, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT, 0x000000, 0);
+    blackout.setOrigin(0, 0);
+    blackout.setDepth(DEPTH.UI + 20);
+    this.tweens.add({
+      targets: blackout,
+      alpha: 1,
+      duration: 1200,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        this.vnImage?.destroy();
+        this.vnImage = null;
+        this.time.delayedCall(900, onComplete);
+      },
+    });
+  }
+
+  private showTitleCard(): void {
+    this.children.removeAll(true);
+    this.cameras.main.setZoom(1);
+    this.cameras.main.centerOn(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2);
+    this.cameras.main.setBackgroundColor(0x05070d);
+    this.createVisualNovelAudio('theme');
+
+    const title = this.add.text(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2 - 8, 'BRONGWOOD', {
+      fontSize: '28px',
+      color: '#f3eee0',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setAlpha(0);
+    const subtitle = this.add.text(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2 + 22, '7 hari sebelum Festival Lentera Musim Panas', {
+      fontSize: '8px',
+      color: '#c8b37a',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5).setAlpha(0);
+
+    this.tweens.add({
+      targets: [title, subtitle],
+      alpha: 1,
+      duration: 1600,
+      ease: 'Sine.easeInOut',
+      onComplete: () => this.time.delayedCall(1800, () => this.finishPrologue()),
     });
   }
 
@@ -435,6 +818,105 @@ export class NewGamePrologueScene extends Phaser.Scene {
     this.masterGain.connect(this.audioCtx.destination);
     this.startRainNoise();
     this.startSoftPiano();
+  }
+
+  private createResignationMusic(): void {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+
+    this.audioCtx = new AudioCtx();
+    void this.audioCtx.resume();
+    this.masterGain = this.audioCtx.createGain();
+    this.masterGain.gain.value = 0.045;
+    this.masterGain.connect(this.audioCtx.destination);
+    this.startSoftPiano();
+  }
+
+  private createVisualNovelAudio(mode: VisualNovelSequence['music']): void {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+
+    this.audioCtx = new AudioCtx();
+    void this.audioCtx.resume();
+    this.masterGain = this.audioCtx.createGain();
+    this.masterGain.gain.value = mode === 'theme' ? 0.07 : 0.045;
+    this.masterGain.connect(this.audioCtx.destination);
+
+    this.startSoftPiano();
+    if (mode === 'train') {
+      this.startRainNoise();
+      this.startTrainRhythm();
+    } else if (mode === 'arrival') {
+      this.startMorningAmbience();
+    } else if (mode === 'theme') {
+      this.startMorningAmbience();
+      this.startThemePulse();
+    }
+  }
+
+  private startTrainRhythm(): void {
+    this.ambienceTimer?.destroy();
+    this.ambienceTimer = this.time.addEvent({
+      delay: 240,
+      loop: true,
+      callback: () => {
+        if (!this.audioCtx || !this.masterGain) return;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = 78;
+        gain.gain.setValueAtTime(0.06, this.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.08);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start();
+        osc.stop(this.audioCtx.currentTime + 0.09);
+      },
+    });
+  }
+
+  private startMorningAmbience(): void {
+    this.ambienceTimer?.destroy();
+    let tick = 0;
+    this.ambienceTimer = this.time.addEvent({
+      delay: 900,
+      loop: true,
+      callback: () => {
+        if (!this.audioCtx || !this.masterGain) return;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = tick % 3 === 0 ? 920 : 1280;
+        gain.gain.setValueAtTime(0.018, this.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.28);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start();
+        osc.stop(this.audioCtx.currentTime + 0.3);
+        tick++;
+      },
+    });
+  }
+
+  private startThemePulse(): void {
+    this.timers.push(this.time.addEvent({
+      delay: 1400,
+      loop: true,
+      callback: () => {
+        if (!this.audioCtx || !this.masterGain) return;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 196;
+        gain.gain.setValueAtTime(0.0001, this.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.04, this.audioCtx.currentTime + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 1.2);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start();
+        osc.stop(this.audioCtx.currentTime + 1.25);
+      },
+    }));
   }
 
   private startSoftPiano(): void {
@@ -561,6 +1043,8 @@ export class NewGamePrologueScene extends Phaser.Scene {
   private cleanupAudio(): void {
     for (const timer of this.timers) timer.destroy();
     this.timers = [];
+    this.ambienceTimer?.destroy();
+    this.ambienceTimer = null;
     this.pianoTimer?.destroy();
     this.pianoTimer = null;
     try {
@@ -579,5 +1063,11 @@ export class NewGamePrologueScene extends Phaser.Scene {
     this.masterGain = null;
     this.audioCtx?.close();
     this.audioCtx = null;
+  }
+
+  private removeUICamera(): void {
+    if (!this.uiCamera) return;
+    this.cameras.remove(this.uiCamera);
+    this.uiCamera = null;
   }
 }

@@ -9,3 +9,15 @@
   [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
 [2m12.29.51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/NewGamePrologueScene.ts[22m
 [2m12.33.41[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/NewGamePrologueScene.ts[22m
+[2m13.31.35[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/config/assets.manifest.ts[22m
+[2m13.31.42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/PreloadScene.ts[22m
+[2m13.32.18[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/NewGamePrologueScene.ts[22m
+[2m13.32.39[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/NewGamePrologueScene.ts[22m
+[2m13.35.08[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/NewGamePrologueScene.ts[22m
+[2m13.40.12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/NewGamePrologueScene.ts[22m
+[2m13.40.28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/NewGamePrologueScene.ts[22m
+[2m13.40.50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/NewGamePrologueScene.ts[22m
+[2m14.32.00[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/PreloadScene.ts[22m
+[2m14.32.27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/NewGamePrologueScene.ts[22m
+[2m14.33.12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/NewGamePrologueScene.ts[22m
+[2m14.33.36[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/scenes/NewGamePrologueScene.ts[22m

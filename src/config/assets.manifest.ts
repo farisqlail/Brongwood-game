@@ -71,6 +71,12 @@ export const TEXTURE_KEYS = {
   DIALOGUE_BOX: 'dialogue_box',
   PROLOGUE_SCENE_1: 'prologue_scene_1',
   PROLOGUE_SCENE_2: 'prologue_scene_2',
+  PROLOGUE_SCENE_3_1: 'prologue_scene_3_1',
+  PROLOGUE_SCENE_3_2: 'prologue_scene_3_2',
+  PROLOGUE_SCENE_3_3: 'prologue_scene_3_3',
+  PROLOGUE_SCENE_3_4: 'prologue_scene_3_4',
+  PROLOGUE_SCENE_3_5: 'prologue_scene_3_5',
+  PROLOGUE_SCENE_3_6: 'prologue_scene_3_6',
 } as const;
 
 /**
