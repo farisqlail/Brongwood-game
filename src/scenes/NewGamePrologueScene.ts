@@ -18,6 +18,72 @@ const NEW_LAIL_BODY_HEIGHT = 80;
 const NEW_LAIL_BODY_OFFSET_X = 90;
 const NEW_LAIL_BODY_OFFSET_Y = 610;
 
+const CITY_SHOTS = [
+  'prologue_scene_1_1',
+  'prologue_scene_1_2',
+  'prologue_scene_1_3',
+  'prologue_scene_1_4',
+] as const;
+
+const CITY_LINES: readonly string[][] = [
+  [
+    '00:41',
+    'Keyboard kantor. Notifikasi HP. Kereta bawah tanah. Hujan.',
+    'Suara orang bicara samar menempel di dinding apartemen kecil.',
+  ],
+  [
+    'Monitor masih menyala.',
+    'Apartment kecil. Gelap. Berantakan.',
+    'Tidak ada musik. Hanya ambience kota.',
+  ],
+  [
+    'Deadline lagi besok.',
+    'Kopi sudah dingin.',
+    'Reminder meeting. Client revision. Missed call: Mom.',
+  ],
+  [
+    'Kota malam penuh lampu.',
+    'Tapi dari jendela ini, semuanya terasa kosong.',
+    'Aku bahkan sudah lupa kapan terakhir kali merasa tenang.',
+  ],
+] as const;
+
+const MINIMARKET_SHOTS = [
+  'prologue_scene_2_1',
+  'prologue_scene_2_2',
+  'prologue_scene_2_3',
+  'prologue_scene_2_4',
+  'prologue_scene_2_5',
+] as const;
+
+const MINIMARKET_LINES: readonly string[][] = [
+  [
+    'Lail berjalan keluar apartemen.',
+    'Hujan gerimis turun di jalan kota.',
+    'Untuk pertama kalinya malam itu, piano pelan mulai masuk.',
+  ],
+  [
+    'Minimarket kecil. Lampu putih dingin. Sepi.',
+    'Lail membeli kopi kaleng.',
+    'Ia duduk sendirian dekat kasir.',
+  ],
+  [
+    'TV kecil di atas kasir menyala.',
+    'TV: Festival Musim Panas Brongwood akan dimulai minggu depan.',
+    'Di layar: danau. Lentera. Laut. Festival malam.',
+  ],
+  [
+    'Warna hangat itu terasa seperti dunia lain.',
+    'Kontras dengan kota Lail yang dingin dan terlalu terang.',
+    'Lail menatap layar cukup lama.',
+  ],
+  [
+    'Kasir: Tempat kecil begitu masih ada ya...',
+    'Lail diam.',
+    'Brongwood...',
+  ],
+] as const;
+
 const RESIGNATION_SHOTS = [
   TEXTURE_KEYS.PROLOGUE_SCENE_3_1,
   TEXTURE_KEYS.PROLOGUE_SCENE_3_2,
@@ -63,7 +129,7 @@ const RESIGNATION_LINES: readonly string[][] = [
 interface VisualNovelSequence {
   shots: readonly string[];
   lines: readonly (readonly string[])[];
-  music: 'resignation' | 'train' | 'arrival' | 'theme';
+  music: 'city' | 'minimarket' | 'resignation' | 'train' | 'arrival' | 'theme';
   onComplete: () => void;
 }
 
@@ -212,21 +278,14 @@ export class NewGamePrologueScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(0x000000);
     this.physics.world.setBounds(0, 0, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
 
-    this.createCityAmbience();
-    this.buildApartment();
-    this.createPlayer();
-    this.createUI();
-    this.setupUICamera();
-
-    this.cameras.main.fadeIn(1800, 0, 0, 0);
-    this.time.delayedCall(1700, () => this.startApartmentAutoSequence());
-
-    this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E).on('down', () => this.interact());
+    this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E).on('down', () => this.advanceDialogue());
     this.input.keyboard!.on('keydown-ENTER', this.advanceDialogue, this);
     this.input.keyboard!.on('keydown-SPACE', this.advanceDialogue, this);
     this.input.keyboard!.on('keydown-Z', this.advanceDialogue, this);
     this.input.on('pointerdown', this.advanceDialogue, this);
     this.events.once('shutdown', () => this.cleanupAudio());
+
+    this.time.delayedCall(900, () => this.startCitySequence());
   }
 
   update(): void {
@@ -257,16 +316,13 @@ export class NewGamePrologueScene extends Phaser.Scene {
     }
   }
 
-  private startApartmentAutoSequence(): void {
-    this.showDialogueSequence([
-      '00:41',
-      'Deadline lagi besok.',
-      'Sudah dingin.',
-      'Reminder meeting',
-      'Client revision',
-      'Missed call: Mom',
-      'Tidak ada tombol untuk membalas.',
-    ], () => this.walkToWindow(), false);
+  private startCitySequence(): void {
+    this.startVisualNovelSequence({
+      shots: CITY_SHOTS,
+      lines: CITY_LINES,
+      music: 'city',
+      onComplete: () => this.startMinimarketVisualNovelSequence(),
+    });
   }
 
   private buildApartment(): void {
@@ -301,7 +357,13 @@ export class NewGamePrologueScene extends Phaser.Scene {
         y: 140,
         radius: 30,
         label: 'HP',
-        lines: ['Reminder meeting', 'Client revision', 'Missed call: Mom', 'Tidak ada tombol untuk membalas.'],
+        lines: [
+          'Reminder meeting',
+          'Client revision',
+          'Missed call: Mom',
+          'Lail menatap layar sebentar.',
+          'Tidak ada tombol yang ingin ia tekan.',
+        ],
       },
     ];
   }
@@ -479,18 +541,6 @@ export class NewGamePrologueScene extends Phaser.Scene {
     });
   }
 
-  private walkToWindow(): void {
-    this.dialogueContainer.setVisible(false);
-    this.tweens.add({
-      targets: this.player,
-      y: 232,
-      duration: 2600,
-      ease: 'Sine.easeInOut',
-      onUpdate: () => this.player.setDepth(this.player.y + 20),
-      onComplete: () => this.startWindowSequence(),
-    });
-  }
-
   private startMinimarketSequence(): void {
     this.children.removeAll(true);
     this.physics.world.colliders.destroy();
@@ -520,6 +570,17 @@ export class NewGamePrologueScene extends Phaser.Scene {
       g.lineStyle(1, 0x8db5d8, 0.22);
       g.lineBetween(x, y, x - 4, y + 10);
     }
+
+    const tvGlow = this.add.rectangle(296, 82, 86, 44, 0xf2a65a, 0.08);
+    tvGlow.setDepth(DEPTH.GROUND_DECOR + 1);
+    this.tweens.add({
+      targets: tvGlow,
+      alpha: 0.22,
+      duration: 900,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
   }
 
   private addSceneBackdrop(textureKey: string): Phaser.GameObjects.Image {
@@ -549,7 +610,10 @@ export class NewGamePrologueScene extends Phaser.Scene {
   }
 
   private walkMinimarketPath(): void {
-    this.showDialogueSequence(['Gerimis menempel di jaket Lail.'], () => {
+    this.showDialogueSequence([
+      'Lail berjalan keluar apartemen.',
+      'Gerimis menempel di jaketnya.',
+    ], () => {
       this.tweens.add({
         targets: this.player,
         x: 234,
@@ -563,7 +627,11 @@ export class NewGamePrologueScene extends Phaser.Scene {
   }
 
   private buyCoffeeSequence(): void {
-    this.showDialogueSequence(['Kopi kaleng. Hangat sebentar, pahit setelahnya.'], () => {
+    this.showDialogueSequence([
+      'Lampu putih minimarket membuat malam terasa lebih dingin.',
+      'Lail membeli kopi kaleng.',
+      'Kopi kaleng. Hangat sebentar, pahit setelahnya.',
+    ], () => {
       this.tweens.add({
         targets: this.player,
         x: 178,
@@ -582,9 +650,10 @@ export class NewGamePrologueScene extends Phaser.Scene {
     this.time.delayedCall(1100, () => {
       this.showDialogueSequence([
         'TV: Festival Musim Panas Brongwood akan dimulai minggu depan.',
-        'Danau. Lentera. Laut. Festival malam.',
-        'Warna hangat itu terasa seperti dunia lain.',
+        'Di layar: danau. Lentera. Laut. Festival malam.',
+        'Warna hangat itu terasa seperti dunia lain dibanding kota ini.',
         'Kasir: Tempat kecil begitu masih ada ya...',
+        'Lail diam.',
         'Brongwood...',
       ], () => this.startResignationSequence(), false);
     });
@@ -595,6 +664,15 @@ export class NewGamePrologueScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.cleanupAudio();
       this.scene.start(SCENE_KEYS.WORLD);
+    });
+  }
+
+  private startMinimarketVisualNovelSequence(): void {
+    this.startVisualNovelSequence({
+      shots: MINIMARKET_SHOTS,
+      lines: MINIMARKET_LINES,
+      music: 'minimarket',
+      onComplete: () => this.startResignationSequence(),
     });
   }
 
@@ -849,8 +927,19 @@ export class NewGamePrologueScene extends Phaser.Scene {
     this.masterGain.gain.value = mode === 'theme' ? 0.07 : 0.045;
     this.masterGain.connect(this.audioCtx.destination);
 
+    if (mode === 'city') {
+      this.startRumble();
+      this.startRainNoise();
+      this.timers.push(this.time.addEvent({ delay: 140, loop: true, callback: () => this.playKeyboardClick() }));
+      this.timers.push(this.time.addEvent({ delay: 3100, loop: true, callback: () => this.playNotification() }));
+      this.timers.push(this.time.addEvent({ delay: 2300, loop: true, callback: () => this.playMurmur() }));
+      return;
+    }
+
     this.startSoftPiano();
-    if (mode === 'train') {
+    if (mode === 'minimarket') {
+      this.startRainNoise();
+    } else if (mode === 'train') {
       this.startRainNoise();
       this.startTrainRhythm();
     } else if (mode === 'arrival') {

@@ -34,6 +34,12 @@ export class PreloadScene extends Phaser.Scene {
     // === PROLOGUE SCENES ===
     this.load.image(TEXTURE_KEYS.PROLOGUE_SCENE_1, 'assets/sceenes/sceene_1.png');
     this.load.image(TEXTURE_KEYS.PROLOGUE_SCENE_2, 'assets/sceenes/sceene_2.png');
+    const earlyPrologueSceneShotCounts: Record<number, number> = { 1: 4, 2: 5 };
+    for (const [sceneNumber, shotCount] of Object.entries(earlyPrologueSceneShotCounts)) {
+      for (let i = 1; i <= shotCount; i++) {
+        this.load.image(`prologue_scene_${sceneNumber}_${i}`, `assets/sceenes/scene_${sceneNumber}/shot_${i}.png`);
+      }
+    }
     for (let i = 1; i <= 6; i++) {
       const key = TEXTURE_KEYS[`PROLOGUE_SCENE_3_${i}` as keyof typeof TEXTURE_KEYS];
       this.load.image(key, `assets/sceenes/scene_3/shot_${i}.png`);
