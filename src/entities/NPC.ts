@@ -116,6 +116,7 @@ export class NPC {
   private originY: number = 0;
   private wanderRadius: number = 40;
   private _frozen: boolean = false;
+  private _present: boolean = true;
 
   /** Enable natural wandering behavior */
   enableWander(radius: number = 40): void {
@@ -139,8 +140,30 @@ export class NPC {
     this.idleDuration = 1500 + Math.random() * 2000;
   }
 
+  get present(): boolean {
+    return this._present;
+  }
+
+  setPresence(present: boolean): void {
+    if (this._present === present) return;
+
+    this._present = present;
+    this._playerInRange = false;
+    this.sprite.setVelocity(0, 0);
+    this.sprite.setVisible(present);
+    this.sprite.setActive(present);
+    this.interactionZone.setActive(present);
+
+    const spriteBody = this.sprite.body as Phaser.Physics.Arcade.Body | null;
+    if (spriteBody) spriteBody.enable = present;
+
+    const zoneBody = this.interactionZone.body as Phaser.Physics.Arcade.Body | undefined;
+    if (zoneBody) zoneBody.enable = present;
+  }
+
   /** Update (call every frame with delta in ms) */
   update(delta?: number): void {
+    if (!this._present) return;
     if (!delta) delta = 16;
 
     // If frozen (during dialogue), just play idle animation

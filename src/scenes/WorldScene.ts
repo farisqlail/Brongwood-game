@@ -193,6 +193,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.player.update();
+    this.updateRikaWorldPresence();
     this.rika.update(delta);
     for (const npc of this.townNPCs) npc.update(delta);
     this.weatherSystem.update(delta);
@@ -269,23 +270,19 @@ export class WorldScene extends Phaser.Scene {
    * Spawn all NPCs — Rika + 10 townspeople.
    */
   private spawnNPCs(): void {
-    const ts = GAME_CONFIG.TILE_SIZE;
-
     // Rika (main NPC) — random spawn position away from player
-    const rikaSpawnX = Phaser.Math.Between(ts * 2, ts * 13);
-    const rikaSpawnY = Phaser.Math.Between(ts * 2, ts * 8);
-    // Make sure she doesn't spawn on the road (rows 4-5)
-    const rikaY = (rikaSpawnY >= ts * 4 && rikaSpawnY <= ts * 6) ? ts * 7 : rikaSpawnY;
+    const rikaSpawn = this.getRikaWorldSpawn();
 
     this.rika = new NPC(this, {
       id: 'rika',
       textureKey: TEXTURE_KEYS.RIKA,
-      x: rikaSpawnX,
-      y: rikaY,
+      x: rikaSpawn.x,
+      y: rikaSpawn.y,
       direction: 'down',
       interactionRadius: 50,
     });
     this.rika.enableWander(60);
+    this.rika.setPresence(this.isRikaVisibleOnMainMap());
     this.physics.add.collider(this.player.sprite, this.rika.sprite);
 
     // 10 Town NPCs
@@ -302,6 +299,39 @@ export class WorldScene extends Phaser.Scene {
       this.physics.add.collider(this.player.sprite, npc.sprite);
       this.townNPCs.push(npc);
     }
+  }
+
+  private getRikaWorldSpawn(): { x: number; y: number } {
+    const ts = GAME_CONFIG.TILE_SIZE;
+    const eveningSpots = [
+      { x: ts * 10.7, y: ts * 6.8 },
+      { x: ts * 12.2, y: ts * 6.4 },
+      { x: ts * 8.8, y: ts * 3.2 },
+      { x: ts * 5.7, y: ts * 7.2 },
+    ];
+
+    return Phaser.Utils.Array.GetRandom(eveningSpots);
+  }
+
+  private isRikaVisibleOnMainMap(): boolean {
+    const hour = gameManager.time.hour;
+    return hour < 8 || hour >= 17;
+  }
+
+  private updateRikaWorldPresence(): void {
+    const shouldBeVisible = this.isRikaVisibleOnMainMap();
+    if (this.rika.present === shouldBeVisible) return;
+
+    if (shouldBeVisible) {
+      const spawn = this.getRikaWorldSpawn();
+      this.rika.sprite.setPosition(spawn.x, spawn.y);
+      this.rika.enableWander(60);
+    } else if (this.nearbyNPC?.id === 'rika') {
+      this.nearbyNPC = null;
+      this.promptText.setVisible(false);
+    }
+
+    this.rika.setPresence(shouldBeVisible);
   }
 
   private setupCamera(): void {
@@ -569,7 +599,10 @@ export class WorldScene extends Phaser.Scene {
     }
 
     // Check Rika first
-    const allNPCs: NPC[] = [this.rika, ...this.townNPCs];
+    const allNPCs: NPC[] = [
+      ...(this.rika.present ? [this.rika] : []),
+      ...this.townNPCs,
+    ];
     let closest: NPC | null = null;
     let closestDist = Infinity;
 

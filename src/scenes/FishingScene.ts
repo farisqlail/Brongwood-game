@@ -26,6 +26,10 @@ import { EventBus } from '@/core/EventBus';
 import { gameManager } from '@/managers/GameManager';
 import { AudioSystem } from '@/systems/AudioSystem';
 import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
+import { NPC } from '@/entities/NPC';
+import { TEXTURE_KEYS } from '@config/assets.manifest';
+import { DialogueSystem } from '@/dialogue/DialogueSystem';
+import { getRikaDialogue } from '@/dialogue/RikaDialogue';
 
 const W = GAME_CONFIG.WIDTH;   // 480
 const H = GAME_CONFIG.HEIGHT;  // 300
@@ -43,6 +47,9 @@ export class FishingScene extends Phaser.Scene {
   private atmosphere!: SceneAtmosphere;
   private nightSky!: Phaser.GameObjects.Graphics;
   private ownedAudioSystem: AudioSystem | null = null;
+  private rika: NPC | null = null;
+  private dialogueSystem!: DialogueSystem;
+  private promptText!: Phaser.GameObjects.Text;
   private exiting = false;
   private readonly onPlayerLocked = (payload: { locked: boolean }) => {
     if (payload.locked) this.player.freeze();
@@ -64,6 +71,7 @@ export class FishingScene extends Phaser.Scene {
     // Player masuk dari sisi kiri (di pantai, di atas pasir)
     this.player = new Player(this, 30, SHORE_Y + 45);
     this.player.sprite.setCollideWorldBounds(true);
+    this.spawnRikaIfAvailable();
 
     this.cameras.main.setBounds(0, 0, W, H);
     this.cameras.main.centerOn(W / 2, H / 2);
@@ -87,6 +95,8 @@ export class FishingScene extends Phaser.Scene {
     this.input.keyboard!
       .addKey(Phaser.Input.Keyboard.KeyCodes.E)
       .on('down', () => {
+        if (this.tryTalkToRika()) return;
+
         if (this.activityZoneUI.isActivityActive) {
           this.activityZoneUI.cancelActivity();
         } else if (this.activityZoneUI.isInZone) {
@@ -96,6 +106,7 @@ export class FishingScene extends Phaser.Scene {
 
     // Freeze/unfreeze player saat activity berlangsung
     EventBus.on('event:player-locked', this.onPlayerLocked, this);
+    EventBus.on('dialogue:ended', this.onDialogueEnded, this);
 
     this.mobileControls = new MobileControls(this);
 
@@ -106,6 +117,19 @@ export class FishingScene extends Phaser.Scene {
       .on('down', () => this.pauseMenu.toggle());
 
     this.hud = new SceneHUD(this, 'fishing', W, H);
+    this.dialogueSystem = new DialogueSystem(this);
+    this.promptText = this.add.text(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT - 72, '', {
+      fontSize: '8px',
+      color: '#ffffff',
+      fontFamily: 'monospace',
+      backgroundColor: '#00000099',
+      padding: { x: 8, y: 4 },
+    });
+    this.promptText.setOrigin(0.5);
+    this.promptText.setScrollFactor(0);
+    this.promptText.setDepth(DEPTH.UI + 16);
+    this.promptText.setVisible(false);
+
     this.atmosphere = new SceneAtmosphere(this, { lighting: 'morning_coastal' });
     gameManager.startGameplay();
     this.ownedAudioSystem = bootstrapGameplayAudio(this);
@@ -119,12 +143,16 @@ export class FishingScene extends Phaser.Scene {
     this.atmosphere.update(delta);
     this.nightSky.setAlpha(this.getNightAlpha());
     this.hud.update(this.player.sprite.x, this.player.sprite.y, this.atmosphere.weatherState);
-    if (this.pauseMenu.opened) return;
+    this.syncRikaBeachPresence();
+    this.rika?.update(delta);
+    this.updateRikaPrompt();
+    if (this.pauseMenu.opened || this.dialogueSystem.isActive) return;
 
     if (this.mobileControls.visible) {
       const js = this.mobileControls.joystickState;
       this.player.setJoystickInput(js.isActive, js.forceX, js.forceY);
       if (this.mobileControls.actionPressed) {
+        if (this.tryTalkToRika()) return;
         if (this.activityZoneUI.isActivityActive) this.activityZoneUI.cancelActivity();
         else if (this.activityZoneUI.isInZone) this.activityZoneUI.startActivity();
       }
@@ -139,6 +167,77 @@ export class FishingScene extends Phaser.Scene {
       this.doExit();
     }
   }
+
+  private isRikaAvailableOnBeach(): boolean {
+    return gameManager.time.hour >= 17;
+  }
+
+  private spawnRikaIfAvailable(): void {
+    if (!this.isRikaAvailableOnBeach()) return;
+
+    this.rika = new NPC(this, {
+      id: 'rika',
+      textureKey: TEXTURE_KEYS.RIKA,
+      x: 360,
+      y: SHORE_Y + 52,
+      direction: 'left',
+      interactionRadius: 52,
+    });
+    this.rika.enableWander(34);
+    this.physics.add.collider(this.player.sprite, this.rika.sprite);
+  }
+
+  private syncRikaBeachPresence(): void {
+    if (this.isRikaAvailableOnBeach()) {
+      if (!this.rika) this.spawnRikaIfAvailable();
+      return;
+    }
+
+    if (!this.rika) return;
+    this.rika.destroy();
+    this.rika = null;
+    this.promptText?.setVisible(false);
+  }
+
+  private updateRikaPrompt(): void {
+    if (!this.rika || this.dialogueSystem.isActive || this.pauseMenu.opened) {
+      this.promptText?.setVisible(false);
+      return;
+    }
+
+    const dist = Phaser.Math.Distance.Between(
+      this.player.sprite.x,
+      this.player.sprite.y,
+      this.rika.sprite.x,
+      this.rika.sprite.y,
+    );
+    this.promptText.setText('[E] Bicara dengan Rika');
+    this.promptText.setVisible(dist < 58);
+  }
+
+  private tryTalkToRika(): boolean {
+    if (!this.rika || this.dialogueSystem.isActive || this.pauseMenu.opened) return false;
+
+    const dist = Phaser.Math.Distance.Between(
+      this.player.sprite.x,
+      this.player.sprite.y,
+      this.rika.sprite.x,
+      this.rika.sprite.y,
+    );
+    if (dist >= 58) return false;
+
+    this.rika.freeze();
+    this.rika.faceToward(this.player.sprite.x, this.player.sprite.y);
+    this.promptText.setVisible(false);
+    gameManager.relationships.recordInteraction('rika', gameManager.time.day);
+    const hasMetRika = gameManager.relationships.hasFlag('rika', 'met_rika');
+    this.dialogueSystem.start(getRikaDialogue(hasMetRika, gameManager.time.period));
+    return true;
+  }
+
+  private readonly onDialogueEnded = (): void => {
+    this.rika?.unfreeze();
+  };
 
   // ============================================================
   // BACKGROUND — fully procedural water, tiles as sand texture
@@ -589,6 +688,10 @@ export class FishingScene extends Phaser.Scene {
 
   private onShutdown(): void {
     EventBus.off('event:player-locked', this.onPlayerLocked);
+    EventBus.off('dialogue:ended', this.onDialogueEnded);
+    this.rika?.destroy();
+    this.dialogueSystem.destroy();
+    this.promptText.destroy();
     this.mobileControls.destroy();
     this.activityZoneUI.destroy();
     this.pauseMenu.destroy();

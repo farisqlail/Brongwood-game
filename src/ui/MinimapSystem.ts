@@ -288,9 +288,11 @@ export class MinimapSystem {
     }
 
     // Rika — rose dot
-    g.fillStyle(0xff88cc, 1);
-    const rp = toMM(rika.sprite.x, rika.sprite.y);
-    g.fillCircle(rp.x, rp.y, 2);
+    if (rika.present) {
+      g.fillStyle(0xff88cc, 1);
+      const rp = toMM(rika.sprite.x, rika.sprite.y);
+      g.fillCircle(rp.x, rp.y, 2);
+    }
 
     // Player — bright dot with small glow
     const pp = toMM(playerX, playerY);
