@@ -261,6 +261,7 @@ export class AudioSystem {
 
   setBGMVolume(volume: number): void {
     this.bgmVolume = Math.max(0, Math.min(1, volume));
+    this.bgm.targetVolume = this.bgmVolume;
     this.updateAllVolumes();
   }
 

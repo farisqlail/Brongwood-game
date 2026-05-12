@@ -310,7 +310,7 @@ export class CafeScene extends Phaser.Scene {
     const slot = inv.addItem(ITEM_DEFS.coffee);
 
     if (slot >= 0) {
-      this.showToast('Coffee added to inventory!', 0xf2a65a);
+      this.showToast('Kopi masuk ke inventori!', 0xf2a65a);
     } else {
       this.showToast('Inventory full — no room for coffee.', 0xcc6655);
     }
@@ -362,33 +362,37 @@ const BARISTA_DIALOGUE: DialogueDefinition = {
     s1: {
       type: 'text', id: 's1',
       speaker: 'barista', speakerName: 'Hana (Barista)',
-      text: 'Welcome! What can I get you? We have fresh coffee and homemade cake today.',
+      text: 'Selamat datang. Mau pesan apa? Hari ini ada kopi baru seduh dan kue rumahan.',
+      typeSpeed: 0.75,
       next: 'choice',
     },
     choice: {
       type: 'choice', id: 'choice',
       choices: [
-        { text: 'Coffee, please.', choiceId: 'coffee', next: 'coffee' },
-        { text: 'Just looking around.', choiceId: 'look', next: 'look' },
-        { text: 'This place is cozy.', choiceId: 'cozy', next: 'cozy' },
+        { text: 'Kopi satu, ya.', choiceId: 'coffee', next: 'coffee' },
+        { text: 'Lihat-lihat dulu.', choiceId: 'look', next: 'look' },
+        { text: 'Tempat ini nyaman.', choiceId: 'cozy', next: 'cozy' },
       ],
     },
     coffee: {
       type: 'text', id: 'coffee',
       speaker: 'barista', speakerName: 'Hana (Barista)',
-      text: 'Coming right up! Take a seat anywhere. The window table has the best view.',
+      text: 'Siap. Silakan duduk di mana saja. Meja dekat jendela biasanya punya pemandangan terbaik.',
+      typeSpeed: 0.75,
       next: null,
     },
     look: {
       type: 'text', id: 'look',
       speaker: 'barista', speakerName: 'Hana (Barista)',
-      text: 'Take your time! We\'re open until late. It gets quiet and nice in the evening.',
+      text: 'Santai saja. Kami buka sampai malam. Kalau sore, suasananya lebih tenang.',
+      typeSpeed: 0.75,
       next: null,
     },
     cozy: {
       type: 'text', id: 'cozy',
       speaker: 'barista', speakerName: 'Hana (Barista)',
-      text: 'Thank you! I tried to make it feel like home. Everyone needs a warm place to rest.',
+      text: 'Terima kasih. Aku memang ingin tempat ini terasa seperti rumah. Semua orang butuh tempat hangat untuk rehat.',
+      typeSpeed: 0.75,
       next: null,
     },
   },

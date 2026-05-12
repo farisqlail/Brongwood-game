@@ -31,10 +31,10 @@ export const RIKA_MESSAGES: ScheduledMessage[] = [
     message: {
       id: 'rika_msg_morning_1',
       sender: 'rika',
-      text: 'Good morning! The sunflowers bloomed today. Thought you might want to see them if you pass by.',
+      text: 'Pagi! Bunga mataharinya mekar hari ini. Kalau lewat, mampir ya. Mereka lagi mode pamer.',
       responses: [
-        { text: 'I\'ll stop by later!', effects: [{ type: 'affection', npcId: 'rika', amount: 3 }] },
-        { text: 'That sounds nice.', effects: [{ type: 'affection', npcId: 'rika', amount: 1 }] },
+        { text: 'Nanti aku mampir!', effects: [{ type: 'affection', npcId: 'rika', amount: 3 }] },
+        { text: 'Kedengarannya cantik.', effects: [{ type: 'affection', npcId: 'rika', amount: 1 }] },
       ],
     },
     conditions: {
@@ -51,10 +51,10 @@ export const RIKA_MESSAGES: ScheduledMessage[] = [
     message: {
       id: 'rika_msg_rain_1',
       sender: 'rika',
-      text: 'It\'s raining again. I always forget my umbrella. Do you like the rain?',
+      text: 'Hujan lagi. Aku tentu saja lupa payung, karena hidupku suka komedi kecil. Kamu suka hujan?',
       responses: [
-        { text: 'I love it. It makes everything feel quiet.', effects: [{ type: 'trust', npcId: 'rika', amount: 3 }] },
-        { text: 'Not really, but it\'s cozy inside.', effects: [{ type: 'affection', npcId: 'rika', amount: 2 }] },
+        { text: 'Suka. Semuanya jadi lebih tenang.', effects: [{ type: 'trust', npcId: 'rika', amount: 3 }] },
+        { text: 'Tidak terlalu, tapi enak kalau di dalam.', effects: [{ type: 'affection', npcId: 'rika', amount: 2 }] },
       ],
     },
     conditions: {
@@ -75,10 +75,10 @@ export const RIKA_MESSAGES: ScheduledMessage[] = [
     message: {
       id: 'rika_msg_evening_1',
       sender: 'rika',
-      text: 'The sunset was really pretty today. Did you see it?',
+      text: 'Senja hari ini cakep banget. Kamu lihat nggak, atau kalah sama kesibukan dunia?',
       responses: [
-        { text: 'Yeah, it was beautiful.', effects: [{ type: 'affection', npcId: 'rika', amount: 5 }] },
-        { text: 'I missed it. Was busy.', effects: [{ type: 'trust', npcId: 'rika', amount: 2 }] },
+        { text: 'Lihat. Indah banget.', effects: [{ type: 'affection', npcId: 'rika', amount: 5 }] },
+        { text: 'Terlewat. Aku sibuk.', effects: [{ type: 'trust', npcId: 'rika', amount: 2 }] },
       ],
     },
     conditions: {
@@ -95,10 +95,10 @@ export const RIKA_MESSAGES: ScheduledMessage[] = [
     message: {
       id: 'rika_msg_night_1',
       sender: 'rika',
-      text: 'Can\'t sleep. The ocean sounds louder at night. Do you ever feel like the world is too quiet?',
+      text: 'Nggak bisa tidur. Suara laut malam-malam jadi lebih keras. Kamu pernah merasa dunia terlalu sunyi?',
       responses: [
-        { text: 'Sometimes. But quiet isn\'t always bad.', effects: [{ type: 'trust', npcId: 'rika', amount: 5 }, { type: 'affection', npcId: 'rika', amount: 3 }] },
-        { text: 'Are you okay?', effects: [{ type: 'trust', npcId: 'rika', amount: 8 }] },
+        { text: 'Kadang. Tapi sunyi tidak selalu buruk.', effects: [{ type: 'trust', npcId: 'rika', amount: 5 }, { type: 'affection', npcId: 'rika', amount: 3 }] },
+        { text: 'Kamu baik-baik saja?', effects: [{ type: 'trust', npcId: 'rika', amount: 8 }] },
       ],
     },
     conditions: {
@@ -115,10 +115,10 @@ export const RIKA_MESSAGES: ScheduledMessage[] = [
     message: {
       id: 'rika_msg_flower_1',
       sender: 'rika',
-      text: 'I found a flower I\'ve never seen before today. It was growing between the cracks in the sidewalk. Isn\'t that kind of amazing?',
+      text: 'Aku nemu bunga yang belum pernah kulihat. Tumbuh di retakan trotoar. Kecil, nekat, keren. Iya kan?',
       responses: [
-        { text: 'Life finds a way, even in hard places.', effects: [{ type: 'trust', npcId: 'rika', amount: 5 }, { type: 'affection', npcId: 'rika', amount: 5 }] },
-        { text: 'You notice the small things. I like that about you.', effects: [{ type: 'affection', npcId: 'rika', amount: 8 }] },
+        { text: 'Hidup selalu cari jalan, bahkan di tempat sulit.', effects: [{ type: 'trust', npcId: 'rika', amount: 5 }, { type: 'affection', npcId: 'rika', amount: 5 }] },
+        { text: 'Kamu perhatian pada hal kecil. Aku suka itu.', effects: [{ type: 'affection', npcId: 'rika', amount: 8 }] },
       ],
     },
     conditions: {
@@ -139,10 +139,10 @@ export const RIKA_MESSAGES: ScheduledMessage[] = [
     message: {
       id: 'rika_msg_vulnerable_1',
       sender: 'rika',
-      text: 'I was thinking about what you said the other night. About every day having something worth noticing. I\'m trying to believe that.',
+      text: 'Aku kepikiran omonganmu malam itu. Soal tiap hari punya hal kecil yang layak dilihat. Aku lagi coba percaya itu.',
       responses: [
-        { text: 'I believe it more when I\'m with you.', effects: [{ type: 'affection', npcId: 'rika', amount: 10 }, { type: 'trust', npcId: 'rika', amount: 5 }] },
-        { text: 'It takes practice. But you\'re doing it.', effects: [{ type: 'trust', npcId: 'rika', amount: 8 }] },
+        { text: 'Aku lebih percaya saat bersamamu.', effects: [{ type: 'affection', npcId: 'rika', amount: 10 }, { type: 'trust', npcId: 'rika', amount: 5 }] },
+        { text: 'Butuh latihan. Tapi kamu sedang melakukannya.', effects: [{ type: 'trust', npcId: 'rika', amount: 8 }] },
       ],
     },
     conditions: {
@@ -160,10 +160,10 @@ export const RIKA_MESSAGES: ScheduledMessage[] = [
     message: {
       id: 'rika_msg_late_night_1',
       sender: 'rika',
-      text: 'Sorry for texting so late. I just... wanted to talk to someone. To you, specifically.',
+      text: 'Maaf chat malam-malam. Aku cuma... pengin ngobrol sama seseorang. Lebih tepatnya sama kamu. Plot twist kecil.',
       responses: [
-        { text: 'I\'m glad you texted. I\'m here.', effects: [{ type: 'trust', npcId: 'rika', amount: 10 }, { type: 'affection', npcId: 'rika', amount: 8 }] },
-        { text: 'You can always text me. Anytime.', effects: [{ type: 'trust', npcId: 'rika', amount: 12 }] },
+        { text: 'Aku senang kamu chat. Aku di sini.', effects: [{ type: 'trust', npcId: 'rika', amount: 10 }, { type: 'affection', npcId: 'rika', amount: 8 }] },
+        { text: 'Kamu selalu boleh chat aku. Kapan saja.', effects: [{ type: 'trust', npcId: 'rika', amount: 12 }] },
       ],
     },
     conditions: {

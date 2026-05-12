@@ -41,6 +41,7 @@ const WALL_BOTTOM_Y = WALL_H;           // ≈ 84
 const KASUR_SCALE  = 1.4;  // asli 48×81 → 67×113
 const LEMARI_SCALE = 1.2;  // asli 48×69 → 58×83
 const BUFFET_SCALE = 1.5;  // asli 72×35 → 108×53
+const KITCHENSET_SCALE = 1.25; // asli 89x56 -> 111x70
 
 // Gap pintu (tengah bawah)
 const DOOR_GAP_X1 = 192;
@@ -210,6 +211,13 @@ export class PlayerHouseScene extends Phaser.Scene {
     const buffetX = lemariW + buffetW / 2;
     const buffetY = top + buffetH / 2;
     this.placeObj(buffetX, buffetY, 'house2-buffet', DEPTH.ENTITIES, BUFFET_SCALE);
+
+    // Kitchenset — sebelah kanan buffet, masih menempel tembok atas
+    const kitchensetW = 89 * KITCHENSET_SCALE;
+    const kitchensetH = 56 * KITCHENSET_SCALE;
+    const kitchensetX = lemariW + buffetW + kitchensetW / 2;
+    const kitchensetY = top + kitchensetH / 2;
+    this.placeObj(kitchensetX, kitchensetY, 'food-kitchenset-1', DEPTH.ENTITIES, KITCHENSET_SCALE);
   }
 
   // ============================================================
@@ -244,6 +252,11 @@ export class PlayerHouseScene extends Phaser.Scene {
     const buffetW = Math.round(72 * BUFFET_SCALE);
     const buffetH = Math.round(35 * BUFFET_SCALE);
     this.addBox(lemariW, top, buffetW, buffetH);
+
+    // Kitchenset — sebelah kanan buffet
+    const kitchensetW = Math.round(89 * KITCHENSET_SCALE);
+    const kitchensetH = Math.round(56 * KITCHENSET_SCALE);
+    this.addBox(lemariW + buffetW, top, kitchensetW, kitchensetH);
   }
 
   private addBox(x: number, y: number, w: number, h: number): void {

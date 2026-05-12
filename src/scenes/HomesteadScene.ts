@@ -483,30 +483,38 @@ export class HomesteadScene extends Phaser.Scene {
       { x: ox(166), y: oy(46), key: 'tile-tree-1', scale: 0.46 },
       { x: ox(224), y: oy(28), key: 'tile-tree-2', scale: 0.42 },
       { x: ox(250), y: oy(22), key: 'tile-tree-1', scale: 0.38 },
+      { x: ox(312), y: oy(-28), key: 'tile-tree-5', scale: 0.28 },
       { x: ox(392), y: oy(18), key: 'tile-tree-2', scale: 0.42 },
       { x: ox(460), y: oy(70), key: 'tile-tree-2', scale: 0.58 },
       { x: ox(520), y: oy(120), key: 'tile-tree-1', scale: 0.46 },
       { x: ox(590), y: oy(70), key: 'tile-tree-2', scale: 0.50 },
       { x: ox(642), y: oy(110), key: 'tile-tree-1', scale: 0.46 },
+      { x: ox(694), y: oy(32), key: 'tile-tree-5', scale: 0.30 },
       { x: ox(702), y: oy(168), key: 'tile-tree-3', scale: 0.54 },
       { x: ox(760), y: oy(94), key: 'tile-tree-3', scale: 0.52 },
       { x: ox(794), y: oy(162), key: 'tile-tree-4', scale: 0.56 },
       { x: ox(824), y: oy(246), key: 'tile-tree-2', scale: 0.50 },
       { x: ox(676), y: oy(262), key: 'tile-tree-4', scale: 0.58 },
+      { x: ox(640), y: oy(318), key: 'tile-tree-6', scale: 0.46 },
       { x: ox(620), y: oy(354), key: 'tile-tree-2', scale: 0.48 },
       { x: ox(548), y: oy(338), key: 'tile-tree-3', scale: 0.58 },
       { x: ox(470), y: oy(292), key: 'tile-tree-4', scale: 0.62 },
+      { x: ox(304), y: oy(238), key: 'tile-wood-tree-5', scale: 0.56 },
       { x: ox(330), y: oy(388), key: 'tile-tree-1', scale: 0.44 },
+      { x: ox(382), y: oy(424), key: 'tile-wood-tree-5', scale: 0.50 },
       { x: ox(238), y: oy(326), key: 'tile-tree-1', scale: 0.50 },
       { x: ox(158), y: oy(292), key: 'tile-tree-4', scale: 0.62 },
       { x: ox(104), y: oy(408), key: 'tile-tree-3', scale: 0.52 },
       { x: ox(82), y: oy(344), key: 'tile-tree-2', scale: 0.48 },
       { x: ox(40), y: oy(438), key: 'tile-tree-2', scale: 0.44 },
+      { x: ox(-116), y: oy(214), key: 'tile-tree-6', scale: 0.48 },
       { x: ox(-70), y: oy(404), key: 'tile-tree-4', scale: 0.56 },
       { x: ox(-34), y: oy(330), key: 'tile-tree-4', scale: 0.66 },
+      { x: ox(-20), y: oy(428), key: 'tile-wood-tree-6', scale: 0.82 },
       { x: ox(36), y: oy(278), key: 'tile-tree-3', scale: 0.64 },
       { x: ox(196), y: oy(458), key: 'tile-tree-1', scale: 0.46 },
       { x: ox(346), y: oy(470), key: 'tile-tree-2', scale: 0.48 },
+      { x: ox(452), y: oy(444), key: 'tile-wood-tree-6', scale: 0.76 },
       { x: ox(520), y: oy(464), key: 'tile-tree-3', scale: 0.54 },
       { x: ox(706), y: oy(444), key: 'tile-tree-4', scale: 0.58 },
     ];
@@ -514,8 +522,6 @@ export class HomesteadScene extends Phaser.Scene {
       this.placeTree(tree.x, tree.y, tree.key, tree.scale);
     }
 
-    this.drawStump(g, ox(236), oy(82));
-    this.drawCrates(g);
     this.drawFlowerSprinkles(g);
 
     g.fillStyle(0x9d8b73, 0.7);
@@ -629,11 +635,26 @@ export class HomesteadScene extends Phaser.Scene {
     this.addColliderBox(ox(142), oy(274), 32, 42);
     this.addColliderBox(ox(454), oy(274), 32, 42);
     this.addColliderBox(ox(222), oy(306), 36, 44);
+    this.addPondColliders(ox(-10), oy(286), 138, 74);
+    this.addColliderBox(ox(312), oy(-38), 40, 30);
+    this.addColliderBox(ox(694), oy(20), 42, 30);
+    this.addColliderBox(ox(-116), oy(204), 28, 28);
+    this.addColliderBox(ox(640), oy(306), 28, 28);
+    this.addColliderBox(ox(304), oy(232), 42, 20);
+    this.addColliderBox(ox(382), oy(418), 38, 18);
+    this.addColliderBox(ox(-20), oy(424), 18, 16);
+    this.addColliderBox(ox(452), oy(440), 18, 16);
   }
 
   private addColliderBox(x: number, y: number, width: number, height: number): void {
     const body = this.physics.add.staticBody(x, y, width, height);
     this.physics.add.collider(this.player.sprite, body as unknown as Phaser.Physics.Arcade.StaticBody);
+  }
+
+  private addPondColliders(x: number, y: number, w: number, h: number): void {
+    this.addColliderBox(x + w * 0.09, y + h * 0.30, w * 0.64, h * 0.52);
+    this.addColliderBox(x + w * 0.00, y + h * 0.36, w * 0.30, h * 0.34);
+    this.addColliderBox(x + w * 0.58, y + h * 0.18, w * 0.34, h * 0.34);
   }
 
   private buildExitSign(): void {

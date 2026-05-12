@@ -149,6 +149,9 @@ export class PreloadScene extends Phaser.Scene {
       this.load.image(`utility-${name}`, `${ember}/${name}.png`);
     }
 
+    const food = 'assets/tilemaps/food';
+    this.load.image('food-kitchenset-1', `${food}/kitchenset_1.png`);
+
     const utilityBox = 'assets/tilemaps/utilities/box';
     const utilityBoxFiles = [
       'box_1', 'box_2', 'box_3', 'box_4',
@@ -190,8 +193,21 @@ export class PreloadScene extends Phaser.Scene {
 
     // Trees from tilemaps/trees. Do not load dry_tree variants for gameplay trees.
     const treeAssets = 'assets/tilemaps/trees';
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 6; i++) {
       this.load.image(`tile-tree-${i}`, `${treeAssets}/tree_${i}.png`);
+    }
+    for (const i of [5, 6]) {
+      this.load.image(`tile-wood-tree-${i}`, `${treeAssets}/wood_tree_${i}.png`);
+    }
+    for (let i = 1; i <= 3; i++) {
+      this.load.image(`tile-batu-abu-${i}`, `${treeAssets}/batu_abu_${i}.png`);
+      this.load.image(`tile-batu-coklat-${i}`, `${treeAssets}/batu_coklat_${i}.png`);
+    }
+    for (let i = 1; i <= 8; i++) {
+      this.load.image(`tile-rumput-${i}`, `${treeAssets}/rumput_${i}.png`);
+    }
+    for (let i = 1; i <= 2; i++) {
+      this.load.image(`tile-rumput-besar-${i}`, `${treeAssets}/rumput_besar_${i}.png`);
     }
 
     // Box (1-5)

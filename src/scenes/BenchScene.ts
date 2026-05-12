@@ -35,6 +35,22 @@ const PATH_HALF_H = 28;  // jalan utama lebih lebar: total 56px
 const PATH_TOP    = PATH_Y - PATH_HALF_H;
 const PATH_BOTTOM = PATH_Y + PATH_HALF_H;
 const SKY_H       = 80;  // tinggi area langit
+const IMAGE_TREE_POSITIONS = [
+  { x: 60, y: 112, key: 'tile-tree-5', scale: 0.34, collider: { x: -20, y: -28, width: 40, height: 32 } },
+  { x: 420, y: 110, key: 'tile-tree-6', scale: 0.50, collider: { x: -16, y: -30, width: 32, height: 34 } },
+  { x: 34, y: 132, key: 'tile-tree-6', scale: 0.46, collider: { x: -16, y: -28, width: 32, height: 32 } },
+  { x: 444, y: 128, key: 'tile-tree-5', scale: 0.32, collider: { x: -20, y: -28, width: 40, height: 30 } },
+  { x: 115, y: PATH_BOTTOM + 78, key: 'tile-tree-2', scale: 0.58, collider: { x: -16, y: -38, width: 32, height: 42 } },
+  { x: 370, y: PATH_BOTTOM + 74, key: 'tile-tree-3', scale: 0.60, collider: { x: -16, y: -38, width: 32, height: 42 } },
+  { x: 88, y: 276, key: 'tile-tree-2', scale: 0.56, collider: { x: -16, y: -36, width: 32, height: 40 } },
+  { x: 382, y: 274, key: 'tile-tree-3', scale: 0.58, collider: { x: -16, y: -36, width: 32, height: 40 } },
+] as const;
+const WOOD_POSITIONS = [
+  { x: 128, y: 112, key: 'tile-wood-tree-5', scale: 0.42, collider: { width: 28, height: 16 } },
+  { x: 342, y: 104, key: 'tile-wood-tree-5', scale: 0.38, collider: { width: 26, height: 14 } },
+  { x: 62, y: 242, key: 'tile-wood-tree-6', scale: 0.74, collider: { width: 16, height: 14 } },
+  { x: 400, y: 226, key: 'tile-wood-tree-6', scale: 0.70, collider: { width: 16, height: 14 } },
+] as const;
 
 export class BenchScene extends Phaser.Scene {
   private player!: Player;
@@ -70,6 +86,7 @@ export class BenchScene extends Phaser.Scene {
     this.buildBackground();
     this.buildGrassDetail();
     this.buildFlowers();
+    this.buildAssetDecor();
     this.buildPath();
     this.buildBench();
     this.buildLanterns();
@@ -337,12 +354,6 @@ export class BenchScene extends Phaser.Scene {
     const iconTxt = this.add.text(x, y - 72, icon, { fontSize: '10px' })
       .setOrigin(0.5).setDepth(DEPTH.ENTITIES);
 
-    // Pohon ditempatkan di pinggir jalan, bukan di badan jalan.
-    this.drawTree(60,  45);
-    this.drawTree(420, 48);
-    this.drawTree(115, PATH_BOTTOM + 18);
-    this.drawTree(370, PATH_BOTTOM + 12);
-
     this.tweens.add({ targets: iconTxt, y: y - 76, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   }
 
@@ -387,6 +398,73 @@ export class BenchScene extends Phaser.Scene {
   }
 
   // ── Helai rumput di tepi langit dan jalur ──────────────────────
+  private buildAssetDecor(): void {
+    for (const tree of IMAGE_TREE_POSITIONS) {
+      if (!this.textures.exists(tree.key)) continue;
+
+      this.add.image(tree.x, tree.y, tree.key)
+        .setOrigin(0.5, 1)
+        .setScale(tree.scale)
+        .setDepth(tree.y);
+    }
+
+    for (const wood of WOOD_POSITIONS) {
+      if (!this.textures.exists(wood.key)) continue;
+
+      this.add.image(wood.x, wood.y, wood.key)
+        .setOrigin(0.5, 0.9)
+        .setScale(wood.scale)
+        .setDepth(wood.y);
+    }
+
+    const grassPatches = [
+      { x: 40, y: 112, key: 'tile-rumput-besar-1', scale: 0.20 },
+      { x: 136, y: 104, key: 'tile-rumput-besar-2', scale: 0.18 },
+      { x: 344, y: 116, key: 'tile-rumput-besar-1', scale: 0.18 },
+      { x: 432, y: 214, key: 'tile-rumput-besar-2', scale: 0.20 },
+      { x: 74, y: 264, key: 'tile-rumput-besar-1', scale: 0.16 },
+      { x: 324, y: 264, key: 'tile-rumput-besar-2', scale: 0.16 },
+    ];
+
+    for (const patch of grassPatches) {
+      this.placeGrassImage(patch.x, patch.y, patch.key, patch.scale);
+    }
+
+    for (let i = 0; i < 54; i++) {
+      const x = 18 + ((i * 73) % (W - 36));
+      const y = SKY_H + 14 + ((i * 41) % (H - SKY_H - 24));
+      if (this.isOnPath(x, y, 12)) continue;
+
+      this.placeGrassImage(
+        x,
+        y,
+        `tile-rumput-${(i % 8) + 1}`,
+        0.12 + (i % 4) * 0.025,
+      );
+    }
+  }
+
+  private placeGrassImage(x: number, y: number, key: string, scale: number): void {
+    if (!this.textures.exists(key)) return;
+
+    const grass = this.add.image(x, y, key)
+      .setOrigin(0.5, 1)
+      .setScale(scale)
+      .setDepth(DEPTH.GROUND_DECOR + 1)
+      .setAlpha(0.82);
+
+    if ((Math.floor(x + y) % 3) === 0) {
+      this.tweens.add({
+        targets: grass,
+        x: x + 0.45,
+        duration: 1200 + ((x + y) % 400),
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+  }
+
   private createObjectColliders(): void {
     this.addColliderBox(0, 0, W, SKY_H + 4); // batas langit
 
@@ -394,10 +472,23 @@ export class BenchScene extends Phaser.Scene {
     this.addColliderBox(300, PATH_BOTTOM + 3, 20, 74); // lower lantern
     this.addColliderBox(420, PATH_TOP - 76, 20, 74); // upper lantern
 
-    this.addTreeCollider(60, 45);
-    this.addTreeCollider(420, 48);
-    this.addTreeCollider(115, PATH_BOTTOM + 18);
-    this.addTreeCollider(370, PATH_BOTTOM + 12);
+    for (const tree of IMAGE_TREE_POSITIONS) {
+      this.addColliderBox(
+        tree.x + tree.collider.x,
+        tree.y + tree.collider.y,
+        tree.collider.width,
+        tree.collider.height,
+      );
+    }
+
+    for (const wood of WOOD_POSITIONS) {
+      this.addColliderBox(
+        wood.x - wood.collider.width / 2,
+        wood.y - wood.collider.height / 2,
+        wood.collider.width,
+        wood.collider.height,
+      );
+    }
   }
 
   private addTreeCollider(x: number, y: number): void {
@@ -407,6 +498,10 @@ export class BenchScene extends Phaser.Scene {
   private addColliderBox(x: number, y: number, width: number, height: number): void {
     const body = this.physics.add.staticBody(x, y, width, height);
     this.physics.add.collider(this.player.sprite, body as unknown as Phaser.Physics.Arcade.StaticBody);
+  }
+
+  private isOnPath(x: number, y: number, padding: number = 0): boolean {
+    return y >= PATH_TOP - padding && y <= PATH_BOTTOM + padding;
   }
 
   private buildGrassDetail(): void {

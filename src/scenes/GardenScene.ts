@@ -34,10 +34,24 @@ const MAIN_PATH_X = W / 2;
 const MAIN_PATH_HALF_W = 24;
 const BOTTOM_PATH_Y = H - 58;
 const TREE_POSITIONS = [
-  { x: 24,  y: 28 },
-  { x: 456, y: 24 },
-  { x: 24,  y: 232 },
-  { x: 456, y: 228 },
+  { x: 24,  y: 88, key: 'tile-tree-3', scale: 0.56, collider: { x: -16, y: -34, width: 32, height: 42 } },
+  { x: 456, y: 86, key: 'tile-tree-4', scale: 0.58, collider: { x: -16, y: -34, width: 32, height: 42 } },
+  { x: 24,  y: 286, key: 'tile-tree-2', scale: 0.58, collider: { x: -16, y: -36, width: 32, height: 42 } },
+  { x: 456, y: 284, key: 'tile-tree-1', scale: 0.54, collider: { x: -16, y: -36, width: 32, height: 42 } },
+] as const;
+const IMAGE_TREE_POSITIONS = [
+  { x: 90, y: 96, key: 'tile-tree-5', scale: 0.34, collider: { x: -20, y: -26, width: 40, height: 32 } },
+  { x: 390, y: 92, key: 'tile-tree-6', scale: 0.48, collider: { x: -16, y: -28, width: 32, height: 32 } },
+  { x: 30, y: 178, key: 'tile-tree-6', scale: 0.46, collider: { x: -16, y: -28, width: 32, height: 32 } },
+  { x: 450, y: 184, key: 'tile-tree-5', scale: 0.32, collider: { x: -20, y: -26, width: 40, height: 30 } },
+  { x: 84, y: 286, key: 'tile-tree-2', scale: 0.56, collider: { x: -16, y: -34, width: 32, height: 38 } },
+  { x: 396, y: 286, key: 'tile-tree-3', scale: 0.58, collider: { x: -16, y: -34, width: 32, height: 40 } },
+] as const;
+const WOOD_POSITIONS = [
+  { x: 174, y: 42, key: 'tile-wood-tree-5', scale: 0.42, collider: { width: 28, height: 16 } },
+  { x: 308, y: 150, key: 'tile-wood-tree-5', scale: 0.38, collider: { width: 26, height: 14 } },
+  { x: 116, y: 230, key: 'tile-wood-tree-6', scale: 0.72, collider: { width: 16, height: 14 } },
+  { x: 366, y: 226, key: 'tile-wood-tree-6', scale: 0.70, collider: { width: 16, height: 14 } },
 ] as const;
 const UTILITY_OBJECTS: UtilityObjectPlacement[] = [
   { kind: 'ember', x: 178, y: 220, startFrame: 0, scale: 1.05, collider: { width: 22, height: 18 } },
@@ -76,6 +90,7 @@ export class GardenScene extends Phaser.Scene {
     this.buildFieldDetails();
     this.buildGardenBeds();
     this.buildTrees();
+    this.buildAssetDecor();
 
     // Player masuk dari bawah (datang dari kota)
     // Spawn di y=220 agar tidak langsung menyentuh batas bawah
@@ -285,12 +300,7 @@ export class GardenScene extends Phaser.Scene {
       this.drawPlants(bed.x + bed.w / 2, bed.y + bed.h / 2);
     }
 
-    // Pagar rendah / patok tepi kebun atas.
-    g.fillStyle(0x6b4c2a, 1);
-    for (let x = 12; x < W; x += 34) {
-      g.fillRect(x, 12, 5, 18);
-      g.fillRect(x + 2, 17, 28, 4);
-    }
+    this.buildTopFence();
   }
 
   private drawPlants(cx: number, cy: number): void {
@@ -312,7 +322,29 @@ export class GardenScene extends Phaser.Scene {
 
   private buildTrees(): void {
     for (const t of TREE_POSITIONS) {
-      this.drawTree(t.x, t.y);
+      if (!this.textures.exists(t.key)) continue;
+
+      this.add.image(t.x, t.y, t.key)
+        .setOrigin(0.5, 1)
+        .setScale(t.scale)
+        .setDepth(t.y);
+    }
+  }
+
+  private buildTopFence(): void {
+    const y = 18;
+    for (let x = 16; x < W; x += 34) {
+      if (Math.abs(x - MAIN_PATH_X) < MAIN_PATH_HALF_W + 18) continue;
+
+      this.add.image(x + 14, y + 6, 'utility-pagar-horizontal')
+        .setOrigin(0.5)
+        .setScale(0.62, 0.72)
+        .setDepth(DEPTH.GROUND_DECOR + 2);
+
+      this.add.image(x, y + 7, 'utility-pagar-vertical-kecil')
+        .setOrigin(0.5)
+        .setScale(0.75, 0.8)
+        .setDepth(DEPTH.GROUND_DECOR + 3);
     }
   }
 
@@ -355,9 +387,100 @@ export class GardenScene extends Phaser.Scene {
     g.fillCircle(x + 4,   y - 12, 8);
   }
 
+  private buildAssetDecor(): void {
+    for (const tree of IMAGE_TREE_POSITIONS) {
+      if (!this.textures.exists(tree.key)) continue;
+
+      this.add.image(tree.x, tree.y, tree.key)
+        .setOrigin(0.5, 1)
+        .setScale(tree.scale)
+        .setDepth(tree.y);
+    }
+
+    for (const wood of WOOD_POSITIONS) {
+      if (!this.textures.exists(wood.key)) continue;
+
+      this.add.image(wood.x, wood.y, wood.key)
+        .setOrigin(0.5, 0.9)
+        .setScale(wood.scale)
+        .setDepth(wood.y);
+    }
+
+    const grassPatches = [
+      { x: 36, y: 74, key: 'tile-rumput-besar-1', scale: 0.20 },
+      { x: 140, y: 144, key: 'tile-rumput-besar-2', scale: 0.18 },
+      { x: 340, y: 46, key: 'tile-rumput-besar-1', scale: 0.18 },
+      { x: 434, y: 202, key: 'tile-rumput-besar-2', scale: 0.20 },
+      { x: 68, y: 260, key: 'tile-rumput-besar-1', scale: 0.16 },
+      { x: 330, y: 262, key: 'tile-rumput-besar-2', scale: 0.16 },
+    ];
+
+    for (const patch of grassPatches) {
+      this.placeGrassImage(patch.x, patch.y, patch.key, patch.scale);
+    }
+
+    for (let i = 0; i < 46; i++) {
+      const x = 18 + ((i * 73) % (W - 36));
+      const y = 24 + ((i * 41) % (H - 74));
+      if (this.isOnMainPath(x, y, 12)) continue;
+      if (this.isInsideGardenBed(x, y, 8)) continue;
+
+      this.placeGrassImage(
+        x,
+        y,
+        `tile-rumput-${(i % 8) + 1}`,
+        0.12 + (i % 4) * 0.025,
+      );
+    }
+  }
+
+  private placeGrassImage(x: number, y: number, key: string, scale: number): void {
+    if (!this.textures.exists(key)) return;
+
+    const grass = this.add.image(x, y, key)
+      .setOrigin(0.5, 1)
+      .setScale(scale)
+      .setDepth(DEPTH.GROUND_DECOR + 1)
+      .setAlpha(0.82);
+
+    if ((Math.floor(x + y) % 3) === 0) {
+      this.tweens.add({
+        targets: grass,
+        x: x + 0.45,
+        duration: 1200 + ((x + y) % 400),
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+  }
+
   private createObjectColliders(): void {
     for (const tree of TREE_POSITIONS) {
-      this.addTreeCollider(tree.x, tree.y);
+      this.addColliderBox(
+        tree.x + tree.collider.x,
+        tree.y + tree.collider.y,
+        tree.collider.width,
+        tree.collider.height,
+      );
+    }
+
+    for (const tree of IMAGE_TREE_POSITIONS) {
+      this.addColliderBox(
+        tree.x + tree.collider.x,
+        tree.y + tree.collider.y,
+        tree.collider.width,
+        tree.collider.height,
+      );
+    }
+
+    for (const wood of WOOD_POSITIONS) {
+      this.addColliderBox(
+        wood.x - wood.collider.width / 2,
+        wood.y - wood.collider.height / 2,
+        wood.collider.width,
+        wood.collider.height,
+      );
     }
   }
 
@@ -412,6 +535,22 @@ export class GardenScene extends Phaser.Scene {
     const onVertical = Math.abs(x - MAIN_PATH_X) < MAIN_PATH_HALF_W + padding && y < BOTTOM_PATH_Y + 16;
     const onBottom = y > BOTTOM_PATH_Y - 12 - padding;
     return onVertical || onBottom;
+  }
+
+  private isInsideGardenBed(x: number, y: number, padding: number = 0): boolean {
+    const beds = [
+      { x: 48, y: 64, w: 104, h: 62 },
+      { x: 328, y: 64, w: 104, h: 62 },
+      { x: 48, y: 156, w: 104, h: 62 },
+      { x: 328, y: 156, w: 104, h: 62 },
+    ];
+
+    return beds.some((bed) =>
+      x >= bed.x - padding &&
+      x <= bed.x + bed.w + padding &&
+      y >= bed.y - padding &&
+      y <= bed.y + bed.h + padding
+    );
   }
 
   // ============================================================

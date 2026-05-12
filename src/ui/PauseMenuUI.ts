@@ -39,8 +39,12 @@ const CLR_TITLE = '#f2a65a';
 const CLR_SLOT_EMPTY = '#667788';
 const CLR_SLOT_FILLED = '#aaddaa';
 const CLR_DANGER = '#ff6666';
+const CLR_SLIDER_TRACK = 0x24313f;
+const CLR_SLIDER_FILL = 0xf2a65a;
+const CLR_SLIDER_KNOB = 0xf5efe0;
 
 const UI_DEPTH = DEPTH.UI + 100; // Above everything
+const BGM_VOLUME_STORAGE_KEY = 'brongwood_bgm_volume';
 
 type MenuState = 'main' | 'save' | 'load' | 'settings';
 
@@ -381,53 +385,75 @@ export class PauseMenuUI {
     yPos += BTN_H + BTN_GAP + 8;
 
     // BGM Volume
-    const currentBgmVol = parseFloat(localStorage.getItem('brongwood_bgm_volume') ?? '0.4');
-    const bgmPct = Math.round((isNaN(currentBgmVol) ? 0.4 : currentBgmVol) * 100);
+    const currentBgmVol = this.readSavedBgmVolume();
 
     const bgmLabel = this.scene.add.text(
-      GAME_CONFIG.WIDTH / 2, yPos,
-      `BGM Volume: ${bgmPct}%`,
+      MENU_X + 16, yPos,
+      'BGM Volume',
       { fontSize: '7px', color: CLR_BTN_TEXT, fontFamily: 'monospace' }
     );
-    bgmLabel.setOrigin(0.5);
+    bgmLabel.setOrigin(0, 0.5);
     bgmLabel.setScrollFactor(0);
     bgmLabel.setDepth(UI_DEPTH + 3);
-    this.elements.push(bgmLabel);
 
-    yPos += 12;
+    const bgmValueText = this.scene.add.text(
+      MENU_X + MENU_W - 16, yPos,
+      `${Math.round(currentBgmVol * 100)}%`,
+      { fontSize: '7px', color: '#8b8b8b', fontFamily: 'monospace' }
+    );
+    bgmValueText.setOrigin(1, 0.5);
+    bgmValueText.setScrollFactor(0);
+    bgmValueText.setDepth(UI_DEPTH + 3);
 
-    const bgmSteps = [0, 0.25, 0.5, 0.75, 1.0];
-    const bgmBtnW = 20;
-    const totalBgmW = bgmSteps.length * bgmBtnW + (bgmSteps.length - 1) * 3;
-    let bx = GAME_CONFIG.WIDTH / 2 - totalBgmW / 2;
+    yPos += 14;
 
-    for (const vol of bgmSteps) {
-      const isActive = Math.abs(currentBgmVol - vol) < 0.01;
-      const bgmBtn = this.scene.add.rectangle(bx + bgmBtnW / 2, yPos, bgmBtnW, 13, isActive ? 0x4488aa : CLR_BTN_BG, 1);
-      bgmBtn.setScrollFactor(0);
-      bgmBtn.setDepth(UI_DEPTH + 2);
-      bgmBtn.setInteractive({ useHandCursor: true });
+    const sliderWidth = 96;
+    const sliderLeft = GAME_CONFIG.WIDTH / 2 - sliderWidth / 2;
+    const sliderY = yPos;
+    const track = this.scene.add.rectangle(GAME_CONFIG.WIDTH / 2, sliderY, sliderWidth, 8, CLR_SLIDER_TRACK, 1);
+    track.setStrokeStyle(1, 0x4d5c6f, 0.85);
+    track.setScrollFactor(0);
+    track.setDepth(UI_DEPTH + 2);
 
-      const bgmTxt = this.scene.add.text(bx + bgmBtnW / 2, yPos, `${Math.round(vol * 100)}`, {
-        fontSize: '6px', color: isActive ? '#ffffff' : CLR_BTN_TEXT, fontFamily: 'monospace',
-      });
-      bgmTxt.setOrigin(0.5);
-      bgmTxt.setScrollFactor(0);
-      bgmTxt.setDepth(UI_DEPTH + 3);
+    const fill = this.scene.add.rectangle(sliderLeft, sliderY, sliderWidth * currentBgmVol, 8, CLR_SLIDER_FILL, 1);
+    fill.setOrigin(0, 0.5);
+    fill.setScrollFactor(0);
+    fill.setDepth(UI_DEPTH + 3);
 
-      bgmBtn.on('pointerdown', () => {
-        InputGuard.consume();
-        proceduralAudio.playClick();
-        localStorage.setItem('brongwood_bgm_volume', String(vol));
-        gameManager.sceneSystems.audio?.setBGMVolume(vol);
-        this.renderState();
-      });
-      bgmBtn.on('pointerover', () => { if (!isActive) bgmBtn.setFillStyle(CLR_BTN_HOVER, 1); });
-      bgmBtn.on('pointerout', () => { if (!isActive) bgmBtn.setFillStyle(CLR_BTN_BG, 1); });
+    const knob = this.scene.add.rectangle(sliderLeft + sliderWidth * currentBgmVol, sliderY, 10, 18, CLR_SLIDER_KNOB, 1);
+    knob.setOrigin(0.5);
+    knob.setStrokeStyle(1, 0xb69763, 0.9);
+    knob.setScrollFactor(0);
+    knob.setDepth(UI_DEPTH + 4);
 
-      this.elements.push(bgmBtn, bgmTxt);
-      bx += bgmBtnW + 3;
-    }
+    const updateSlider = (value: number): void => {
+      const volume = this.setBgmVolume(value);
+      const fillWidth = sliderWidth * volume;
+      fill.width = fillWidth;
+      knob.x = sliderLeft + fillWidth;
+      bgmValueText.setText(`${Math.round(volume * 100)}%`);
+    };
+
+    const updateFromPointer = (pointer: Phaser.Input.Pointer): void => {
+      const normalized = Phaser.Math.Clamp((pointer.x - sliderLeft) / sliderWidth, 0, 1);
+      updateSlider(normalized);
+    };
+
+    const sliderHit = this.scene.add.zone(GAME_CONFIG.WIDTH / 2, sliderY, sliderWidth + 16, 26);
+    sliderHit.setScrollFactor(0);
+    sliderHit.setDepth(UI_DEPTH + 5);
+    sliderHit.setInteractive({ useHandCursor: true, draggable: true });
+    sliderHit.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      InputGuard.consume();
+      proceduralAudio.playClick();
+      updateFromPointer(pointer);
+    });
+    sliderHit.on('drag', (pointer: Phaser.Input.Pointer) => {
+      InputGuard.consume();
+      updateFromPointer(pointer);
+    });
+
+    this.elements.push(bgmLabel, bgmValueText, track, fill, knob, sliderHit);
 
     yPos += 22;
 
@@ -549,6 +575,18 @@ export class PauseMenuUI {
   // ============================================================
   // PRIVATE: UI HELPERS
   // ============================================================
+
+  private readSavedBgmVolume(): number {
+    const saved = parseFloat(localStorage.getItem(BGM_VOLUME_STORAGE_KEY) ?? '0.4');
+    return Number.isNaN(saved) ? 0.4 : Phaser.Math.Clamp(saved, 0, 1);
+  }
+
+  private setBgmVolume(value: number): number {
+    const volume = Phaser.Math.Clamp(value, 0, 1);
+    localStorage.setItem(BGM_VOLUME_STORAGE_KEY, String(volume));
+    gameManager.sceneSystems.audio?.setBGMVolume(volume);
+    return volume;
+  }
 
   private createButton(
     x: number, y: number,

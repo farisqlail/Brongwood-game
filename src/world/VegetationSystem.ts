@@ -49,6 +49,8 @@ export class VegetationSystem {
     this.placeUpperIndonesianBuildings();
     this.placeIndonesianHouse();
     this.placeIndonesianHouse2();
+    this.placeTilemapTrees();
+    this.placeTilemapGroundDetails();
     this.placeDecor();
     this.placeStones();
     this.placeBoxes();
@@ -344,6 +346,152 @@ export class VegetationSystem {
   // DECOR (trees/plants) — collision enabled, animated sway
   // ============================================================
 
+  private placeTilemapTrees(): void {
+    const ts = GAME_CONFIG.TILE_SIZE;
+
+    const positions: Array<{
+      x: number;
+      y: number;
+      key: string;
+      scale: number;
+      bodyW: number;
+      bodyH: number;
+      bodyOffsetY: number;
+      swayAmount?: number;
+    }> = [
+      { x: ts * 1.15, y: ts * 1.6, key: 'tile-tree-5', scale: 0.34, bodyW: 34, bodyH: 24, bodyOffsetY: -4 },
+      { x: ts * 13.85, y: ts * 1.55, key: 'tile-tree-6', scale: 0.42, bodyW: 28, bodyH: 22, bodyOffsetY: -2 },
+      { x: ts * 1.1, y: ts * 8.85, key: 'tile-tree-6', scale: 0.38, bodyW: 26, bodyH: 20, bodyOffsetY: -2 },
+      { x: ts * 13.7, y: ts * 8.8, key: 'tile-tree-5', scale: 0.30, bodyW: 30, bodyH: 22, bodyOffsetY: -3 },
+      { x: ts * 6.0, y: ts * 2.85, key: 'tile-wood-tree-5', scale: 0.58, bodyW: 34, bodyH: 22, bodyOffsetY: 2, swayAmount: 0.15 },
+      { x: ts * 9.1, y: ts * 7.25, key: 'tile-wood-tree-5', scale: 0.50, bodyW: 30, bodyH: 18, bodyOffsetY: 2, swayAmount: 0.15 },
+      { x: ts * 12.65, y: ts * 6.75, key: 'tile-wood-tree-6', scale: 0.85, bodyW: 18, bodyH: 18, bodyOffsetY: 3, swayAmount: 0.1 },
+      { x: ts * 2.65, y: ts * 7.45, key: 'tile-wood-tree-6', scale: 0.75, bodyW: 16, bodyH: 16, bodyOffsetY: 3, swayAmount: 0.1 },
+    ];
+
+    for (const pos of positions) {
+      if (!this.scene.textures.exists(pos.key)) continue;
+
+      const sprite = this.scene.add.image(pos.x, pos.y, pos.key);
+      sprite.setScale(pos.scale);
+      sprite.setOrigin(0.5, 0.88);
+      sprite.setDepth(pos.y);
+      this.staticProps.push(sprite);
+
+      const col = this.collisionGroup.create(
+        pos.x,
+        pos.y + pos.bodyOffsetY,
+        '_collider',
+      ) as Phaser.Physics.Arcade.Sprite;
+      col.setVisible(false);
+      col.body!.setSize(pos.bodyW, pos.bodyH);
+      col.refreshBody();
+
+      this.animatedProps.push({
+        sprite,
+        baseX: pos.x,
+        baseY: pos.y,
+        phase: Math.random() * Math.PI * 2,
+        swayAmount: pos.swayAmount ?? (0.25 + Math.random() * 0.25),
+        swaySpeed: 0.45 + Math.random() * 0.35,
+      });
+    }
+  }
+
+  private placeTilemapGroundDetails(): void {
+    const ts = GAME_CONFIG.TILE_SIZE;
+    const mapW = 15 * ts;
+    const mapH = 10 * ts;
+
+    const grassPatches: Array<{ x: number; y: number; key: string; scale: number }> = [
+      { x: ts * 1.8, y: ts * 2.7, key: 'tile-rumput-besar-1', scale: 0.28 },
+      { x: ts * 3.2, y: ts * 3.2, key: 'tile-rumput-besar-2', scale: 0.24 },
+      { x: ts * 6.6, y: ts * 2.8, key: 'tile-rumput-besar-1', scale: 0.22 },
+      { x: ts * 11.2, y: ts * 3.1, key: 'tile-rumput-besar-2', scale: 0.26 },
+      { x: ts * 13.4, y: ts * 2.7, key: 'tile-rumput-besar-1', scale: 0.24 },
+      { x: ts * 2.2, y: ts * 7.2, key: 'tile-rumput-besar-2', scale: 0.24 },
+      { x: ts * 5.6, y: ts * 7.7, key: 'tile-rumput-besar-1', scale: 0.26 },
+      { x: ts * 10.0, y: ts * 7.3, key: 'tile-rumput-besar-2', scale: 0.22 },
+      { x: ts * 12.9, y: ts * 8.0, key: 'tile-rumput-besar-1', scale: 0.24 },
+    ];
+
+    for (const patch of grassPatches) {
+      this.placeGroundDetail(patch.x, patch.y, patch.key, patch.scale, DEPTH.GROUND_DECOR + 2, true);
+    }
+
+    for (let i = 0; i < 90; i++) {
+      const x = ts * 0.7 + Math.random() * (mapW - ts * 1.4);
+      const y = ts * 0.8 + Math.random() * (mapH - ts * 1.6);
+      const tileY = Math.floor(y / ts);
+      if (tileY >= 4 && tileY <= 5) continue;
+
+      const key = `tile-rumput-${Phaser.Math.Between(1, 8)}`;
+      this.placeGroundDetail(
+        x,
+        y,
+        key,
+        0.16 + Math.random() * 0.16,
+        DEPTH.GROUND_DECOR + 2,
+        i % 3 === 0,
+      );
+    }
+
+    const stones: Array<{ x: number; y: number; key: string; scale: number; bodyW: number; bodyH: number }> = [
+      { x: ts * 1.4, y: ts * 3.5, key: 'tile-batu-abu-1', scale: 0.28, bodyW: 20, bodyH: 14 },
+      { x: ts * 3.1, y: ts * 6.7, key: 'tile-batu-coklat-2', scale: 0.34, bodyW: 18, bodyH: 12 },
+      { x: ts * 5.7, y: ts * 3.55, key: 'tile-batu-abu-3', scale: 0.38, bodyW: 16, bodyH: 10 },
+      { x: ts * 8.5, y: ts * 6.75, key: 'tile-batu-coklat-1', scale: 0.25, bodyW: 20, bodyH: 14 },
+      { x: ts * 11.5, y: ts * 3.45, key: 'tile-batu-abu-2', scale: 0.34, bodyW: 18, bodyH: 12 },
+      { x: ts * 13.3, y: ts * 6.8, key: 'tile-batu-coklat-3', scale: 0.36, bodyW: 16, bodyH: 10 },
+      { x: ts * 6.4, y: ts * 8.35, key: 'tile-batu-abu-1', scale: 0.24, bodyW: 18, bodyH: 12 },
+      { x: ts * 10.3, y: ts * 8.1, key: 'tile-batu-coklat-2', scale: 0.30, bodyW: 18, bodyH: 12 },
+    ];
+
+    for (const stone of stones) {
+      if (!this.scene.textures.exists(stone.key)) continue;
+
+      const sprite = this.scene.add.image(stone.x, stone.y, stone.key);
+      sprite.setScale(stone.scale);
+      sprite.setOrigin(0.5, 0.85);
+      sprite.setDepth(stone.y);
+      this.staticProps.push(sprite);
+
+      const col = this.collisionGroup.create(stone.x, stone.y, '_collider') as Phaser.Physics.Arcade.Sprite;
+      col.setVisible(false);
+      col.body!.setSize(stone.bodyW, stone.bodyH);
+      col.refreshBody();
+    }
+  }
+
+  private placeGroundDetail(
+    x: number,
+    y: number,
+    key: string,
+    scale: number,
+    depth: number,
+    animated: boolean,
+  ): void {
+    if (!this.scene.textures.exists(key)) return;
+
+    const sprite = this.scene.add.image(x, y, key);
+    sprite.setScale(scale);
+    sprite.setOrigin(0.5, 1);
+    sprite.setDepth(depth);
+    sprite.setAlpha(0.82 + Math.random() * 0.18);
+    this.staticProps.push(sprite);
+
+    if (!animated) return;
+
+    this.animatedProps.push({
+      sprite,
+      baseX: x,
+      baseY: y,
+      phase: Math.random() * Math.PI * 2,
+      swayAmount: 0.18 + Math.random() * 0.2,
+      swaySpeed: 0.45 + Math.random() * 0.35,
+    });
+  }
+
   private placeDecor(): void {
     const ts = GAME_CONFIG.TILE_SIZE;
 
@@ -431,16 +579,18 @@ export class VegetationSystem {
 
     // House positions (same as placeHouses)
     const housePositions = [
-      { x: ts * 2.5, y: ts * 1.5 },
-      { x: ts * 7.5, y: ts * 1.5 },
-      { x: ts * 12.5, y: ts * 1.5 },
-      { x: ts * 4, y: ts * 8 },
-      { x: ts * 11, y: ts * 8 },
+      { x: ts * 2.5, y: ts * 1.5, skipBoxes: false },
+      { x: ts * 7.5, y: ts * 1.5, skipBoxes: false },
+      { x: ts * 12.5, y: ts * 1.5, skipBoxes: false },
+      { x: ts * 4, y: ts * 8, skipBoxes: true },
+      { x: ts * 11, y: ts * 8, skipBoxes: false },
     ];
 
     // Place boxes around each house (left, right, and front)
     for (let hIdx = 0; hIdx < housePositions.length; hIdx++) {
       const h = housePositions[hIdx];
+      if (h.skipBoxes) continue;
+
       const offsets = [
         { dx: -80, dy: 10 },   // left
         { dx: 80, dy: 10 },    // right
