@@ -599,7 +599,7 @@ export class InventoryUI {
   }
 
   private isSelectableSeed(item: InventoryItem): boolean {
-    return item.id === 'carrot_seed' || item.id === 'red_onion_seed';
+    return item.id.endsWith('_seed');
   }
 
   private drawSlot(

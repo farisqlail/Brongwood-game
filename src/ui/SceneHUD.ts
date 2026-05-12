@@ -355,62 +355,70 @@ export class SceneHUD {
     const toY = (y: number) => IY + (y / this.sceneH) * MM_H;
     const toW = (w: number) => (w / this.sceneW) * MM_W;
     const toH = (h: number) => (h / this.sceneH) * MM_H;
+    const ox = (x: number) => x + 180;
+    const oy = (y: number) => y + 110;
 
     g.fillStyle(0x5a9e3a, 1);
     g.fillRect(IX, IY, MM_W, MM_H);
 
-    const pathPoints = [
-      [{ x: this.sceneW - 18, y: 150 }, { x: 404, y: 158 }, { x: 342, y: 168 }, { x: 296, y: 190 }, { x: 262, y: 226 }, { x: 220, y: this.sceneH + 14 }],
-      [{ x: 262, y: 226 }, { x: 198, y: 236 }, { x: 150, y: 258 }, { x: 110, y: this.sceneH + 10 }],
-      [{ x: 338, y: 168 }, { x: 385, y: 176 }],
-      [{ x: 405, y: 178 }, { x: 483, y: 182 }],
-    ];
-    g.lineStyle(7, 0x9b8762, 0.95);
-    for (const path of pathPoints) {
-      for (let i = 1; i < path.length; i++) {
-        g.lineBetween(toX(path[i - 1].x), toY(path[i - 1].y), toX(path[i].x), toY(path[i].y));
-      }
+    g.fillStyle(0x4e7b32, 0.20);
+    for (const patch of [
+      { x: ox(84), y: oy(74), w: 190, h: 56 },
+      { x: ox(598), y: oy(92), w: 224, h: 64 },
+      { x: ox(610), y: oy(406), w: 206, h: 72 },
+      { x: ox(42), y: oy(430), w: 220, h: 68 },
+    ]) {
+      g.fillEllipse(toX(patch.x), toY(patch.y), toW(patch.w), toH(patch.h));
     }
-    g.lineStyle(3, 0xd3bb8f, 0.35);
-    g.lineBetween(toX(350), toY(167), toX(this.sceneW - 24), toY(158));
 
     // House at the upper-right, matching the actual scene footprint more closely.
     g.fillStyle(0x9a6c3c, 1);
-    g.fillRect(toX(286), toY(92), toW(162), toH(66));
+    g.fillRect(toX(ox(286)), toY(oy(92)), toW(162), toH(66));
     g.fillStyle(0x704121, 1);
-    g.fillTriangle(toX(274), toY(103), toX(366), toY(62), toX(458), toY(103));
+    g.fillTriangle(toX(ox(274)), toY(oy(103)), toX(ox(366)), toY(oy(62)), toX(ox(458)), toY(oy(103)));
     g.fillStyle(0x4a2d17, 1);
-    g.fillRect(toX(380), toY(132), toW(18), toH(28));
+    g.fillRect(toX(ox(380)), toY(oy(132)), toW(18), toH(28));
 
-    // Planter rack and crop field.
-    g.fillStyle(0x5d3b1d, 1);
-    g.fillRect(toX(311), toY(98), toW(74), toH(16));
-    g.fillRect(toX(311), toY(118), toW(74), toH(16));
-    g.fillRect(toX(311), toY(138), toW(74), toH(16));
-
+    // Crop field on the left side of the house.
     g.fillStyle(0x6e4b26, 1);
-    g.fillRect(toX(286), toY(198), toW(166), toH(80));
+    g.fillRect(toX(ox(-18)), toY(oy(152)), toW(166), toH(80));
     g.lineStyle(1, 0x3c2411, 0.45);
     for (let row = 1; row < 4; row++) {
-      g.lineBetween(toX(286), toY(198 + row * 20), toX(452), toY(198 + row * 20));
+      g.lineBetween(toX(ox(-18)), toY(oy(152 + row * 20)), toX(ox(148)), toY(oy(152 + row * 20)));
     }
     for (let col = 1; col < 6; col++) {
-      g.lineBetween(toX(286 + col * 27), toY(198), toX(286 + col * 27), toY(278));
+      g.lineBetween(toX(ox(-18 + col * 27)), toY(oy(152)), toX(ox(-18 + col * 27)), toY(oy(232)));
     }
 
     // Trees and major props from buildDecor.
     g.fillStyle(0x21451c, 0.9);
     const trees = [
-      [24, 76], [105, 56], [460, 70], [36, 278], [158, 292], [470, 292], [238, 326],
+      [ox(-58), oy(64)], [ox(-24), oy(118)], [ox(24), oy(76)], [ox(105), oy(56)], [ox(166), oy(46)],
+      [ox(224), oy(28)], [ox(460), oy(70)], [ox(520), oy(120)], [ox(36), oy(278)], [ox(-34), oy(330)],
+      [ox(82), oy(344)], [ox(158), oy(292)], [ox(470), oy(292)], [ox(548), oy(338)], [ox(238), oy(326)],
+      [ox(590), oy(70)], [ox(642), oy(110)], [ox(702), oy(168)], [ox(760), oy(94)], [ox(794), oy(162)],
+      [ox(824), oy(246)], [ox(676), oy(262)], [ox(620), oy(354)], [ox(196), oy(458)], [ox(346), oy(470)],
+      [ox(520), oy(464)], [ox(706), oy(444)],
     ];
     for (const [x, y] of trees) {
       g.fillCircle(toX(x), toY(y), 2.8);
     }
 
+    g.fillStyle(0x9c8b5f, 0.35);
+    g.fillEllipse(toX(ox(54)), toY(oy(329)), toW(152), toH(82));
+    g.fillEllipse(toX(ox(95)), toY(oy(314)), toW(46), toH(24));
+    g.fillStyle(0x2b677a, 0.94);
+    g.fillEllipse(toX(ox(49)), toY(oy(325)), toW(116), toH(58));
+    g.fillEllipse(toX(ox(90)), toY(oy(311)), toW(36), toH(18));
+    g.fillEllipse(toX(ox(18)), toY(oy(320)), toW(34), toH(18));
+    g.fillStyle(0x6cbfd7, 0.52);
+    g.fillEllipse(toX(ox(44)), toY(oy(314)), toW(64), toH(22));
+    g.fillEllipse(toX(ox(74)), toY(oy(334)), toW(28), toH(10));
+
     g.fillStyle(0x7e5728, 1);
-    g.fillCircle(toX(236), toY(82), 2.2);
+    g.fillCircle(toX(ox(236)), toY(oy(82)), 2.2);
     const crates = [
-      [278, 128], [292, 136], [278, 150], [116, 124],
+      [ox(248), oy(96)], [ox(264), oy(108)], [ox(248), oy(124)], [ox(430), oy(188)],
     ];
     g.fillStyle(0xd8791f, 0.95);
     for (const [x, y] of crates) {

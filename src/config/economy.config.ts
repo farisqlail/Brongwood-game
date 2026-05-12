@@ -20,6 +20,24 @@ export const FARM_SUPPLY_SHOP_ITEMS: ShopItemConfig[] = [
     label: 'Bibit Bawang Merah',
     description: 'Benih bawang merah untuk panen dapur dan jualan kecil.',
   },
+  {
+    id: 'garlic_seed',
+    price: 18000,
+    label: 'Bibit Bawang Putih',
+    description: 'Benih bawang putih untuk kebun rempah rumah.',
+  },
+  {
+    id: 'jasmine_seed',
+    price: 26000,
+    label: 'Bibit Melati',
+    description: 'Bibit melati wangi untuk taman dan hasil bunga.',
+  },
+  {
+    id: 'cabbage_seed',
+    price: 20000,
+    label: 'Bibit Kubis',
+    description: 'Bibit kubis untuk panen sayur yang padat dan segar.',
+  },
 ];
 
 export function formatRupiah(amount: number): string {

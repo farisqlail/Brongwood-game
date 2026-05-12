@@ -35,11 +35,18 @@ export class FarmSupplyShopScene extends Phaser.Scene {
 
   private shopBackdrop: Phaser.GameObjects.Rectangle | null = null;
   private shopContainer: Phaser.GameObjects.Container | null = null;
+  private shopListContainer: Phaser.GameObjects.Container | null = null;
+  private shopListMaskShape: Phaser.GameObjects.Graphics | null = null;
+  private shopListViewport = new Phaser.Geom.Rectangle();
   private moneyLabel: Phaser.GameObjects.Text | null = null;
   private buyButtons: Phaser.GameObjects.Rectangle[] = [];
   private buyButtonTexts: Phaser.GameObjects.Text[] = [];
   private closeButton: Phaser.GameObjects.Rectangle | null = null;
   private closeButtonText: Phaser.GameObjects.Text | null = null;
+  private shopScrollOffset = 0;
+  private shopScrollMin = 0;
+  private draggingShopList = false;
+  private lastDragY = 0;
   private objectiveUI!: FirstDayObjectiveUI;
 
   constructor() {
@@ -86,6 +93,7 @@ export class FarmSupplyShopScene extends Phaser.Scene {
     proceduralAudio.stopRain();
 
     this.buildShopOverlay();
+    this.registerShopScrollInput();
 
     this.events.on('shutdown', this.onShutdown, this);
     this.events.on('wake', this.onWake, this);
@@ -153,8 +161,17 @@ export class FarmSupplyShopScene extends Phaser.Scene {
   private buildShopOverlay(): void {
     const cx = GAME_CONFIG.WIDTH / 2;
     const cy = GAME_CONFIG.HEIGHT / 2;
+    const panelW = 290;
+    const panelH = 248;
+    const listViewportX = cx - 125;
+    const listViewportY = cy - 58;
+    const listViewportW = 250;
+    const listViewportH = 154;
+    const listStartY = listViewportY + 18;
+    const rowGap = 38;
     this.buyButtons = [];
     this.buyButtonTexts = [];
+    this.shopListViewport = new Phaser.Geom.Rectangle(listViewportX, listViewportY, listViewportW, listViewportH);
 
     this.shopBackdrop = this.add.rectangle(cx, cy, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT, 0x000000, 0.62);
     this.shopBackdrop.setScrollFactor(0).setDepth(DEPTH.UI + 40).setVisible(false);
@@ -166,11 +183,23 @@ export class FarmSupplyShopScene extends Phaser.Scene {
     this.shopContainer = this.add.container(0, 0);
     this.shopContainer.setScrollFactor(0).setDepth(DEPTH.UI + 41).setVisible(false);
 
-    const panel = this.add.rectangle(cx, cy, 290, 170, 0x111827, 0.96);
+    this.shopListContainer = this.add.container(0, 0);
+    this.shopListContainer.setScrollFactor(0).setDepth(DEPTH.UI + 41).setVisible(false);
+
+    this.shopListMaskShape = this.add.graphics();
+    this.shopListMaskShape.setScrollFactor(0);
+    this.shopListMaskShape.setDepth(DEPTH.UI + 41);
+    this.shopListMaskShape.fillStyle(0xffffff, 1);
+    this.shopListMaskShape.fillRect(listViewportX, listViewportY, listViewportW, listViewportH);
+    this.shopListMaskShape.setAlpha(0);
+    this.shopListMaskShape.setVisible(false);
+    this.shopListContainer.setMask(this.shopListMaskShape.createGeometryMask());
+
+    const panel = this.add.rectangle(cx, cy, panelW, panelH, 0x111827, 0.96);
     panel.setStrokeStyle(1, 0x5c7085, 0.95);
     this.shopContainer.add(panel);
 
-    const title = this.add.text(cx, cy - 68, 'Kebutuhan Bertani', {
+    const title = this.add.text(cx, cy - 92, 'Kebutuhan Bertani', {
       fontSize: '10px',
       color: '#f2a65a',
       fontFamily: 'monospace',
@@ -178,7 +207,7 @@ export class FarmSupplyShopScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.shopContainer.add(title);
 
-    this.moneyLabel = this.add.text(cx, cy - 50, '', {
+    this.moneyLabel = this.add.text(cx, cy - 74, '', {
       fontSize: '8px',
       color: '#f3e59a',
       fontFamily: 'monospace',
@@ -186,33 +215,40 @@ export class FarmSupplyShopScene extends Phaser.Scene {
     this.shopContainer.add(this.moneyLabel);
 
     FARM_SUPPLY_SHOP_ITEMS.forEach((item, index) => {
-      const cardY = cy - 12 + index * 50;
-      const card = this.add.rectangle(cx, cardY, 250, 40, 0x1c2836, 0.95);
+      const itemDef = ITEM_DEFS[item.id];
+      const cardY = listStartY + index * rowGap;
+      const card = this.add.rectangle(cx, cardY, 258, 34, 0x1c2836, 0.95);
       card.setStrokeStyle(1, 0x3f5268, 0.8);
-      this.shopContainer!.add(card);
+      this.shopListContainer!.add(card);
 
-      const itemName = this.add.text(cx - 112, cardY - 10, item.label, {
+      const iconFrame = this.add.rectangle(cx - 104, cardY, 28, 28, 0x101a24, 1);
+      iconFrame.setStrokeStyle(1, 0x4d6177, 0.9);
+      this.shopListContainer!.add(iconFrame);
+
+      if (itemDef?.textureKey && this.textures.exists(itemDef.textureKey)) {
+        const icon = this.add.image(cx - 104, cardY, itemDef.textureKey);
+        icon.setScale(0.42);
+        this.shopListContainer!.add(icon);
+      } else {
+        const fallback = this.add.rectangle(cx - 104, cardY, 20, 20, itemDef?.color ?? 0xcccccc, 1);
+        this.shopListContainer!.add(fallback);
+      }
+
+      const itemName = this.add.text(cx - 84, cardY, item.label, {
         fontSize: '8px',
         color: '#ffffff',
         fontFamily: 'monospace',
       }).setOrigin(0, 0.5);
-      this.shopContainer!.add(itemName);
+      this.shopListContainer!.add(itemName);
 
-      const itemDesc = this.add.text(cx - 112, cardY + 8, item.description, {
-        fontSize: '6px',
-        color: '#aab7c7',
-        fontFamily: 'monospace',
-      }).setOrigin(0, 0.5);
-      this.shopContainer!.add(itemDesc);
-
-      const price = this.add.text(cx + 34, cardY, formatRupiah(item.price), {
+      const price = this.add.text(cx + 30, cardY, formatRupiah(item.price), {
         fontSize: '7px',
         color: '#f3e59a',
         fontFamily: 'monospace',
       }).setOrigin(0.5);
-      this.shopContainer!.add(price);
+      this.shopListContainer!.add(price);
 
-      const buyBtn = this.add.rectangle(cx + 95, cardY, 54, 18, 0x2e6e3e, 0.95);
+      const buyBtn = this.add.rectangle(cx + 92, cardY, 50, 18, 0x2e6e3e, 0.95);
       buyBtn.setScrollFactor(0).setDepth(DEPTH.UI + 42).setVisible(false);
       buyBtn.setInteractive({ useHandCursor: true });
       buyBtn.on('pointerover', () => buyBtn.setFillStyle(0x3f9253, 1));
@@ -221,9 +257,10 @@ export class FarmSupplyShopScene extends Phaser.Scene {
         InputGuard.consume();
         this.buyItem(item.id, item.price);
       });
+      this.shopListContainer!.add(buyBtn);
       this.buyButtons.push(buyBtn);
 
-      const buyText = this.add.text(cx + 95, cardY, 'Beli', {
+      const buyText = this.add.text(cx + 92, cardY, 'Beli', {
         fontSize: '7px',
         color: '#e9ffe6',
         fontFamily: 'monospace',
@@ -235,10 +272,13 @@ export class FarmSupplyShopScene extends Phaser.Scene {
       });
       buyText.on('pointerover', () => buyBtn.setFillStyle(0x3f9253, 1));
       buyText.on('pointerout', () => buyBtn.setFillStyle(0x2e6e3e, 0.95));
+      this.shopListContainer!.add(buyText);
       this.buyButtonTexts.push(buyText);
     });
+    this.shopScrollMin = Math.min(0, listViewportH - (FARM_SUPPLY_SHOP_ITEMS.length * rowGap + 16));
+    this.updateShopListScroll(0);
 
-    this.closeButton = this.add.rectangle(cx, cy + 68, 72, 18, 0x334455, 0.95);
+    this.closeButton = this.add.rectangle(cx + panelW / 2 - 16, cy - panelH / 2 + 16, 20, 20, 0x334455, 0.95);
     this.closeButton.setScrollFactor(0).setDepth(DEPTH.UI + 42).setVisible(false);
     this.closeButton.setInteractive({ useHandCursor: true });
     this.closeButton.on('pointerover', () => this.closeButton?.setFillStyle(0x44607a, 1));
@@ -248,8 +288,8 @@ export class FarmSupplyShopScene extends Phaser.Scene {
       this.closeShop();
     });
 
-    this.closeButtonText = this.add.text(cx, cy + 68, 'Tutup', {
-      fontSize: '7px',
+    this.closeButtonText = this.add.text(cx + panelW / 2 - 16, cy - panelH / 2 + 16, 'X', {
+      fontSize: '10px',
       color: '#ffffff',
       fontFamily: 'monospace',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI + 43).setVisible(false);
@@ -269,6 +309,38 @@ export class FarmSupplyShopScene extends Phaser.Scene {
     }
   }
 
+  private registerShopScrollInput(): void {
+    this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _gos: unknown, _dx: number, dy: number) => {
+      if (!this.shopOpen) return;
+      this.updateShopListScroll(this.shopScrollOffset - dy * 0.25);
+    });
+
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (!this.shopOpen) return;
+      if (!this.shopListViewport.contains(pointer.x, pointer.y)) return;
+      this.draggingShopList = true;
+      this.lastDragY = pointer.y;
+    });
+
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!this.shopOpen || !this.draggingShopList || !pointer.isDown) return;
+      const delta = pointer.y - this.lastDragY;
+      this.lastDragY = pointer.y;
+      this.updateShopListScroll(this.shopScrollOffset + delta);
+    });
+
+    this.input.on('pointerup', () => {
+      this.draggingShopList = false;
+    });
+  }
+
+  private updateShopListScroll(nextOffset: number): void {
+    this.shopScrollOffset = Phaser.Math.Clamp(nextOffset, this.shopScrollMin, 0);
+    if (this.shopListContainer) {
+      this.shopListContainer.y = this.shopScrollOffset;
+    }
+  }
+
   private checkCounterProximity(): void {
     const dist = Phaser.Math.Distance.Between(this.player.sprite.x, this.player.sprite.y, SHOP_W / 2, COUNTER_Y + 26);
     this.nearCounter = dist < 56;
@@ -278,10 +350,13 @@ export class FarmSupplyShopScene extends Phaser.Scene {
 
   private openShop(): void {
     this.shopOpen = true;
+    this.draggingShopList = false;
+    this.updateShopListScroll(0);
     this.player.freeze();
     this.promptText.setVisible(false);
     this.shopBackdrop?.setVisible(true);
     this.shopContainer?.setVisible(true);
+    this.shopListContainer?.setVisible(true);
     for (const btn of this.buyButtons) btn.setVisible(true);
     for (const txt of this.buyButtonTexts) txt.setVisible(true);
     this.closeButton?.setVisible(true);
@@ -291,9 +366,11 @@ export class FarmSupplyShopScene extends Phaser.Scene {
 
   private closeShop(): void {
     this.shopOpen = false;
+    this.draggingShopList = false;
     this.player.unfreeze();
     this.shopBackdrop?.setVisible(false);
     this.shopContainer?.setVisible(false);
+    this.shopListContainer?.setVisible(false);
     for (const btn of this.buyButtons) btn.setVisible(false);
     for (const txt of this.buyButtonTexts) txt.setVisible(false);
     this.closeButton?.setVisible(false);
@@ -387,6 +464,8 @@ export class FarmSupplyShopScene extends Phaser.Scene {
     this.atmosphere.destroy();
     this.promptText.destroy();
     this.toastText?.destroy();
+    this.shopListContainer?.destroy();
+    this.shopListMaskShape?.destroy();
     for (const btn of this.buyButtons) btn.destroy();
     for (const txt of this.buyButtonTexts) txt.destroy();
     this.closeButton?.destroy();

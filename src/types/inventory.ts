@@ -83,7 +83,7 @@ export const ITEM_DEFS: Record<string, InventoryItem> = {
     description: 'Benih wortel siap tanam untuk petak kebun.',
     color: 0xf39a3a,
     icon: 'box',
-    textureKey: 'farm-bibit_wortel',
+    textureKey: 'farm-karung_wortel',
   },
   red_onion_seed: {
     id: 'red_onion_seed',
@@ -91,7 +91,31 @@ export const ITEM_DEFS: Record<string, InventoryItem> = {
     description: 'Benih bawang merah untuk musim tanam berikutnya.',
     color: 0xb84b73,
     icon: 'box',
-    textureKey: 'farm-bibit_bawang_merah',
+    textureKey: 'farm-karung_bawang_merah',
+  },
+  garlic_seed: {
+    id: 'garlic_seed',
+    name: 'Bibit Bawang Putih',
+    description: 'Benih bawang putih untuk kebun rempah dan dapur.',
+    color: 0xd9cfac,
+    icon: 'box',
+    textureKey: 'farm-karung_bawang_putih',
+  },
+  jasmine_seed: {
+    id: 'jasmine_seed',
+    name: 'Bibit Melati',
+    description: 'Bibit melati wangi untuk ditanam di halaman rumah.',
+    color: 0xf2f0df,
+    icon: 'box',
+    textureKey: 'farm-karung_melati',
+  },
+  cabbage_seed: {
+    id: 'cabbage_seed',
+    name: 'Bibit Kubis',
+    description: 'Benih kubis untuk hasil panen sayur yang padat.',
+    color: 0x7bbd5a,
+    icon: 'box',
+    textureKey: 'farm-karung_kubis',
   },
 
   // === Meats ===

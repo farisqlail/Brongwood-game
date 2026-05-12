@@ -6,7 +6,7 @@
  */
 
 import Phaser from 'phaser';
-import { DEPTH, GAME_CONFIG } from '@config/game.config';
+import { CAMERA_CONFIG, DEPTH, GAME_CONFIG } from '@config/game.config';
 import { AUDIO_KEYS } from '@config/assets.manifest';
 import { Player } from '@/entities/Player';
 import { MobileControls } from '@/ui/MobileControls';
@@ -23,19 +23,30 @@ import { proceduralAudio } from '@/audio/ProceduralAudio';
 import { ITEM_DEFS } from '@/types/inventory';
 import { FirstDayObjectiveUI } from '@/ui/FirstDayObjectiveUI';
 
-const W = GAME_CONFIG.WIDTH;
-const H = GAME_CONFIG.HEIGHT;
-const HOUSE_X = 365;
-const HOUSE_Y = 92;
+const VIEW_W = GAME_CONFIG.WIDTH;
+const VIEW_H = GAME_CONFIG.HEIGHT;
+const HOMESTEAD_W = 900;
+const HOMESTEAD_H = 560;
+const CONTENT_OFFSET_X = 180;
+const CONTENT_OFFSET_Y = 110;
+const ox = (x: number) => x + CONTENT_OFFSET_X;
+const oy = (y: number) => y + CONTENT_OFFSET_Y;
+const HOUSE_X = ox(365);
+const HOUSE_Y = oy(92);
 const HOUSE_SCALE = 0.43;
-const DOOR_X = 385;
-const DOOR_Y = 162;
-const FIELD_RECT = { x: 286, y: 198, w: 166, h: 80 };
+const DOOR_X = ox(385);
+const DOOR_Y = oy(162);
+const DOOR_INTERACT_RADIUS = 26;
+const FIELD_RECT = { x: ox(-18), y: oy(152), w: 166, h: 80 };
+const ENTRY_SPAWN_X = HOMESTEAD_W - 48;
+const ENTRY_SPAWN_Y = oy(156);
 const FARM_SAVE_KEY = 'homesteadFarm';
 const FARM_DAY_KEY = 'homesteadFarmDay';
 const FARM_TILE_SCALE = 0.70;
 const FARM_TILE_W = 21;
 const FARM_TILE_H = 19;
+const FARM_INTERACT_W = 20;
+const FARM_INTERACT_H = 18;
 const CARROT_FRAMES = ['wortel_1', 'wortel_2', 'wortel_3', 'wortel_4', 'wortel_5'] as const;
 const ONION_FRAMES = [
   'bawang_merah_1', 'bawang_merah_2', 'bawang_merah_3', 'bawang_merah_4',
@@ -94,18 +105,20 @@ export class HomesteadScene extends Phaser.Scene {
     this.farmPlots = [];
     this.sound.stopByKey(AUDIO_KEYS.BGM_SCENE_1_6);
     this.cameras.main.fadeIn(600, 0, 0, 0);
-    this.physics.world.setBounds(0, 0, W, H);
+    this.physics.world.setBounds(0, 0, HOMESTEAD_W, HOMESTEAD_H);
 
     this.buildBackground();
     this.buildHouse();
     this.buildCropField();
     this.buildFarmPlots();
     this.buildDecor();
-    this.player = new Player(this, W - 44, H / 2);
+    this.player = new Player(this, ENTRY_SPAWN_X, ENTRY_SPAWN_Y);
     this.player.sprite.setCollideWorldBounds(true);
 
-    this.cameras.main.setBounds(0, 0, W, H);
-    this.cameras.main.centerOn(W / 2, H / 2);
+    this.cameras.main.setBounds(0, 0, HOMESTEAD_W, HOMESTEAD_H);
+    this.cameras.main.startFollow(this.player.sprite, true, CAMERA_CONFIG.LERP, CAMERA_CONFIG.LERP);
+    this.cameras.main.setDeadzone(CAMERA_CONFIG.DEADZONE_WIDTH, CAMERA_CONFIG.DEADZONE_HEIGHT);
+    this.cameras.main.setRoundPixels(true);
 
     this.createColliders();
 
@@ -138,7 +151,7 @@ export class HomesteadScene extends Phaser.Scene {
       .addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
       .on('down', () => this.pauseMenu.toggle());
 
-    this.hud = new SceneHUD(this, 'homestead', W, H);
+    this.hud = new SceneHUD(this, 'homestead', HOMESTEAD_W, HOMESTEAD_H);
     this.atmosphere = new SceneAtmosphere(this);
     this.objectiveUI = new FirstDayObjectiveUI(this);
     gameManager.startGameplay();
@@ -168,7 +181,7 @@ export class HomesteadScene extends Phaser.Scene {
     this.activitySystem.update(delta);
     this.activityZoneUI.update(delta);
 
-    if (!this.exiting && this.player.sprite.x > W - 20) {
+    if (!this.exiting && this.player.sprite.x > HOMESTEAD_W - 20) {
       this.doExit();
     }
   }
@@ -176,56 +189,43 @@ export class HomesteadScene extends Phaser.Scene {
   private buildBackground(): void {
     const g = this.add.graphics().setDepth(DEPTH.GROUND - 2);
     g.fillGradientStyle(0x5c9b2e, 0x5c9b2e, 0x2f6f1f, 0x2f6f1f, 1);
-    g.fillRect(0, 0, W, H);
+    g.fillRect(0, 0, HOMESTEAD_W, HOMESTEAD_H);
 
     const patchColors: Array<[number, number]> = [
       [0x73b544, 0.20], [0x2b651d, 0.20], [0x83bd4c, 0.14], [0x204f19, 0.15],
     ];
     for (let i = 0; i < 42; i++) {
-      const x = ((i * 127.51) % 1) * W;
-      const y = ((i * 79.37) % 1) * H;
+      const x = ((i * 127.51) % 1) * HOMESTEAD_W;
+      const y = ((i * 79.37) % 1) * HOMESTEAD_H;
       const [color, alpha] = patchColors[i % patchColors.length];
       g.fillStyle(color, alpha);
       g.fillEllipse(x, y, 58 + (i % 5) * 18, 18 + (i % 4) * 8);
     }
 
-    // Semua jalan di halaman rumah memakai tile land-floor-4.
-    this.drawTiledPath([
-      { x: W - 18, y: 150 },
-      { x: 404, y: 158 },
-      { x: 342, y: 168 },
-      { x: 296, y: 190 },
-      { x: 262, y: 226 },
-      { x: 220, y: H + 14 },
-    ], 0.23, 8, 54);
-    this.drawTiledPath([
-      { x: 262, y: 226 },
-      { x: 198, y: 236 },
-      { x: 150, y: 258 },
-      { x: 110, y: H + 10 },
-    ], 0.22, 8, 44);
-    this.drawTiledPath([
-      { x: 338, y: 168 },
-      { x: DOOR_X, y: DOOR_Y + 14 },
-    ], 0.21, 7, 38);
-    this.drawTiledPath([
-      { x: DOOR_X + 20, y: DOOR_Y + 16 },
-      { x: HOUSE_X + 118, y: DOOR_Y + 20 },
-    ], 0.21, 7, 36);
-
-    g.fillStyle(0x6d5b45, 0.24);
-    for (let i = 0; i < 22; i++) {
-      const x = 190 + ((i * 37) % 250);
-      const y = 148 + ((i * 53) % 126);
-      g.fillEllipse(x, y, 16 + (i % 3) * 6, 5);
-    }
-
-    for (let i = 0; i < 150; i++) {
-      const x = ((i * 91.17) % 1) * W;
-      const y = ((i * 47.73) % 1) * H;
+    for (let i = 0; i < 420; i++) {
+      const x = ((i * 91.17) % 1) * HOMESTEAD_W;
+      const y = ((i * 47.73) % 1) * HOMESTEAD_H;
       if (this.isInsideRect(x, y, FIELD_RECT)) continue;
       g.fillStyle(i % 3 === 0 ? 0x7ec456 : i % 3 === 1 ? 0x4c8a2e : 0x285e20, 0.46);
       g.fillEllipse(x, y, 6 + (i % 4) * 3, 2.5);
+    }
+
+    for (let i = 0; i < 120; i++) {
+      const x = ((i * 57.61) % 1) * HOMESTEAD_W;
+      const y = ((i * 83.19) % 1) * HOMESTEAD_H;
+      if (this.isInsideRect(x, y, FIELD_RECT)) continue;
+      g.fillStyle(i % 2 === 0 ? 0x315f24 : 0x46752e, 0.18);
+      g.fillEllipse(x, y, 22 + (i % 5) * 8, 8 + (i % 4) * 3);
+    }
+
+    this.drawPond(g, ox(-10), oy(286), 138, 74);
+
+    for (let i = 0; i < 22; i++) {
+      const x = ox(-40 + (i % 8) * 18 + (i % 3) * 4);
+      const y = oy(246 + Math.floor(i / 8) * 18 + (i % 2) * 3);
+      if (this.isInsideRect(x, y, FIELD_RECT)) continue;
+      g.fillStyle(i % 2 === 0 ? 0x6fb24a : 0x3e7d29, 0.72);
+      g.fillEllipse(x, y, 11 + (i % 3) * 3, 4 + (i % 2));
     }
   }
 
@@ -275,7 +275,8 @@ export class HomesteadScene extends Phaser.Scene {
 
   private buildCropField(): void {
     const g = this.add.graphics().setDepth(DEPTH.GROUND_DECOR);
-    this.drawPlanterRack(g, 312, 98, 72, 52);
+    g.fillStyle(0x4f7b2c, 0.22);
+    g.fillRoundedRect(FIELD_RECT.x - 10, FIELD_RECT.y - 12, FIELD_RECT.w + 20, FIELD_RECT.h + 18, 8);
   }
 
   private drawCropPlot(g: Phaser.GameObjects.Graphics, rect: { x: number; y: number; w: number; h: number }, crop: 'cabbage' | 'turnip'): void {
@@ -473,31 +474,112 @@ export class HomesteadScene extends Phaser.Scene {
 
   private buildDecor(): void {
     const g = this.add.graphics().setDepth(DEPTH.ENTITIES);
-    this.placeTree(24, 76, 'tile-tree-1', 0.48);
-    this.placeTree(105, 56, 'tile-tree-2', 0.54);
-    this.placeTree(460, 70, 'tile-tree-2', 0.58);
-    this.placeTree(36, 278, 'tile-tree-3', 0.64);
-    this.placeTree(158, 292, 'tile-tree-4', 0.62);
-    this.placeTree(470, 292, 'tile-tree-4', 0.62);
-    this.placeTree(238, 326, 'tile-tree-1', 0.50);
+    const treeLayout: Array<{ x: number; y: number; key: string; scale: number }> = [
+      { x: ox(-92), y: oy(34), key: 'tile-tree-4', scale: 0.62 },
+      { x: ox(-58), y: oy(64), key: 'tile-tree-3', scale: 0.60 },
+      { x: ox(-24), y: oy(118), key: 'tile-tree-4', scale: 0.54 },
+      { x: ox(24), y: oy(76), key: 'tile-tree-1', scale: 0.48 },
+      { x: ox(105), y: oy(56), key: 'tile-tree-2', scale: 0.54 },
+      { x: ox(166), y: oy(46), key: 'tile-tree-1', scale: 0.46 },
+      { x: ox(224), y: oy(28), key: 'tile-tree-2', scale: 0.42 },
+      { x: ox(250), y: oy(22), key: 'tile-tree-1', scale: 0.38 },
+      { x: ox(392), y: oy(18), key: 'tile-tree-2', scale: 0.42 },
+      { x: ox(460), y: oy(70), key: 'tile-tree-2', scale: 0.58 },
+      { x: ox(520), y: oy(120), key: 'tile-tree-1', scale: 0.46 },
+      { x: ox(590), y: oy(70), key: 'tile-tree-2', scale: 0.50 },
+      { x: ox(642), y: oy(110), key: 'tile-tree-1', scale: 0.46 },
+      { x: ox(702), y: oy(168), key: 'tile-tree-3', scale: 0.54 },
+      { x: ox(760), y: oy(94), key: 'tile-tree-3', scale: 0.52 },
+      { x: ox(794), y: oy(162), key: 'tile-tree-4', scale: 0.56 },
+      { x: ox(824), y: oy(246), key: 'tile-tree-2', scale: 0.50 },
+      { x: ox(676), y: oy(262), key: 'tile-tree-4', scale: 0.58 },
+      { x: ox(620), y: oy(354), key: 'tile-tree-2', scale: 0.48 },
+      { x: ox(548), y: oy(338), key: 'tile-tree-3', scale: 0.58 },
+      { x: ox(470), y: oy(292), key: 'tile-tree-4', scale: 0.62 },
+      { x: ox(330), y: oy(388), key: 'tile-tree-1', scale: 0.44 },
+      { x: ox(238), y: oy(326), key: 'tile-tree-1', scale: 0.50 },
+      { x: ox(158), y: oy(292), key: 'tile-tree-4', scale: 0.62 },
+      { x: ox(104), y: oy(408), key: 'tile-tree-3', scale: 0.52 },
+      { x: ox(82), y: oy(344), key: 'tile-tree-2', scale: 0.48 },
+      { x: ox(40), y: oy(438), key: 'tile-tree-2', scale: 0.44 },
+      { x: ox(-70), y: oy(404), key: 'tile-tree-4', scale: 0.56 },
+      { x: ox(-34), y: oy(330), key: 'tile-tree-4', scale: 0.66 },
+      { x: ox(36), y: oy(278), key: 'tile-tree-3', scale: 0.64 },
+      { x: ox(196), y: oy(458), key: 'tile-tree-1', scale: 0.46 },
+      { x: ox(346), y: oy(470), key: 'tile-tree-2', scale: 0.48 },
+      { x: ox(520), y: oy(464), key: 'tile-tree-3', scale: 0.54 },
+      { x: ox(706), y: oy(444), key: 'tile-tree-4', scale: 0.58 },
+    ];
+    for (const tree of treeLayout) {
+      this.placeTree(tree.x, tree.y, tree.key, tree.scale);
+    }
 
-    this.drawStump(g, 236, 82);
+    this.drawStump(g, ox(236), oy(82));
     this.drawCrates(g);
     this.drawFlowerSprinkles(g);
 
     g.fillStyle(0x9d8b73, 0.7);
     for (let i = 0; i < 38; i++) {
-      const x = 28 + ((i * 37) % 420);
-      const y = 22 + ((i * 61) % 256);
+      const x = ox(28 + ((i * 37) % 420));
+      const y = oy(22 + ((i * 61) % 256));
       g.fillEllipse(x, y, 5 + (i % 3) * 2, 3);
     }
   }
 
+  private drawPond(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number): void {
+    g.fillStyle(0x9c8b5f, 0.34);
+    g.fillEllipse(x + w * 0.46, y + h * 0.58, w * 1.12, h * 0.92);
+    g.fillEllipse(x + w * 0.76, y + h * 0.44, w * 0.34, h * 0.26);
+
+    g.fillStyle(0x245f74, 0.96);
+    g.fillEllipse(x + w * 0.42, y + h * 0.56, w * 0.84, h * 0.76);
+    g.fillEllipse(x + w * 0.72, y + h * 0.43, w * 0.28, h * 0.24);
+    g.fillEllipse(x + w * 0.20, y + h * 0.48, w * 0.26, h * 0.22);
+
+    g.fillStyle(0x357f98, 0.72);
+    g.fillEllipse(x + w * 0.45, y + h * 0.50, w * 0.58, h * 0.40);
+    g.fillEllipse(x + w * 0.67, y + h * 0.42, w * 0.18, h * 0.14);
+    g.fillStyle(0x6cc5da, 0.46);
+    g.fillEllipse(x + w * 0.35, y + h * 0.43, w * 0.24, h * 0.12);
+    g.fillEllipse(x + w * 0.56, y + h * 0.58, w * 0.20, h * 0.10);
+
+    for (let i = 0; i < 10; i++) {
+      const reedX = x + 10 + i * 11 + (i % 2) * 2;
+      const reedY = y + h - 4 - (i % 3) * 2;
+      g.lineStyle(1, 0x406f21, 0.9);
+      g.lineBetween(reedX, reedY, reedX + ((i % 2) === 0 ? -1 : 1), reedY - 9 - (i % 3) * 2);
+      g.fillStyle(0x7db44b, 0.95);
+      g.fillEllipse(reedX + 1, reedY - 8, 5, 2);
+    }
+
+    for (let i = 0; i < 6; i++) {
+      const rippleX = x + w * (0.26 + i * 0.1);
+      const rippleY = y + h * (0.34 + (i % 3) * 0.11);
+      g.lineStyle(1, 0xa8e5ef, 0.32);
+      g.strokeEllipse(rippleX, rippleY, 10 + (i % 2) * 4, 4 + (i % 2) * 2);
+    }
+  }
+
   private placeTree(x: number, y: number, textureKey: string, scale: number): void {
+    if (this.isTreeBlockedArea(x, y)) return;
     const tree = this.add.image(x, y, textureKey);
     tree.setOrigin(0.5, 1);
     tree.setScale(scale);
     tree.setDepth(y);
+  }
+
+  private isTreeBlockedArea(x: number, y: number): boolean {
+    const protectedZones = [
+      { x: HOUSE_X, y: HOUSE_Y + 36, rx: 120, ry: 90 },
+      { x: FIELD_RECT.x + FIELD_RECT.w / 2, y: FIELD_RECT.y + FIELD_RECT.h / 2, rx: FIELD_RECT.w / 2 + 32, ry: FIELD_RECT.h / 2 + 28 },
+      { x: ox(59), y: oy(323), rx: 92, ry: 56 },
+      { x: DOOR_X, y: DOOR_Y + 10, rx: 34, ry: 28 },
+      { x: ENTRY_SPAWN_X - 26, y: ENTRY_SPAWN_Y, rx: 74, ry: 54 },
+    ];
+
+    return protectedZones.some((zone) =>
+      Math.abs(x - zone.x) <= zone.rx && Math.abs(y - zone.y) <= zone.ry
+    );
   }
 
   private drawStump(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
@@ -511,7 +593,7 @@ export class HomesteadScene extends Phaser.Scene {
 
   private drawCrates(g: Phaser.GameObjects.Graphics): void {
     const crates = [
-      { x: 278, y: 128 }, { x: 292, y: 136 }, { x: 278, y: 150 }, { x: 116, y: 124 },
+      { x: ox(248), y: oy(96) }, { x: ox(264), y: oy(108) }, { x: ox(248), y: oy(124) }, { x: ox(430), y: oy(188) },
     ];
     for (const crate of crates) {
       g.fillStyle(0xd8791f, 1);
@@ -524,8 +606,8 @@ export class HomesteadScene extends Phaser.Scene {
 
   private drawFlowerSprinkles(g: Phaser.GameObjects.Graphics): void {
     const flowers = [
-      [254, 154], [270, 166], [290, 162], [230, 178], [248, 202],
-      [18, 158], [82, 252], [124, 166], [405, 190], [438, 176],
+      [ox(254), oy(154)], [ox(270), oy(166)], [ox(290), oy(162)], [ox(230), oy(178)], [ox(248), oy(202)],
+      [ox(18), oy(158)], [ox(82), oy(252)], [ox(56), oy(234)], [ox(405), oy(190)], [ox(438), oy(176)],
     ];
     for (const [x, y] of flowers) {
       g.fillStyle(0xffffff, 1);
@@ -538,15 +620,15 @@ export class HomesteadScene extends Phaser.Scene {
   }
 
   private createColliders(): void {
-    this.addColliderBox(248, 28, 214, 130);
-    this.addColliderBox(320, 158, 124, 24);
-    this.addColliderBox(8, 52, 36, 48);
-    this.addColliderBox(88, 36, 34, 42);
-    this.addColliderBox(444, 46, 34, 44);
-    this.addColliderBox(18, 258, 32, 42);
-    this.addColliderBox(142, 274, 32, 42);
-    this.addColliderBox(454, 274, 32, 42);
-    this.addColliderBox(222, 306, 36, 44);
+    this.addColliderBox(ox(248), oy(28), 214, 130);
+    this.addColliderBox(ox(320), oy(158), 124, 24);
+    this.addColliderBox(ox(8), oy(52), 36, 48);
+    this.addColliderBox(ox(88), oy(36), 34, 42);
+    this.addColliderBox(ox(444), oy(46), 34, 44);
+    this.addColliderBox(ox(18), oy(258), 32, 42);
+    this.addColliderBox(ox(142), oy(274), 32, 42);
+    this.addColliderBox(ox(454), oy(274), 32, 42);
+    this.addColliderBox(ox(222), oy(306), 36, 44);
   }
 
   private addColliderBox(x: number, y: number, width: number, height: number): void {
@@ -555,7 +637,7 @@ export class HomesteadScene extends Phaser.Scene {
   }
 
   private buildExitSign(): void {
-    const sign = this.add.text(W - 50, H / 2 - 26, 'Kota ->', {
+    const sign = this.add.text(HOMESTEAD_W - 50, HOMESTEAD_H / 2 - 26, 'Kota ->', {
       fontSize: '7px',
       color: '#ffffff',
       fontFamily: 'monospace',
@@ -590,7 +672,7 @@ export class HomesteadScene extends Phaser.Scene {
 
   private checkDoorProximity(): void {
     const dist = Phaser.Math.Distance.Between(this.player.sprite.x, this.player.sprite.y, DOOR_X, DOOR_Y);
-    this.nearDoor = dist < 38;
+    this.nearDoor = dist < DOOR_INTERACT_RADIUS;
 
     if (this.nearDoor && !this.activityZoneUI.isActivityActive) {
       this.doorPrompt.setText('[E] Masuk rumah');
@@ -603,21 +685,47 @@ export class HomesteadScene extends Phaser.Scene {
   private checkFarmProximity(): void {
     if (this.nearDoor || this.activityZoneUI.isActivityActive) return;
 
+    const target = this.getFarmInteractionPoint();
     let closest: FarmPlot | null = null;
     let closestDistance = Infinity;
     for (const plot of this.farmPlots) {
-      const distance = Phaser.Math.Distance.Between(this.player.sprite.x, this.player.sprite.y, plot.x, plot.y);
-      if (distance < 34 && distance < closestDistance) {
+      const insideX = Math.abs(target.x - plot.x) <= FARM_INTERACT_W / 2;
+      const insideY = Math.abs(target.y - plot.y) <= FARM_INTERACT_H / 2;
+      if (!insideX || !insideY) continue;
+
+      const distance = Phaser.Math.Distance.Between(target.x, target.y, plot.x, plot.y);
+      if (distance < closestDistance) {
         closest = plot;
         closestDistance = distance;
       }
     }
 
     this.nearbyPlot = closest;
-    if (!closest) return;
+    if (!closest) {
+      return;
+    }
 
     this.doorPrompt.setText(this.getPlotPrompt(closest));
     this.doorPrompt.setVisible(true);
+  }
+
+  private getFarmInteractionPoint(): { x: number; y: number } {
+    const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
+    const feetX = body.center.x;
+    const feetY = body.bottom - 2;
+
+    switch (this.player.direction) {
+      case 'up':
+        return { x: feetX, y: feetY - 18 };
+      case 'down':
+        return { x: feetX, y: feetY + 8 };
+      case 'left':
+        return { x: feetX - 18, y: feetY + 2 };
+      case 'right':
+        return { x: feetX + 18, y: feetY + 2 };
+      default:
+        return { x: feetX, y: feetY };
+    }
   }
 
   private getPlotPrompt(plot: FarmPlot): string {
@@ -813,6 +921,7 @@ export class HomesteadScene extends Phaser.Scene {
     this.player.unfreeze();
     this.player.sprite.setPosition(DOOR_X, DOOR_Y + 32);
     this.cameras.main.fadeIn(400, 0, 0, 0);
+    this.cameras.main.startFollow(this.player.sprite, true, CAMERA_CONFIG.LERP, CAMERA_CONFIG.LERP);
   }
 
   private onShutdown(): void {

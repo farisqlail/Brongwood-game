@@ -306,11 +306,15 @@ export class WorldScene extends Phaser.Scene {
 
   private setupCamera(): void {
     const camera = this.cameras.main;
-    camera.startFollow(this.player.sprite, true);
-    camera.setLerp(CAMERA_CONFIG.LERP, CAMERA_CONFIG.LERP);
-    camera.setDeadzone(CAMERA_CONFIG.DEADZONE_WIDTH, CAMERA_CONFIG.DEADZONE_HEIGHT);
+    this.applyCameraFollow(camera);
+  }
+
+  private applyCameraFollow(camera: Phaser.Cameras.Scene2D.Camera): void {
     camera.setBounds(0, 0, this.mapData.widthInPixels, this.mapData.heightInPixels);
+    camera.startFollow(this.player.sprite, true, CAMERA_CONFIG.LERP, CAMERA_CONFIG.LERP);
+    camera.setDeadzone(CAMERA_CONFIG.DEADZONE_WIDTH, CAMERA_CONFIG.DEADZONE_HEIGHT);
     camera.setRoundPixels(true);
+    camera.centerOn(this.player.sprite.x, this.player.sprite.y);
   }
 
   private setupCollisions(): void {
@@ -872,6 +876,7 @@ export class WorldScene extends Phaser.Scene {
 
   private onWake(): void {
     this.player.unfreeze();
+    this.applyCameraFollow(this.cameras.main);
     this.cameras.main.fadeIn(400, 0, 0, 0);
 
     // Clamp player away from map edges so edge-transition check

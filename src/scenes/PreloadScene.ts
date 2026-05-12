@@ -114,6 +114,30 @@ export class PreloadScene extends Phaser.Scene {
     for (const name of onionFiles) {
       this.load.image(`farm-${name}`, `${farm}/bawang/${name}.png`);
     }
+    const garlicFiles = [
+      'bibit_bawang_putih', 'bawang_putih_1', 'bawang_putih_2', 'bawang_putih_3',
+      'bawang_putih_4', 'bawang_putih_4_busuk', 'bawang_putih_5', 'bawang_putih_6',
+      'bawang_putih_6_busuk', 'box_bawang_putih', 'karung_bawang_putih', 'karung_bawang_putih_buka',
+    ];
+    for (const name of garlicFiles) {
+      this.load.image(`farm-${name}`, `${farm}/bawang_putih/${name}.png`);
+    }
+    const jasmineFiles = [
+      'bibit_melati', 'melati_1', 'melati_2', 'melati_3', 'melati_4',
+      'melati_4_busuk', 'melati_5', 'melati_6', 'melati_6_busuk',
+      'box_melati', 'karung_melati', 'karung_melati_buka',
+    ];
+    for (const name of jasmineFiles) {
+      this.load.image(`farm-${name}`, `${farm}/melati/${name}.png`);
+    }
+    const cabbageFiles = [
+      'bibit_kubis', 'kubis_1', 'kubis_2', 'kubis_3', 'kubis_4',
+      'kubis_4_busuk', 'kubis_5', 'kubis_6', 'kubis_6_busuk',
+      'box_karung_kubis', 'karung_kubis', 'karung_kubis_buka',
+    ];
+    for (const name of cabbageFiles) {
+      this.load.image(`farm-${name}`, `${farm}/kubis/${name}.png`);
+    }
 
     // === UTILITIES / INTERACTABLE OBJECTS ===
     const ember = 'assets/tilemaps/utilities/ember';
