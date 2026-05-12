@@ -47,6 +47,8 @@ const C_HOUSE  = 0x7a4828;
 const C_CAFE   = 0xc87820;
 const C_FLOWER = 0xd889ac;
 const C_WATER  = 0x1a3a6a;
+const C_STONE  = 0xa59d8b;
+const C_BOX    = 0xbd7f3a;
 
 /** Activity zone marker data for minimap display */
 export interface MinimapZoneMarker {
@@ -179,12 +181,10 @@ export class MinimapSystem {
     const ts = GAME_CONFIG.TILE_SIZE;
 
     // Helper: world tile coords → minimap pixel
-    const tx = (tileFracX: number) => IX + tileFracX * MM_W;
-    const ty = (tileFracY: number) => IY + tileFracY * MM_H;
     const tw = (tiles: number)      => (tiles * ts / this.mapW) * MM_W;
     const th = (tiles: number)      => (tiles * ts / this.mapH) * MM_H;
-
-    const totalTilesX = this.mapW / ts;
+    const tileToX = (tileX: number) => IX + (tileX * ts / this.mapW) * MM_W;
+    const tileToY = (tileY: number) => IY + (tileY * ts / this.mapH) * MM_H;
     const totalTilesY = this.mapH / ts;
 
     // 1. Grass background (whole minimap)
@@ -201,7 +201,7 @@ export class MinimapSystem {
     g.fillStyle(C_ROAD, 1);
     g.fillRect(
       IX,
-      ty(roadRow / totalTilesY),
+      tileToY(roadRow),
       MM_W,
       th(roadRows),
     );
@@ -215,26 +215,47 @@ export class MinimapSystem {
     ];
     g.fillStyle(C_TREE, 0.85);
     for (const [tx_, ty_] of trees) {
-      const mx = IX + (tx_ * ts / this.mapW) * MM_W;
-      const my = IY + (ty_ * ts / this.mapH) * MM_H;
-      g.fillRect(mx - 2, my - 2, 4, 4);
+      const mx = tileToX(tx_);
+      const my = tileToY(ty_);
+      g.fillCircle(mx, my, 2.4);
     }
 
-    // 5. Houses (3 top row, 2 bottom row)
-    const houses: Array<{ tx: number; ty: number; cafe?: true; flower?: true }> = [
-      { tx: 2.5,  ty: 1.5 },
-      { tx: 7.5,  ty: 1.5, cafe: true },   // cafe
-      { tx: 12.25, ty: 2.15, flower: true },
-      { tx: 4,    ty: 8   },
-      { tx: 11,   ty: 8   },
+    // 5. Buildings and landmarks aligned with the live downtown layout.
+    const buildings: Array<{ tx: number; ty: number; w: number; h: number; color: number }> = [
+      { tx: 2.5, ty: 2.15, w: 1.55, h: 1.25, color: C_HOUSE },
+      { tx: 4.6, ty: 2.15, w: 1.55, h: 1.25, color: C_HOUSE },
+      { tx: 7.5, ty: 1.5, w: 1.7, h: 1.2, color: C_CAFE },
+      { tx: 12.25, ty: 2.15, w: 1.85, h: 1.4, color: C_FLOWER },
+      { tx: 4, ty: 8, w: 1.45, h: 1.15, color: C_HOUSE },
+      { tx: 7.5, ty: 8.5, w: 1.7, h: 1.3, color: C_HOUSE },
+      { tx: 11, ty: 8.5, w: 1.7, h: 1.3, color: C_HOUSE },
     ];
-    const hW = tw(1.2);
-    const hH = th(1.1);
-    for (const h of houses) {
-      const mx = IX + (h.tx * ts / this.mapW) * MM_W;
-      const my = IY + (h.ty * ts / this.mapH) * MM_H;
-      g.fillStyle(h.flower ? C_FLOWER : h.cafe ? C_CAFE : C_HOUSE, 1);
-      g.fillRect(mx - hW / 2, my - hH / 2, hW, hH);
+    for (const building of buildings) {
+      const bw = tw(building.w);
+      const bh = th(building.h);
+      const bx = tileToX(building.tx);
+      const by = tileToY(building.ty);
+      g.fillStyle(building.color, 1);
+      g.fillRoundedRect(bx - bw / 2, by - bh / 2, bw, bh, 1.5);
+    }
+
+    const stones: Array<[number, number]> = [
+      [3.5, 6], [11.5, 6.5], [6, 7.5], [9, 3.5],
+    ];
+    g.fillStyle(C_STONE, 0.95);
+    for (const [stoneX, stoneY] of stones) {
+      g.fillCircle(tileToX(stoneX), tileToY(stoneY), 1.4);
+    }
+
+    const boxClusters: Array<[number, number]> = [
+      [1.6, 1.95], [3.4, 1.95], [6.5, 1.2], [8.5, 1.2], [11.2, 1.95], [13.2, 1.95],
+      [3.1, 8.7], [4.9, 8.7], [6.7, 8.9], [8.4, 8.9], [10.3, 8.9], [12.0, 8.9],
+    ];
+    g.fillStyle(C_BOX, 0.85);
+    for (const [boxX, boxY] of boxClusters) {
+      const mx = tileToX(boxX);
+      const my = tileToY(boxY);
+      g.fillRect(mx - 1.3, my - 1.3, 2.6, 2.6);
     }
 
     // 6. Minimap border clip (re-draw frame on top of terrain)

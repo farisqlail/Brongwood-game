@@ -35,6 +35,7 @@ import { FishingScene } from './scenes/FishingScene';
 import { GardenScene } from './scenes/GardenScene';
 import { BenchScene } from './scenes/BenchScene';
 import { HomesteadScene } from './scenes/HomesteadScene';
+import { FarmSupplyShopScene } from './scenes/FarmSupplyShopScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -69,7 +70,7 @@ const config: Phaser.Types.Core.GameConfig = {
   },
 
   // Scene registration order (first scene auto-starts)
-  scene: [BootScene, PreloadScene, MainMenuScene, NewGamePrologueScene, WorldScene, CafeScene, PlayerHouseScene, HouseInteriorScene, FishingScene, GardenScene, BenchScene, HomesteadScene],
+  scene: [BootScene, PreloadScene, MainMenuScene, NewGamePrologueScene, WorldScene, CafeScene, PlayerHouseScene, HouseInteriorScene, FishingScene, GardenScene, BenchScene, HomesteadScene, FarmSupplyShopScene],
 
   // Input configuration
   input: {

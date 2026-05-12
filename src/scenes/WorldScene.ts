@@ -19,7 +19,7 @@ import { EventSystem } from '@/systems/EventSystem';
 import { DialogueSystem } from '@/dialogue/DialogueSystem';
 import { gameManager } from '@/managers/GameManager';
 import { EventBus } from '@/core/EventBus';
-import { TEXTURE_KEYS } from '@config/assets.manifest';
+import { AUDIO_KEYS, TEXTURE_KEYS } from '@config/assets.manifest';
 import { RAINY_NIGHT_FLOWER_SHOP } from '@/dialogue/events/RainyNightFlowerShop';
 import { getRikaDialogue } from '@/dialogue/RikaDialogue';
 import { TOWN_NPCS } from '@config/npcs.config';
@@ -33,6 +33,8 @@ import { ActivityZoneUI, ActivityZoneConfig } from '@/ui/ActivityZoneUI';
 import { ActivitySystem } from '@/systems/ActivitySystem';
 import { PauseMenuUI } from '@/ui/PauseMenuUI';
 import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
+import { formatRupiah } from '@config/economy.config';
+import { FirstDayObjectiveUI } from '@/ui/FirstDayObjectiveUI';
 
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
@@ -55,6 +57,8 @@ export class WorldScene extends Phaser.Scene {
   private interactKey!: Phaser.Input.Keyboard.Key;
   private promptText!: Phaser.GameObjects.Text;
   private nearbyNPC: NPC | null = null;
+  private nearFarmShop: boolean = false;
+  private moneyText!: Phaser.GameObjects.Text;
 
   // Audio
   private footstepTimer: number = 0;
@@ -77,6 +81,7 @@ export class WorldScene extends Phaser.Scene {
 
   // Pause menu
   private pauseMenu!: PauseMenuUI;
+  private objectiveUI!: FirstDayObjectiveUI;
 
   // Map
   private mapKey: string = 'downtown';
@@ -96,6 +101,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.sound.stopByKey(AUDIO_KEYS.BGM_SCENE_1_6);
     this.cameras.main.fadeIn(800, 0, 0, 0);
 
     this.loadMap();
@@ -111,9 +117,6 @@ export class WorldScene extends Phaser.Scene {
     this.setupEventListeners();
 
     gameManager.startGameplay();
-
-    // Speed up time for testing (10x — 1 real second = 10 game minutes)
-    gameManager.time.setSpeed(10);
 
     // Mobile controls (joystick + action button)
     this.mobileControls = new MobileControls(this);
@@ -138,6 +141,7 @@ export class WorldScene extends Phaser.Scene {
 
     // Pause menu (ESC key + minimap click)
     this.pauseMenu = new PauseMenuUI(this);
+    this.objectiveUI = new FirstDayObjectiveUI(this);
 
     bootstrapGameplayAudio(this);
     proceduralAudio.startWind(0.3);
@@ -175,6 +179,9 @@ export class WorldScene extends Phaser.Scene {
       if (this.mobileControls.actionPressed && !this.dialogueSystem.isActive && !this.phoneUI.opened) {
         if (this.activityZoneUI.isActivityActive) {
           this.activityZoneUI.cancelActivity();
+        } else if (this.nearFarmShop) {
+          proceduralAudio.playClick();
+          this.enterFarmShop();
         } else if (this.activityZoneUI.isInZone && !this.nearbyNPC) {
           proceduralAudio.playClick();
           this.activityZoneUI.startActivity();
@@ -194,15 +201,17 @@ export class WorldScene extends Phaser.Scene {
     this.particleSystem.update(delta);
     this.minimapSystem.update(this.player.x, this.player.y, this.rika, this.townNPCs, this.weatherSystem.isRaining);
     this.inventoryUI.redrawSlots();
+    this.moneyText.setText(formatRupiah(gameManager.money));
     this.phoneUI.update();
     this.activitySystem.update(delta);
     this.activityZoneUI.update(delta);
+    this.objectiveUI.update();
 
     // Check NPC proximity for interaction prompt (skip if phone is open or activity running)
     if (!this.phoneUI.opened && !this.activityZoneUI.isActivityActive) {
       this.checkNPCProximity();
       // Hide NPC prompt if player is in activity zone (activity prompt takes priority when no NPC nearby)
-      if (!this.nearbyNPC && this.activityZoneUI.isInZone) {
+      if (!this.nearbyNPC && !this.nearFarmShop && this.activityZoneUI.isInZone) {
         this.promptText.setVisible(false);
       }
     } else {
@@ -286,7 +295,6 @@ export class WorldScene extends Phaser.Scene {
         textureKey: npcData.textureKey,
         x: npcData.x,
         y: npcData.y,
-        scale: 0.9,
         direction: 'down',
         interactionRadius: 40,
       });
@@ -400,11 +408,33 @@ export class WorldScene extends Phaser.Scene {
     this.promptText.setDepth(DEPTH.UI + 15);  // above inventory (UI+10)
     this.promptText.setVisible(false);
 
+    this.moneyText = this.add.text(
+      GAME_CONFIG.WIDTH - 10,
+      10,
+      formatRupiah(gameManager.money),
+      {
+        fontSize: '8px',
+        color: '#f2d65a',
+        fontFamily: 'monospace',
+        backgroundColor: '#00000099',
+        padding: { x: 6, y: 4 },
+      }
+    );
+    this.moneyText.setOrigin(1, 0);
+    this.moneyText.setScrollFactor(0);
+    this.moneyText.setDepth(DEPTH.UI + 15);
+
     // Handle E key press
     this.interactKey.on('down', () => {
       // If an activity is running, E cancels it
       if (this.activityZoneUI.isActivityActive) {
         this.activityZoneUI.cancelActivity();
+        return;
+      }
+
+      if (this.nearFarmShop && !this.dialogueSystem.isActive && !this.phoneUI.opened) {
+        proceduralAudio.playClick();
+        this.enterFarmShop();
         return;
       }
 
@@ -550,15 +580,44 @@ export class WorldScene extends Phaser.Scene {
       }
     }
 
+    const farmShopX = GAME_CONFIG.TILE_SIZE * 2.5;
+    const farmShopY = GAME_CONFIG.TILE_SIZE * 1.5;
+    const shopDist = Phaser.Math.Distance.Between(
+      this.player.x,
+      this.player.y,
+      farmShopX,
+      farmShopY,
+    );
+    this.nearFarmShop = shopDist < 54;
+
     if (closest) {
       this.nearbyNPC = closest;
+      this.nearFarmShop = false;
       this.promptText.setVisible(true);
+      this.promptText.setText('[E] Talk');
       closest.playerInRange = true;
     } else {
       if (this.nearbyNPC) this.nearbyNPC.playerInRange = false;
       this.nearbyNPC = null;
-      this.promptText.setVisible(false);
+      if (this.nearFarmShop) {
+        this.promptText.setText('[E] Toko Tani').setVisible(true);
+      } else {
+        this.promptText.setVisible(false);
+      }
     }
+  }
+
+  private enterFarmShop(): void {
+    if (this.isTransitioning) return;
+    this.isTransitioning = true;
+    this.player.freeze();
+    this.promptText.setVisible(false);
+
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.sleep();
+      this.scene.run('FarmSupplyShopScene');
+    });
   }
 
   /**
@@ -573,6 +632,10 @@ export class WorldScene extends Phaser.Scene {
 
     // Hide prompt
     this.promptText.setVisible(false);
+
+    if (gameManager.firstDayStage === 'meet_npc') {
+      gameManager.advanceFirstDay('meet_npc');
+    }
 
     // If it's Rika, use her special dialogue system
     if (npc.id === 'rika') {
@@ -625,7 +688,7 @@ export class WorldScene extends Phaser.Scene {
     this.activityZoneUI.createZones(this.player.sprite, zoneConfigs);
 
     // Minimap markers
-    const minimapMarkers = zoneConfigs.map(z => ({
+    const minimapMarkers: Array<{ id: string; x: number; y: number; width: number; height: number; color: number; icon: string }> = zoneConfigs.map(z => ({
       id: z.id,
       x: z.x,
       y: z.y,
@@ -840,9 +903,11 @@ export class WorldScene extends Phaser.Scene {
     this.mobileControls.destroy();
     this.minimapSystem.destroy();
     this.inventoryUI.destroy();
+    this.moneyText.destroy();
     this.phoneUI.destroy();
     this.activityZoneUI.destroy();
     this.pauseMenu.destroy();
+    this.objectiveUI.destroy();
     proceduralAudio.stopAll();
   }
 

@@ -31,6 +31,8 @@
 
 import { EventBus } from '@/core/EventBus';
 import { RelationshipData } from './RelationshipSystem';
+import { STARTING_MONEY } from '@config/economy.config';
+import { FIRST_DAY_FLAG } from '@config/firstDay.config';
 
 // ============================================================
 // SAVE SCHEMA
@@ -262,7 +264,10 @@ export class SaveSystem {
       relationships: {},
       completedEvents: [],
       dialogueFlags: {},
-      gameFlags: {},
+      gameFlags: {
+        money: STARTING_MONEY,
+        [FIRST_DAY_FLAG]: 'wake_up',
+      },
     };
   }
 }

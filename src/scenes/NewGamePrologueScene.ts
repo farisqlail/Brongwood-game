@@ -1,6 +1,13 @@
 import Phaser from 'phaser';
 import { DEPTH, GAME_CONFIG, SCENE_KEYS } from '@config/game.config';
-import { TEXTURE_KEYS } from '@config/assets.manifest';
+import { AUDIO_KEYS, TEXTURE_KEYS } from '@config/assets.manifest';
+import {
+  PROLOGUE_SEQUENCES,
+  type PrologueMusicMode,
+  type PrologueSequenceConfig,
+  type PrologueSequenceId,
+} from '@config/prologue.config';
+import { getCharacterSpriteConfig } from '@config/characterSprites.config';
 
 interface PrologueObject {
   id: string;
@@ -10,231 +17,6 @@ interface PrologueObject {
   label: string;
   lines: string[];
 }
-
-const NEW_LAIL_DISPLAY_SCALE = 0.1;
-const NEW_LAIL_IDLE_DOWN_FRAME = 16;
-const NEW_LAIL_BODY_WIDTH = 180;
-const NEW_LAIL_BODY_HEIGHT = 80;
-const NEW_LAIL_BODY_OFFSET_X = 90;
-const NEW_LAIL_BODY_OFFSET_Y = 610;
-
-const CITY_SHOTS = [
-  'prologue_scene_1_1',
-  'prologue_scene_1_2',
-  'prologue_scene_1_3',
-  'prologue_scene_1_4',
-] as const;
-
-const CITY_LINES: readonly string[][] = [
-  [
-    '00:41',
-    'Keyboard kantor. Notifikasi HP. Kereta bawah tanah. Hujan.',
-    'Suara orang bicara samar menempel di dinding apartemen kecil.',
-  ],
-  [
-    'Monitor masih menyala.',
-    'Apartment kecil. Gelap. Berantakan.',
-    'Tidak ada musik. Hanya ambience kota.',
-  ],
-  [
-    'Deadline lagi besok.',
-    'Kopi sudah dingin.',
-    'Reminder meeting. Client revision. Missed call: Mom.',
-  ],
-  [
-    'Kota malam penuh lampu.',
-    'Tapi dari jendela ini, semuanya terasa kosong.',
-    'Aku bahkan sudah lupa kapan terakhir kali merasa tenang.',
-  ],
-] as const;
-
-const MINIMARKET_SHOTS = [
-  'prologue_scene_2_1',
-  'prologue_scene_2_2',
-  'prologue_scene_2_3',
-  'prologue_scene_2_4',
-  'prologue_scene_2_5',
-] as const;
-
-const MINIMARKET_LINES: readonly string[][] = [
-  [
-    'Lail berjalan keluar apartemen.',
-    'Hujan gerimis turun di jalan kota.',
-    'Untuk pertama kalinya malam itu, piano pelan mulai masuk.',
-  ],
-  [
-    'Minimarket kecil. Lampu putih dingin. Sepi.',
-    'Lail membeli kopi kaleng.',
-    'Ia duduk sendirian dekat kasir.',
-  ],
-  [
-    'TV kecil di atas kasir menyala.',
-    'TV: Festival Musim Panas Brongwood akan dimulai minggu depan.',
-    'Di layar: danau. Lentera. Laut. Festival malam.',
-  ],
-  [
-    'Warna hangat itu terasa seperti dunia lain.',
-    'Kontras dengan kota Lail yang dingin dan terlalu terang.',
-    'Lail menatap layar cukup lama.',
-  ],
-  [
-    'Kasir: Tempat kecil begitu masih ada ya...',
-    'Lail diam.',
-    'Brongwood...',
-  ],
-] as const;
-
-const RESIGNATION_SHOTS = [
-  TEXTURE_KEYS.PROLOGUE_SCENE_3_1,
-  TEXTURE_KEYS.PROLOGUE_SCENE_3_2,
-  TEXTURE_KEYS.PROLOGUE_SCENE_3_3,
-  TEXTURE_KEYS.PROLOGUE_SCENE_3_4,
-  TEXTURE_KEYS.PROLOGUE_SCENE_3_5,
-  TEXTURE_KEYS.PROLOGUE_SCENE_3_6,
-] as const;
-
-const RESIGNATION_LINES: readonly string[][] = [
-  [
-    'Subject: Pengunduran diri.',
-    'Aku membaca ulang kalimat pertama sampai lima kali.',
-    'Tidak ada versi yang terasa benar. Hanya ada versi yang selesai.',
-  ],
-  [
-    'Apartemen ini tidak pernah luas.',
-    'Tapi saat dibereskan, barangnya seperti punya cara sendiri untuk bertambah.',
-    'Satu kardus untuk dibawa. Dua kardus untuk tidak dipikirkan dulu.',
-  ],
-  [
-    'Meja dijual ke orang yang datang tepat waktu.',
-    'Kursi ditawar terlalu rendah, tapi aku iya-kan juga.',
-    'Aku baru sadar beberapa benda tidak penting sampai harus melepasnya.',
-  ],
-  [
-    'Kabel monitor agak keras dicabut.',
-    'Suara kecilnya membuat ruangan terasa resmi kosong.',
-    'Seperti pekerjaan itu akhirnya berhenti ikut bernapas di sini.',
-  ],
-  [
-    'Aku mengecek saklar, jendela, pintu.',
-    'Hal-hal biasa. Hal-hal yang menahan orang agar tidak panik.',
-    'Di luar, hari tetap berjalan seperti tidak ada keputusan besar.',
-  ],
-  [
-    'Sebelum keluar, aku melihat sekali lagi.',
-    'Tidak ada tepuk tangan. Tidak ada musik besar.',
-    'Hanya ruangan kosong, dan aku yang akhirnya mematikan lampu.',
-  ],
-] as const;
-
-interface VisualNovelSequence {
-  shots: readonly string[];
-  lines: readonly (readonly string[])[];
-  music: 'city' | 'minimarket' | 'resignation' | 'train' | 'arrival' | 'theme';
-  onComplete: () => void;
-}
-
-const TRAIN_SHOTS = [
-  'prologue_scene_4_1',
-  'prologue_scene_4_2',
-  'prologue_scene_4_3',
-  'prologue_scene_4_4',
-  'prologue_scene_4_5',
-] as const;
-
-const TRAIN_LINES = [
-  [
-    'Rel kereta berbunyi pelan di bawah hujan.',
-    'Kota mundur di balik kaca, seperti sesuatu yang tidak lagi memanggil.',
-    'Aku tidak tahu apa yang aku cari.',
-  ],
-  [
-    'Aku duduk dekat jendela karena tidak tahu harus melihat ke mana lagi.',
-    'Lampu gedung tinggi pecah jadi garis-garis basah.',
-    'Untuk pertama kalinya malam ini, tidak ada yang perlu kubalas.',
-  ],
-  [
-    'Aku membuka HP.',
-    'Tidak ada notifikasi baru.',
-    'Aneh. Sunyinya tidak menyakitkan. Hanya sunyi.',
-  ],
-  [
-    'Gedung tinggi berubah jadi sawah neon, lalu jalan padat, lalu laut gelap.',
-    'Dunia di luar seperti mengganti napasnya sendiri.',
-    'Tapi aku tahu aku tidak bisa terus hidup seperti itu.',
-  ],
-  [
-    'Hutan mulai muncul di sisi rel.',
-    'Aku menyandarkan kepala ke kaca yang dingin.',
-    'Kalau aku tidak menemukan apa-apa di sana, setidaknya aku sudah pergi.',
-  ],
-] as const;
-
-const ARRIVAL_SHOTS = [
-  'prologue_scene_5_1',
-  'prologue_scene_5_2',
-  'prologue_scene_5_3',
-  'prologue_scene_5_4',
-] as const;
-
-const ARRIVAL_LINES = [
-  [
-    'Announcer: Brongwood Station.',
-    'Musik berhenti perlahan. Yang tersisa hanya rem kereta dan pagi.',
-    'Kabut tipis menunggu di luar pintu.',
-  ],
-  [
-    'Stasiunnya kecil. Terlalu kecil untuk terburu-buru.',
-    'Ada suara burung, angin pagi, dan ombak yang jauh sekali.',
-    'Tidak ada objective marker. Tidak ada instruksi. Hanya jalan.',
-  ],
-  [
-    'Poster Festival: Summer Lantern Festival - 7 Days Left.',
-    'Cafe kecil masih tutup.',
-    'Di seberang jalan, toko bunga sudah menyalakan lampunya.',
-  ],
-  [
-    'Aku berjalan tanpa tahu harus ke mana.',
-    'Anehnya, untuk pertama kalinya, itu tidak terasa seperti masalah.',
-    'Brongwood terasa pelan. Mungkin aku bisa ikut pelan.',
-  ],
-] as const;
-
-const RIKA_SHOTS = [
-  'prologue_scene_6_1',
-  'prologue_scene_6_2',
-  'prologue_scene_6_3',
-  'prologue_scene_6_4',
-  'prologue_scene_6_5',
-] as const;
-
-const RIKA_LINES = [
-  [
-    'Bell pintu berbunyi kecil.',
-    'Udara di dalam toko bunga hangat, kontras dengan pagi di luar.',
-    'Rika sedang menyusun bunga dan belum melihatku.',
-  ],
-  [
-    'Rika: Maaf, kami belum buka.',
-    'Lail: Oh... maaf.',
-    'Rika akhirnya menoleh. Diam sebentar.',
-  ],
-  [
-    'Rika melihat koper di samping kakiku.',
-    'Rika: Pendatang baru?',
-    'Lail: Kelihatan ya?',
-  ],
-  [
-    'Rika: Orang sini jarang kelihatan bingung milih mie instan dan bunga sekaligus.',
-    'Aku tertawa kecil.',
-    'Rasanya asing, tapi tidak buruk.',
-  ],
-  [
-    'Rika: Brongwood kota kecil.',
-    'Rika: Kalau terlalu lama tinggal di sini... waktu berjalan aneh.',
-    'Lail: Mungkin itu yang aku butuhkan.',
-    'Rika diam sebentar. Lalu tersenyum kecil.',
-  ],
-] as const;
 
 export class NewGamePrologueScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -248,7 +30,7 @@ export class NewGamePrologueScene extends Phaser.Scene {
   private uiCamera: Phaser.Cameras.Scene2D.Camera | null = null;
   private vnCaption: Phaser.GameObjects.Container | null = null;
   private vnImage: Phaser.GameObjects.Image | null = null;
-  private vnSequence: VisualNovelSequence | null = null;
+  private vnSequence: PrologueSequenceConfig | null = null;
   private vnShotIndex = 0;
   private vnLineIndex = 0;
   private vnInputLocked = false;
@@ -269,6 +51,8 @@ export class NewGamePrologueScene extends Phaser.Scene {
   private rainSource: AudioBufferSourceNode | null = null;
   private pianoTimer: Phaser.Time.TimerEvent | null = null;
   private ambienceTimer: Phaser.Time.TimerEvent | null = null;
+  private prologueBgm: Phaser.Sound.BaseSound | null = null;
+  private readonly lailSpriteConfig = getCharacterSpriteConfig('lailPrologue');
 
   constructor() {
     super({ key: SCENE_KEYS.NEW_GAME_PROLOGUE });
@@ -283,7 +67,12 @@ export class NewGamePrologueScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-SPACE', this.advanceDialogue, this);
     this.input.keyboard!.on('keydown-Z', this.advanceDialogue, this);
     this.input.on('pointerdown', this.advanceDialogue, this);
-    this.events.once('shutdown', () => this.cleanupAudio());
+    this.events.once('shutdown', () => {
+      this.stopPrologueBgm();
+      this.cleanupAudio();
+    });
+
+    this.startPrologueBgm();
 
     this.time.delayedCall(900, () => this.startCitySequence());
   }
@@ -308,7 +97,7 @@ export class NewGamePrologueScene extends Phaser.Scene {
       vy *= Math.SQRT1_2;
     }
     this.player.setVelocity(vx * speed, vy * speed);
-    this.player.setDepth(this.player.y + 20);
+    this.player.setDepth(this.player.y + this.lailSpriteConfig.depthOffset);
 
     this.updateInteractionPrompt();
     if (!this.ending && this.player.y < 76 && this.player.x > 292) {
@@ -317,12 +106,7 @@ export class NewGamePrologueScene extends Phaser.Scene {
   }
 
   private startCitySequence(): void {
-    this.startVisualNovelSequence({
-      shots: CITY_SHOTS,
-      lines: CITY_LINES,
-      music: 'city',
-      onComplete: () => this.startMinimarketVisualNovelSequence(),
-    });
+    this.startPrologueSequence('city');
   }
 
   private buildApartment(): void {
@@ -377,12 +161,17 @@ export class NewGamePrologueScene extends Phaser.Scene {
       D: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D),
     };
 
-    this.player = this.physics.add.sprite(158, 176, TEXTURE_KEYS.PLAYER, NEW_LAIL_IDLE_DOWN_FRAME);
-    this.player.setScale(NEW_LAIL_DISPLAY_SCALE);
+    this.player = this.physics.add.sprite(
+      158,
+      176,
+      this.lailSpriteConfig.textureKey,
+      this.lailSpriteConfig.idleFrame,
+    );
+    this.player.setScale(this.lailSpriteConfig.scale);
     this.player.setCollideWorldBounds(true);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
-    body.setSize(NEW_LAIL_BODY_WIDTH, NEW_LAIL_BODY_HEIGHT);
-    body.setOffset(NEW_LAIL_BODY_OFFSET_X, NEW_LAIL_BODY_OFFSET_Y);
+    body.setSize(this.lailSpriteConfig.bodyWidth, this.lailSpriteConfig.bodyHeight);
+    body.setOffset(this.lailSpriteConfig.bodyOffsetX, this.lailSpriteConfig.bodyOffsetY);
 
     const walls = [
       this.physics.add.staticBody(62, 38, 356, 8),
@@ -604,9 +393,14 @@ export class NewGamePrologueScene extends Phaser.Scene {
   }
 
   private createMinimarketLail(): void {
-    this.player = this.physics.add.sprite(46, 204, TEXTURE_KEYS.PLAYER, NEW_LAIL_IDLE_DOWN_FRAME);
-    this.player.setScale(NEW_LAIL_DISPLAY_SCALE);
-    this.player.setDepth(this.player.y + 20);
+    this.player = this.physics.add.sprite(
+      46,
+      204,
+      this.lailSpriteConfig.textureKey,
+      this.lailSpriteConfig.idleFrame,
+    );
+    this.player.setScale(this.lailSpriteConfig.scale);
+    this.player.setDepth(this.player.y + this.lailSpriteConfig.depthOffset);
   }
 
   private walkMinimarketPath(): void {
@@ -620,7 +414,7 @@ export class NewGamePrologueScene extends Phaser.Scene {
         y: 198,
         duration: 2900,
         ease: 'Sine.easeInOut',
-        onUpdate: () => this.player.setDepth(this.player.y + 20),
+        onUpdate: () => this.player.setDepth(this.player.y + this.lailSpriteConfig.depthOffset),
         onComplete: () => this.buyCoffeeSequence(),
       });
     }, false);
@@ -638,7 +432,7 @@ export class NewGamePrologueScene extends Phaser.Scene {
         y: 218,
         duration: 1600,
         ease: 'Sine.easeInOut',
-        onUpdate: () => this.player.setDepth(this.player.y + 20),
+        onUpdate: () => this.player.setDepth(this.player.y + this.lailSpriteConfig.depthOffset),
         onComplete: () => this.tvAnnouncementSequence(),
       });
     }, false);
@@ -662,57 +456,46 @@ export class NewGamePrologueScene extends Phaser.Scene {
   private finishPrologue(): void {
     this.cameras.main.fadeOut(2200, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.stopPrologueBgm();
       this.cleanupAudio();
-      this.scene.start(SCENE_KEYS.WORLD);
+      this.scene.start('PlayerHouseScene');
     });
   }
 
-  private startMinimarketVisualNovelSequence(): void {
-    this.startVisualNovelSequence({
-      shots: MINIMARKET_SHOTS,
-      lines: MINIMARKET_LINES,
-      music: 'minimarket',
-      onComplete: () => this.startResignationSequence(),
+  private startPrologueBgm(): void {
+    if (this.prologueBgm || !this.cache.audio.exists(AUDIO_KEYS.BGM_SCENE_1_6)) return;
+
+    const saved = parseFloat(localStorage.getItem('brongwood_bgm_volume') ?? '0.4');
+    const volume = Number.isNaN(saved) ? 0.4 : Phaser.Math.Clamp(saved, 0, 1);
+    this.prologueBgm = this.sound.add(AUDIO_KEYS.BGM_SCENE_1_6, {
+      loop: true,
+      volume,
     });
+
+    if (this.sound.locked) {
+      this.sound.once('unlocked', () => this.prologueBgm?.play());
+      return;
+    }
+
+    this.prologueBgm.play();
+  }
+
+  private stopPrologueBgm(): void {
+    if (!this.prologueBgm) return;
+    this.prologueBgm.stop();
+    this.prologueBgm.destroy();
+    this.prologueBgm = null;
   }
 
   private startResignationSequence(): void {
-    this.startVisualNovelSequence({
-      shots: RESIGNATION_SHOTS,
-      lines: RESIGNATION_LINES,
-      music: 'resignation',
-      onComplete: () => this.startTrainSequence(),
-    });
+    this.startPrologueSequence('resignation');
   }
 
-  private startTrainSequence(): void {
-    this.startVisualNovelSequence({
-      shots: TRAIN_SHOTS,
-      lines: TRAIN_LINES,
-      music: 'train',
-      onComplete: () => this.startArrivalSequence(),
-    });
+  private startPrologueSequence(sequenceId: PrologueSequenceId): void {
+    this.startVisualNovelSequence(PROLOGUE_SEQUENCES[sequenceId]);
   }
 
-  private startArrivalSequence(): void {
-    this.startVisualNovelSequence({
-      shots: ARRIVAL_SHOTS,
-      lines: ARRIVAL_LINES,
-      music: 'arrival',
-      onComplete: () => this.startRikaSequence(),
-    });
-  }
-
-  private startRikaSequence(): void {
-    this.startVisualNovelSequence({
-      shots: RIKA_SHOTS,
-      lines: RIKA_LINES,
-      music: 'theme',
-      onComplete: () => this.showTitleCard(),
-    });
-  }
-
-  private startVisualNovelSequence(sequence: VisualNovelSequence): void {
+  private startVisualNovelSequence(sequence: PrologueSequenceConfig): void {
     this.visualNovelMode = true;
     this.locked = true;
     this.dialogueActive = false;
@@ -735,7 +518,7 @@ export class NewGamePrologueScene extends Phaser.Scene {
 
   private playVisualNovelShot(index: number): void {
     if (!this.vnSequence || index >= this.vnSequence.shots.length) {
-      this.vnSequence?.onComplete();
+      this.completeVisualNovelSequence();
       return;
     }
 
@@ -771,16 +554,30 @@ export class NewGamePrologueScene extends Phaser.Scene {
     if (this.vnShotIndex === this.vnSequence.shots.length - 1) {
       this.vnInputLocked = true;
       this.destroyVisualNovelCaption();
-      if (this.vnSequence.shots === RESIGNATION_SHOTS) {
-        this.turnOffApartmentLight(() => this.vnSequence?.onComplete());
+      if (this.vnSequence.endingEffect === 'apartmentLightOff') {
+        this.turnOffApartmentLight(() => this.completeVisualNovelSequence());
       } else {
-        this.fadeOutVisualNovelImage(() => this.vnSequence?.onComplete());
+        this.fadeOutVisualNovelImage(() => this.completeVisualNovelSequence());
       }
       return;
     }
 
     this.vnInputLocked = true;
     this.fadeOutVisualNovelImage(() => this.playVisualNovelShot(this.vnShotIndex + 1));
+  }
+
+  private completeVisualNovelSequence(): void {
+    const next = this.vnSequence?.next;
+    this.vnSequence = null;
+
+    if (next === 'title') {
+      this.showTitleCard();
+      return;
+    }
+
+    if (next) {
+      this.startPrologueSequence(next);
+    }
   }
 
   private fadeOutVisualNovelImage(onComplete: () => void): void {
@@ -917,7 +714,7 @@ export class NewGamePrologueScene extends Phaser.Scene {
     this.startSoftPiano();
   }
 
-  private createVisualNovelAudio(mode: VisualNovelSequence['music']): void {
+  private createVisualNovelAudio(mode: PrologueMusicMode): void {
     const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
 

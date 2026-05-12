@@ -11,24 +11,18 @@
 
 import Phaser from 'phaser';
 import { AnimationSystem } from '@/systems/AnimationSystem';
-import { DEPTH } from '@config/game.config';
 import { TEXTURE_KEYS } from '@config/assets.manifest';
 import { Direction } from '@/types';
-
-const RIKA_NEW_DISPLAY_SCALE = 0.11;
-const RIKA_NEW_BODY_WIDTH = 180;
-const RIKA_NEW_BODY_HEIGHT = 80;
-const RIKA_NEW_BODY_OFFSET_X = 32;
-const RIKA_NEW_BODY_OFFSET_Y = 348;
-const RIKA_NEW_DEPTH_OFFSET = 380;
-const RIKA_NEW_IDLE_DOWN_FRAME = 16;
+import {
+  type CharacterSpriteConfig,
+  getCharacterSpriteConfig,
+} from '@config/characterSprites.config';
 
 export interface NPCConfig {
   id: string;
   textureKey: string;
   x: number;
   y: number;
-  scale?: number;
   direction?: Direction;
   interactionRadius?: number;
 }
@@ -41,31 +35,31 @@ export class NPC {
   private _direction: Direction;
   private interactionZone: Phaser.GameObjects.Zone;
   private _playerInRange: boolean = false;
+  private spriteConfig!: CharacterSpriteConfig;
 
   constructor(scene: Phaser.Scene, config: NPCConfig) {
     this.id = config.id;
     this._direction = config.direction ?? 'down';
+    this.spriteConfig = this.resolveSpriteConfig(config.textureKey);
 
     // Create sprite
-    this.sprite = scene.physics.add.sprite(config.x, config.y, config.textureKey, 0);
-    const isRika = config.textureKey === TEXTURE_KEYS.RIKA;
-    if (isRika) this.sprite.setFrame(RIKA_NEW_IDLE_DOWN_FRAME);
-    this.sprite.setScale(config.scale ?? (isRika ? RIKA_NEW_DISPLAY_SCALE : 0.7));
+    this.sprite = scene.physics.add.sprite(
+      config.x,
+      config.y,
+      config.textureKey,
+      this.spriteConfig.idleFrame,
+    );
+    this.sprite.setScale(this.spriteConfig.scale);
     this.sprite.setImmovable(true);
 
     // Physics body (so player can't walk through)
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
-    if (isRika) {
-      body.setSize(RIKA_NEW_BODY_WIDTH, RIKA_NEW_BODY_HEIGHT);
-      body.setOffset(RIKA_NEW_BODY_OFFSET_X, RIKA_NEW_BODY_OFFSET_Y);
-    } else {
-      body.setSize(22, 12);
-      body.setOffset(35, 76);
-    }
+    body.setSize(this.spriteConfig.bodyWidth, this.spriteConfig.bodyHeight);
+    body.setOffset(this.spriteConfig.bodyOffsetX, this.spriteConfig.bodyOffsetY);
     body.setImmovable(true);
 
     // Depth sorting
-    this.sprite.setDepth(config.y + (isRika ? RIKA_NEW_DEPTH_OFFSET : 76));
+    this.sprite.setDepth(config.y + this.spriteConfig.depthOffset);
 
     // Animation system
     this.animationSystem = new AnimationSystem();
@@ -153,7 +147,7 @@ export class NPC {
     if (this._frozen) {
       this.sprite.setVelocity(0, 0);
       this.animationSystem.update(this.sprite, false, this._direction, this.id);
-      this.sprite.setDepth(this.sprite.y + 10);
+      this.sprite.setDepth(this.sprite.y + this.spriteConfig.depthOffset);
       return;
     }
 
@@ -187,7 +181,15 @@ export class NPC {
     }
 
     // Depth sort
-    this.sprite.setDepth(this.sprite.y + 10);
+    this.sprite.setDepth(this.sprite.y + this.spriteConfig.depthOffset);
+  }
+
+  private resolveSpriteConfig(textureKey: string): CharacterSpriteConfig {
+    if (textureKey === TEXTURE_KEYS.RIKA) {
+      return getCharacterSpriteConfig('rika');
+    }
+
+    return getCharacterSpriteConfig('townNpc');
   }
 
   private startWander(): void {

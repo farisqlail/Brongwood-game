@@ -7,6 +7,7 @@
 
 import Phaser from 'phaser';
 import { DEPTH, GAME_CONFIG } from '@config/game.config';
+import { AUDIO_KEYS } from '@config/assets.manifest';
 import { Player } from '@/entities/Player';
 import { MobileControls } from '@/ui/MobileControls';
 import { ActivitySystem } from '@/systems/ActivitySystem';
@@ -20,6 +21,7 @@ import { AudioSystem } from '@/systems/AudioSystem';
 import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
 import { proceduralAudio } from '@/audio/ProceduralAudio';
 import { ITEM_DEFS } from '@/types/inventory';
+import { FirstDayObjectiveUI } from '@/ui/FirstDayObjectiveUI';
 
 const W = GAME_CONFIG.WIDTH;
 const H = GAME_CONFIG.HEIGHT;
@@ -28,7 +30,7 @@ const HOUSE_Y = 92;
 const HOUSE_SCALE = 0.43;
 const DOOR_X = 385;
 const DOOR_Y = 162;
-const FIELD_RECT = { x: 286, y: 224, w: 166, h: 80 };
+const FIELD_RECT = { x: 286, y: 198, w: 166, h: 80 };
 const FARM_SAVE_KEY = 'homesteadFarm';
 const FARM_DAY_KEY = 'homesteadFarmDay';
 const FARM_TILE_SCALE = 0.70;
@@ -70,6 +72,7 @@ export class HomesteadScene extends Phaser.Scene {
   private atmosphere!: SceneAtmosphere;
   private ownedAudioSystem: AudioSystem | null = null;
   private doorPrompt!: Phaser.GameObjects.Text;
+  private objectiveUI!: FirstDayObjectiveUI;
   private farmPlots: FarmPlot[] = [];
   private nearbyPlot: FarmPlot | null = null;
   private lastFarmDay = 1;
@@ -89,6 +92,7 @@ export class HomesteadScene extends Phaser.Scene {
     this.nearDoor = false;
     this.nearbyPlot = null;
     this.farmPlots = [];
+    this.sound.stopByKey(AUDIO_KEYS.BGM_SCENE_1_6);
     this.cameras.main.fadeIn(600, 0, 0, 0);
     this.physics.world.setBounds(0, 0, W, H);
 
@@ -136,6 +140,7 @@ export class HomesteadScene extends Phaser.Scene {
 
     this.hud = new SceneHUD(this, 'homestead', W, H);
     this.atmosphere = new SceneAtmosphere(this);
+    this.objectiveUI = new FirstDayObjectiveUI(this);
     gameManager.startGameplay();
     this.ownedAudioSystem = bootstrapGameplayAudio(this);
 
@@ -147,6 +152,7 @@ export class HomesteadScene extends Phaser.Scene {
     gameManager.update(delta);
     this.atmosphere.update(delta);
     this.hud.update(this.player.sprite.x, this.player.sprite.y, this.atmosphere.weatherState);
+    this.objectiveUI.update();
     if (this.pauseMenu.opened) return;
 
     if (this.mobileControls.visible) {
@@ -615,9 +621,15 @@ export class HomesteadScene extends Phaser.Scene {
   }
 
   private getPlotPrompt(plot: FarmPlot): string {
-    const cropName = plot.cropKind === 'carrot' ? 'wortel' : 'bawang';
     const state = plot.state;
-    if (!state.crop) return `[E] Tanam ${cropName}`;
+    if (!state.crop) {
+      const targetCrop = this.getSelectedSeedCrop();
+      if (!targetCrop) {
+        return this.hasAnySeed() ? 'Pilih bibit dulu' : 'Butuh bibit';
+      }
+      return `[E] Tanam ${this.getCropLabel(targetCrop)}`;
+    }
+    const cropName = this.getCropLabel(state.crop);
     if (state.rotten) return '[E] Bersihkan tanaman busuk';
     if (state.stage >= this.getCropFrames(state.crop).length - 1) return `[E] Panen ${cropName}`;
     if (state.lastWateredDay === gameManager.time.day) return `${cropName} sudah disiram`;
@@ -629,8 +641,27 @@ export class HomesteadScene extends Phaser.Scene {
     const today = gameManager.time.day;
 
     if (!state.crop) {
+      const cropToPlant = this.getSelectedSeedCrop();
+      if (!cropToPlant) {
+        this.popFarmText(plot.x, plot.y - 26, this.hasAnySeed() ? 'Pilih bibit dulu' : 'Butuh bibit');
+        return;
+      }
+
+      const selectedSlot = gameManager.inventory.getSelectedSlot();
+      if (selectedSlot === -1) {
+        this.popFarmText(plot.x, plot.y - 26, 'Pilih bibit dulu');
+        return;
+      }
+
+      const selectedItem = gameManager.inventory.getSlot(selectedSlot);
+      const seedItemId = this.getSeedItemId(cropToPlant);
+      if (!selectedItem || selectedItem.id !== seedItemId || !gameManager.inventory.consumeOneAtSlot(selectedSlot)) {
+        this.popFarmText(plot.x, plot.y - 26, `Butuh ${this.getSeedLabel(cropToPlant)}`);
+        return;
+      }
+
       plot.state = {
-        crop: plot.cropKind,
+        crop: cropToPlant,
         stage: 0,
         plantedDay: today,
         lastWateredDay: today,
@@ -638,7 +669,10 @@ export class HomesteadScene extends Phaser.Scene {
       };
       proceduralAudio.playClick();
       this.refreshPlotSprite(plot);
-      this.popFarmText(plot.x, plot.y - 26, plot.cropKind === 'carrot' ? 'Bibit wortel' : 'Bibit bawang');
+      this.popFarmText(plot.x, plot.y - 26, `${this.getSeedLabel(cropToPlant)} ditanam`);
+      if (gameManager.time.day === 1 && gameManager.isFirstDayActive()) {
+        gameManager.setFirstDayStage('sleep');
+      }
       this.saveFarmState();
       return;
     }
@@ -694,6 +728,38 @@ export class HomesteadScene extends Phaser.Scene {
       });
     }
     this.popFarmText(x, y - 28, 'Disiram');
+  }
+
+  private hasSeedForPlot(plot: FarmPlot): boolean {
+    return this.getSelectedSeedCrop() !== null;
+  }
+
+  private getSeedItemId(cropKind: CropKind): 'carrot_seed' | 'red_onion_seed' {
+    return cropKind === 'carrot' ? 'carrot_seed' : 'red_onion_seed';
+  }
+
+  private getSelectedSeedCrop(): CropKind | null {
+    const selected = gameManager.inventory.getSelectedItem();
+    if (!selected) return null;
+    if (selected.id === 'carrot_seed') {
+      return 'carrot';
+    }
+    if (selected.id === 'red_onion_seed') {
+      return 'onion';
+    }
+    return null;
+  }
+
+  private hasAnySeed(): boolean {
+    return gameManager.inventory.hasItem('carrot_seed') || gameManager.inventory.hasItem('red_onion_seed');
+  }
+
+  private getCropLabel(cropKind: CropKind): string {
+    return cropKind === 'carrot' ? 'wortel' : 'bawang';
+  }
+
+  private getSeedLabel(cropKind: CropKind): string {
+    return cropKind === 'carrot' ? 'Bibit wortel' : 'Bibit bawang';
   }
 
   private popFarmText(x: number, y: number, text: string): void {
@@ -755,6 +821,7 @@ export class HomesteadScene extends Phaser.Scene {
     this.activityZoneUI.destroy();
     this.pauseMenu.destroy();
     this.hud.destroy();
+    this.objectiveUI.destroy();
     this.atmosphere.destroy();
     this.doorPrompt.destroy();
     this.ownedAudioSystem?.destroy();

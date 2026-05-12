@@ -96,7 +96,6 @@ export class CafeScene extends Phaser.Scene {
       textureKey: TEXTURE_KEYS.NPC_BAKER,
       x: CAFE_W / 2,
       y: 70,
-      scale: 0.9,
       direction: 'down',
       interactionRadius: 50,
     });

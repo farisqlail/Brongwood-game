@@ -210,8 +210,8 @@ export class HouseInteriorScene extends Phaser.Scene {
 
     // Label zona (debug visual, teks kecil)
     this.add.text(10, WALL_BOTTOM_Y + 2, 'Kamar Tidur', {
-      fontSize: '5px', color: '#c8a06a', fontFamily: 'monospace', alpha: 0.6,
-    }).setDepth(DEPTH.GROUND + 1);
+      fontSize: '5px', color: '#c8a06a', fontFamily: 'monospace',
+    }).setDepth(DEPTH.GROUND + 1).setAlpha(0.6);
   }
 
   // ============================================================
@@ -240,8 +240,8 @@ export class HouseInteriorScene extends Phaser.Scene {
     this.placeObj(355, 332, 'house2-bangku-taman', DEPTH.ENTITIES, OBJ_SCALE);
 
     this.add.text(ROOM_W / 2 + 10, WALL_BOTTOM_Y + 2, 'Ruang Tamu', {
-      fontSize: '5px', color: '#c8a06a', fontFamily: 'monospace', alpha: 0.6,
-    }).setDepth(DEPTH.GROUND + 1);
+      fontSize: '5px', color: '#c8a06a', fontFamily: 'monospace',
+    }).setDepth(DEPTH.GROUND + 1).setAlpha(0.6);
   }
 
   // ============================================================

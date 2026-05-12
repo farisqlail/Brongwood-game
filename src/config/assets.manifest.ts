@@ -86,6 +86,7 @@ export const AUDIO_KEYS = {
   // BGM
   BGM_DOWNTOWN: 'bgm_downtown',
   BGM_MENU: 'bgm_menu',
+  BGM_SCENE_1_6: 'bgm_scene_1_6',
 
   // Ambience
   AMB_RAIN: 'amb_rain',
@@ -235,6 +236,16 @@ export const ASSET_MANIFEST: AssetManifest = {
       type: 'audio',
       key: AUDIO_KEYS.BGM_DOWNTOWN,
       paths: ['assets/audio/bgm/bgm.mp3'],
+    },
+    {
+      type: 'audio',
+      key: AUDIO_KEYS.BGM_MENU,
+      paths: ['assets/audio/bgm/bgm_menu.mp3'],
+    },
+    {
+      type: 'audio',
+      key: AUDIO_KEYS.BGM_SCENE_1_6,
+      paths: ['assets/audio/bgm/bgm_scene_1_6.mp3'],
     },
   ],
 

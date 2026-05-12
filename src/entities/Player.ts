@@ -30,32 +30,25 @@
 import Phaser from 'phaser';
 import { MovementSystem } from '@/systems/MovementSystem';
 import { AnimationSystem } from '@/systems/AnimationSystem';
-import { PLAYER_CONFIG } from '@config/game.config';
-import { TEXTURE_KEYS } from '@config/assets.manifest';
 import { Direction } from '@/types';
-
-const NEW_LAIL_DISPLAY_SCALE = 0.12;
-const NEW_LAIL_IDLE_DOWN_FRAME = 16;
-const NEW_LAIL_BODY_WIDTH = 180;
-const NEW_LAIL_BODY_HEIGHT = 80;
-const NEW_LAIL_BODY_OFFSET_X = 90;
-const NEW_LAIL_BODY_OFFSET_Y = 610;
+import { getCharacterSpriteConfig } from '@config/characterSprites.config';
 
 export class Player {
   public sprite: Phaser.Physics.Arcade.Sprite;
   private movementSystem: MovementSystem;
   private animationSystem: AnimationSystem;
+  private readonly spriteConfig = getCharacterSpriteConfig('lailGameplay');
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     // Create the physics-enabled sprite
-    this.sprite = scene.physics.add.sprite(x, y, TEXTURE_KEYS.PLAYER, NEW_LAIL_IDLE_DOWN_FRAME);
+    this.sprite = scene.physics.add.sprite(x, y, this.spriteConfig.textureKey, this.spriteConfig.idleFrame);
 
-    this.sprite.setScale(NEW_LAIL_DISPLAY_SCALE);
+    this.sprite.setScale(this.spriteConfig.scale);
 
     // Configure physics body (feet-only collision)
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
-    body.setSize(NEW_LAIL_BODY_WIDTH, NEW_LAIL_BODY_HEIGHT);
-    body.setOffset(NEW_LAIL_BODY_OFFSET_X, NEW_LAIL_BODY_OFFSET_Y);
+    body.setSize(this.spriteConfig.bodyWidth, this.spriteConfig.bodyHeight);
+    body.setOffset(this.spriteConfig.bodyOffsetX, this.spriteConfig.bodyOffsetY);
     this.sprite.setCollideWorldBounds(true);
 
     // Initialize systems
@@ -80,8 +73,7 @@ export class Player {
     );
 
     // Dynamic depth sorting based on Y position (bottom of sprite)
-    // Adding BODY_OFFSET_Y ensures depth is calculated from feet, not center
-    this.sprite.setDepth(this.sprite.y + PLAYER_CONFIG.BODY_OFFSET_Y);
+    this.sprite.setDepth(this.sprite.y + this.spriteConfig.depthOffset);
   }
 
   /** Get current facing direction */

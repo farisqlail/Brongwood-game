@@ -21,6 +21,7 @@ import { PhoneUI } from '@/ui/PhoneUI';
 import { gameManager } from '@/managers/GameManager';
 import { EventBus } from '@/core/EventBus';
 import { InputGuard } from '@/ui/InputGuard';
+import { formatRupiah } from '@config/economy.config';
 
 // ─── Minimap panel geometry (mirrors WorldScene minimap) ──────
 const PX     = 6;
@@ -39,6 +40,7 @@ export type SceneHUDMode =
   | 'garden'
   | 'bench'
   | 'homestead'
+  | 'farm_shop'
   | 'player_house'
   | 'house_interior';
 
@@ -49,11 +51,12 @@ export class SceneHUD {
   private sceneH: number;
 
   // Minimap
-  private mapBg: Phaser.GameObjects.Graphics;
-  private dotG:  Phaser.GameObjects.Graphics;
-  private locationText: Phaser.GameObjects.Text;
-  private timeText:     Phaser.GameObjects.Text;
-  private infoText:     Phaser.GameObjects.Text;
+  private mapBg!: Phaser.GameObjects.Graphics;
+  private dotG!:  Phaser.GameObjects.Graphics;
+  private locationText!: Phaser.GameObjects.Text;
+  private timeText!:     Phaser.GameObjects.Text;
+  private infoText!:     Phaser.GameObjects.Text;
+  private moneyText!:    Phaser.GameObjects.Text;
   private clickZone!:   Phaser.GameObjects.Rectangle;
 
   // Hotbar & phone
@@ -91,6 +94,7 @@ export class SceneHUD {
     this.locationText.destroy();
     this.timeText.destroy();
     this.infoText.destroy();
+    this.moneyText.destroy();
     this.clickZone.destroy();
     this.inventoryUI.destroy();
     this.phoneUI.destroy();
@@ -156,6 +160,14 @@ export class SceneHUD {
       color: '#aabbcc',
     });
     this.infoText.setScrollFactor(0).setDepth(DEPTH.UI + 6);
+
+    this.moneyText = this.scene.add.text(PX + PW - PAD, infoY + 29, '', {
+      fontSize: '5px',
+      fontFamily: 'monospace',
+      color: '#f2d65a',
+    });
+    this.moneyText.setOrigin(1, 0);
+    this.moneyText.setScrollFactor(0).setDepth(DEPTH.UI + 6);
   }
 
   private drawPanel(): void {
@@ -178,6 +190,7 @@ export class SceneHUD {
       case 'garden':         this.drawGardenTerrain(g);       break;
       case 'bench':          this.drawBenchTerrain(g);        break;
       case 'homestead':      this.drawHomesteadTerrain(g);    break;
+      case 'farm_shop':      this.drawFarmShopTerrain(g);     break;
       case 'player_house':   this.drawPlayerHouseTerrain(g);  break;
       case 'house_interior': this.drawHouseInteriorTerrain(g); break;
     }
@@ -338,35 +351,71 @@ export class SceneHUD {
 
   // ── Terrain: Homestead ────────────────────────────────────────
   private drawHomesteadTerrain(g: Phaser.GameObjects.Graphics): void {
+    const toX = (x: number) => IX + (x / this.sceneW) * MM_W;
+    const toY = (y: number) => IY + (y / this.sceneH) * MM_H;
+    const toW = (w: number) => (w / this.sceneW) * MM_W;
+    const toH = (h: number) => (h / this.sceneH) * MM_H;
+
     g.fillStyle(0x5a9e3a, 1);
     g.fillRect(IX, IY, MM_W, MM_H);
 
-    g.fillStyle(0x8a6434, 0.85);
-    g.fillRect(IX + MM_W * 0.84, IY, MM_W * 0.10, MM_H);
-    g.fillRect(IX + MM_W * 0.24, IY + MM_H * 0.43, MM_W * 0.62, MM_H * 0.10);
+    const pathPoints = [
+      [{ x: this.sceneW - 18, y: 150 }, { x: 404, y: 158 }, { x: 342, y: 168 }, { x: 296, y: 190 }, { x: 262, y: 226 }, { x: 220, y: this.sceneH + 14 }],
+      [{ x: 262, y: 226 }, { x: 198, y: 236 }, { x: 150, y: 258 }, { x: 110, y: this.sceneH + 10 }],
+      [{ x: 338, y: 168 }, { x: 385, y: 176 }],
+      [{ x: 405, y: 178 }, { x: 483, y: 182 }],
+    ];
+    g.lineStyle(7, 0x9b8762, 0.95);
+    for (const path of pathPoints) {
+      for (let i = 1; i < path.length; i++) {
+        g.lineBetween(toX(path[i - 1].x), toY(path[i - 1].y), toX(path[i].x), toY(path[i].y));
+      }
+    }
+    g.lineStyle(3, 0xd3bb8f, 0.35);
+    g.lineBetween(toX(350), toY(167), toX(this.sceneW - 24), toY(158));
 
-    g.fillStyle(0xc8956a, 1);
-    g.fillRect(IX + MM_W * 0.11, IY + MM_H * 0.12, MM_W * 0.24, MM_H * 0.23);
-    g.fillStyle(0x7b3f24, 1);
-    g.fillTriangle(
-      IX + MM_W * 0.09, IY + MM_H * 0.13,
-      IX + MM_W * 0.23, IY + MM_H * 0.02,
-      IX + MM_W * 0.37, IY + MM_H * 0.13,
-    );
+    // House at the upper-right, matching the actual scene footprint more closely.
+    g.fillStyle(0x9a6c3c, 1);
+    g.fillRect(toX(286), toY(92), toW(162), toH(66));
+    g.fillStyle(0x704121, 1);
+    g.fillTriangle(toX(274), toY(103), toX(366), toY(62), toX(458), toY(103));
+    g.fillStyle(0x4a2d17, 1);
+    g.fillRect(toX(380), toY(132), toW(18), toH(28));
+
+    // Planter rack and crop field.
+    g.fillStyle(0x5d3b1d, 1);
+    g.fillRect(toX(311), toY(98), toW(74), toH(16));
+    g.fillRect(toX(311), toY(118), toW(74), toH(16));
+    g.fillRect(toX(311), toY(138), toW(74), toH(16));
 
     g.fillStyle(0x6e4b26, 1);
-    g.fillRect(IX + MM_W * 0.10, IY + MM_H * 0.60, MM_W * 0.30, MM_H * 0.24);
-    g.fillStyle(0x58a33b, 1);
-    for (let x = 0.14; x < 0.39; x += 0.06) {
-      g.fillCircle(IX + MM_W * x, IY + MM_H * 0.70, 1.7);
+    g.fillRect(toX(286), toY(198), toW(166), toH(80));
+    g.lineStyle(1, 0x3c2411, 0.45);
+    for (let row = 1; row < 4; row++) {
+      g.lineBetween(toX(286), toY(198 + row * 20), toX(452), toY(198 + row * 20));
+    }
+    for (let col = 1; col < 6; col++) {
+      g.lineBetween(toX(286 + col * 27), toY(198), toX(286 + col * 27), toY(278));
     }
 
-    g.lineStyle(1, 0x8b5a2b, 1);
-    g.strokeRect(IX + MM_W * 0.63, IY + MM_H * 0.46, MM_W * 0.25, MM_H * 0.24);
-    g.fillStyle(0xf3efe2, 1);
-    g.fillEllipse(IX + MM_W * 0.71, IY + MM_H * 0.56, 8, 4);
-    g.fillStyle(0xd9c2a3, 1);
-    g.fillEllipse(IX + MM_W * 0.79, IY + MM_H * 0.62, 7, 4);
+    // Trees and major props from buildDecor.
+    g.fillStyle(0x21451c, 0.9);
+    const trees = [
+      [24, 76], [105, 56], [460, 70], [36, 278], [158, 292], [470, 292], [238, 326],
+    ];
+    for (const [x, y] of trees) {
+      g.fillCircle(toX(x), toY(y), 2.8);
+    }
+
+    g.fillStyle(0x7e5728, 1);
+    g.fillCircle(toX(236), toY(82), 2.2);
+    const crates = [
+      [278, 128], [292, 136], [278, 150], [116, 124],
+    ];
+    g.fillStyle(0xd8791f, 0.95);
+    for (const [x, y] of crates) {
+      g.fillRect(toX(x) - 1.2, toY(y) - 1.2, 2.4, 2.4);
+    }
 
     g.fillStyle(0xf2a65a, 0.7);
     g.fillTriangle(IX + MM_W - 2, IY + MM_H * 0.50, IX + MM_W - 7, IY + MM_H * 0.46, IX + MM_W - 7, IY + MM_H * 0.54);
@@ -402,6 +451,30 @@ export class SceneHUD {
     g.fillRect(IX + MM_W * 0.58, IY + MM_H * 0.53, MM_W * 0.20, MM_H * 0.09);
 
     // Exit indicator
+    g.fillStyle(0xf2a65a, 0.6);
+    g.fillRect(IX + MM_W * 0.37, IY + MM_H * 0.94, MM_W * 0.26, MM_H * 0.05);
+
+    this.drawMinimapBorder(g);
+  }
+
+  private drawFarmShopTerrain(g: Phaser.GameObjects.Graphics): void {
+    g.fillStyle(0x5c3a1e, 1);
+    g.fillRect(IX, IY, MM_W, MM_H * 0.12);
+
+    g.fillStyle(0x8b6b3d, 1);
+    g.fillRect(IX, IY + MM_H * 0.12, MM_W, MM_H * 0.18);
+
+    g.fillStyle(0x7a5530, 1);
+    g.fillRect(IX, IY + MM_H * 0.30, MM_W, MM_H * 0.70);
+
+    g.fillStyle(0x6b4c2a, 0.95);
+    g.fillRect(IX + MM_W * 0.12, IY + MM_H * 0.34, MM_W * 0.76, MM_H * 0.12);
+
+    g.fillStyle(0xd8a256, 0.95);
+    for (const x of [0.18, 0.42, 0.66]) {
+      g.fillRect(IX + MM_W * x, IY + MM_H * 0.18, MM_W * 0.12, MM_H * 0.09);
+    }
+
     g.fillStyle(0xf2a65a, 0.6);
     g.fillRect(IX + MM_W * 0.37, IY + MM_H * 0.94, MM_W * 0.26, MM_H * 0.05);
 
@@ -448,6 +521,7 @@ export class SceneHUD {
     this.infoText
       .setText(`${this.periodLabel(time.period)}  ${this.weatherLabel(weatherState)}`)
       .setColor(col);
+    this.moneyText.setText(formatRupiah(gameManager.money));
   }
 
   private periodLabel(period: string): string {
@@ -493,6 +567,7 @@ export class SceneHUD {
       case 'garden':         return 'Kebun';
       case 'bench':          return 'Taman';
       case 'homestead':      return 'Halaman Rumah';
+      case 'farm_shop':      return 'Toko Tani';
       case 'player_house':   return 'Rumahku';
       case 'house_interior': return 'Rumah NPC';
       default:               return '???';
@@ -505,6 +580,7 @@ export class SceneHUD {
       case 'garden':         return '#66bb66';
       case 'bench':          return '#f2d65a';
       case 'homestead':      return '#8fd05a';
+      case 'farm_shop':      return '#f0bf72';
       case 'player_house':   return '#f2a65a';
       case 'house_interior': return '#c8956a';
       default:               return '#cccccc';

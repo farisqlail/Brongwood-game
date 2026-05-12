@@ -502,6 +502,11 @@ export class PauseMenuUI {
       'PlayerHouseScene', 'HouseInteriorScene',
     ];
 
+    if (gameManager.time.day === 1 && gameManager.isFirstDayActive()) {
+      scene.scene.start('PlayerHouseScene');
+      return;
+    }
+
     if (STANDALONE_SCENES.includes(mapKey)) {
       scene.scene.start(mapKey);
     } else {

@@ -29,6 +29,8 @@ import { SaveSystem, SaveData } from '@/systems/SaveSystem';
 import { InventorySystem } from '@/systems/InventorySystem';
 import { RIKA_MESSAGES } from '@/dialogue/messages/RikaMessages';
 import { TOWN_NPCS } from '@config/npcs.config';
+import { STARTING_MONEY } from '@config/economy.config';
+import { FIRST_DAY_FLAG, FirstDayStage, getNextFirstDayStage } from '@config/firstDay.config';
 
 /**
  * Scene-dependent systems that need a Phaser scene reference.
@@ -153,14 +155,65 @@ class GameManagerImpl {
     this.time.setTime(defaults.time.hour, defaults.time.minute, defaults.time.day);
     this.relationships.deserialize({});
     this.initializeRelationships();
-    this.gameFlags = {};
+    this.gameFlags = {
+      money: STARTING_MONEY,
+      [FIRST_DAY_FLAG]: 'wake_up',
+    };
     this.npcSchedules.evaluateAll();
+  }
+
+  get money(): number {
+    const value = this.gameFlags.money;
+    return typeof value === 'number' ? value : STARTING_MONEY;
+  }
+
+  setMoney(amount: number): void {
+    this.gameFlags.money = Math.max(0, Math.floor(amount));
+  }
+
+  get firstDayStage(): FirstDayStage {
+    const value = this.gameFlags[FIRST_DAY_FLAG];
+    return typeof value === 'string' ? value as FirstDayStage : 'complete';
+  }
+
+  isFirstDayActive(): boolean {
+    return this.firstDayStage !== 'complete';
+  }
+
+  setFirstDayStage(stage: FirstDayStage): void {
+    this.gameFlags[FIRST_DAY_FLAG] = stage;
+  }
+
+  advanceFirstDay(expectedStage?: FirstDayStage): FirstDayStage {
+    const current = this.firstDayStage;
+    if (current === 'complete') return current;
+    if (expectedStage && current !== expectedStage) return current;
+
+    const next = getNextFirstDayStage(current);
+    this.setFirstDayStage(next);
+    return next;
+  }
+
+  addMoney(amount: number): number {
+    const next = this.money + Math.max(0, Math.floor(amount));
+    this.setMoney(next);
+    return this.money;
+  }
+
+  spendMoney(amount: number): boolean {
+    const cost = Math.max(0, Math.floor(amount));
+    if (this.money < cost) return false;
+    this.setMoney(this.money - cost);
+    return true;
   }
 
   private initializeRelationships(): void {
     this.relationships.initRelationship('rika');
     for (const npc of TOWN_NPCS) {
       this.relationships.initRelationship(npc.id);
+    }
+    if (typeof this.gameFlags.money !== 'number') {
+      this.gameFlags.money = STARTING_MONEY;
     }
   }
 }

@@ -13,6 +13,7 @@
 
 import Phaser from 'phaser';
 import { GAME_CONFIG, DEPTH } from '@config/game.config';
+import { AUDIO_KEYS } from '@config/assets.manifest';
 import { Player } from '@/entities/Player';
 import { gameManager } from '@/managers/GameManager';
 import { MobileControls } from '@/ui/MobileControls';
@@ -22,6 +23,8 @@ import { AudioSystem } from '@/systems/AudioSystem';
 import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
 import { PauseMenuUI } from '@/ui/PauseMenuUI';
 import { proceduralAudio } from '@/audio/ProceduralAudio';
+import { FirstDayObjectiveUI } from '@/ui/FirstDayObjectiveUI';
+import { FIRST_DAY_OBJECTIVES } from '@config/firstDay.config';
 
 const ROOM_W = 480;
 const ROOM_H = 384;
@@ -51,6 +54,7 @@ export class PlayerHouseScene extends Phaser.Scene {
   private atmosphere!: SceneAtmosphere;
   private ownedAudioSystem: AudioSystem | null = null;
   private promptText!: Phaser.GameObjects.Text;
+  private objectiveUI!: FirstDayObjectiveUI;
   private exiting = false;
   private nearBed = false;
   private returnScene = 'WorldScene';
@@ -60,12 +64,13 @@ export class PlayerHouseScene extends Phaser.Scene {
   }
 
   init(data?: { returnScene?: string }): void {
-    this.returnScene = data?.returnScene ?? 'WorldScene';
+    this.returnScene = data?.returnScene ?? this.getDefaultReturnScene();
   }
 
   create(): void {
     this.exiting = false;
     this.nearBed  = false;
+    this.sound.stopByKey(AUDIO_KEYS.BGM_SCENE_1_6);
 
     this.cameras.main.fadeIn(500, 0, 0, 0);
 
@@ -106,9 +111,14 @@ export class PlayerHouseScene extends Phaser.Scene {
 
     this.hud = new SceneHUD(this, 'player_house', ROOM_W, ROOM_H);
     this.atmosphere = new SceneAtmosphere(this, { weather: false, lighting: 'flower_shop' });
+    this.objectiveUI = new FirstDayObjectiveUI(this);
     gameManager.startGameplay();
     this.ownedAudioSystem = bootstrapGameplayAudio(this);
     proceduralAudio.stopRain();
+
+    if (gameManager.firstDayStage === 'wake_up') {
+      gameManager.advanceFirstDay('wake_up');
+    }
 
     this.events.on('shutdown', this.onShutdown, this);
     this.events.on('wake',     this.onWake,     this);
@@ -118,6 +128,7 @@ export class PlayerHouseScene extends Phaser.Scene {
     gameManager.update(delta);
     this.atmosphere.update(delta);
     this.hud.update(this.player.sprite.x, this.player.sprite.y, this.atmosphere.weatherState);
+    this.objectiveUI.update();
     if (this.pauseMenu.opened) return;
 
     if (this.mobileControls.visible) {
@@ -265,12 +276,20 @@ export class PlayerHouseScene extends Phaser.Scene {
   }
 
   private sleepInBed(): void {
+    if (gameManager.isFirstDayActive() && gameManager.firstDayStage !== 'sleep') {
+      this.showHint(FIRST_DAY_OBJECTIVES[gameManager.firstDayStage]);
+      return;
+    }
+
     this.player.freeze();
     this.promptText.setVisible(false);
 
     this.cameras.main.fadeOut(1000, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       gameManager.time.advanceTo(7, 0);
+      if (gameManager.firstDayStage === 'sleep') {
+        gameManager.advanceFirstDay('sleep');
+      }
       this.cameras.main.fadeIn(1500, 0, 0, 0);
 
       const dayText = this.add
@@ -307,6 +326,9 @@ export class PlayerHouseScene extends Phaser.Scene {
 
   private doExit(): void {
     this.exiting = true;
+    if (gameManager.firstDayStage === 'leave_house') {
+      gameManager.advanceFirstDay('leave_house');
+    }
     this.player.freeze();
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -330,11 +352,39 @@ export class PlayerHouseScene extends Phaser.Scene {
     this.mobileControls.destroy();
     this.pauseMenu.destroy();
     this.hud.destroy();
+    this.objectiveUI.destroy();
     this.atmosphere.destroy();
     this.ownedAudioSystem?.destroy();
     if (this.ownedAudioSystem) {
       gameManager.registerSceneSystems({ audio: null });
       this.ownedAudioSystem = null;
     }
+  }
+
+  private showHint(message: string): void {
+    const label = this.add.text(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2 + 24, message, {
+      fontSize: '7px',
+      color: '#ffffff',
+      fontFamily: 'monospace',
+      backgroundColor: '#000000bb',
+      padding: { x: 6, y: 4 },
+      align: 'center',
+      wordWrap: { width: 220 },
+    });
+    label.setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI + 40);
+    this.tweens.add({
+      targets: label,
+      alpha: 0,
+      y: label.y - 12,
+      duration: 1200,
+      ease: 'Sine.easeOut',
+      onComplete: () => label.destroy(),
+    });
+  }
+
+  private getDefaultReturnScene(): string {
+    return gameManager.time.day === 1 && gameManager.isFirstDayActive()
+      ? 'HomesteadScene'
+      : 'WorldScene';
   }
 }

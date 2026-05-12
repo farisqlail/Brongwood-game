@@ -2,6 +2,7 @@ export interface InventoryItem {
   id: string;
   name: string;
   description: string;
+  quantity?: number;
   /** Hex colour used to draw the slot icon */
   color: number;
   /** Shape hint for the mini icon renderer */
@@ -75,6 +76,22 @@ export const ITEM_DEFS: Record<string, InventoryItem> = {
     color: 0xc73357,
     icon: 'circle',
     textureKey: 'farm-bawang_merah_7',
+  },
+  carrot_seed: {
+    id: 'carrot_seed',
+    name: 'Bibit Wortel',
+    description: 'Benih wortel siap tanam untuk petak kebun.',
+    color: 0xf39a3a,
+    icon: 'box',
+    textureKey: 'farm-bibit_wortel',
+  },
+  red_onion_seed: {
+    id: 'red_onion_seed',
+    name: 'Bibit Bawang Merah',
+    description: 'Benih bawang merah untuk musim tanam berikutnya.',
+    color: 0xb84b73,
+    icon: 'box',
+    textureKey: 'farm-bibit_bawang_merah',
   },
 
   // === Meats ===
