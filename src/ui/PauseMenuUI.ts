@@ -525,7 +525,7 @@ export class PauseMenuUI {
   static startSceneFromSave(scene: Phaser.Scene, mapKey: string): void {
     const STANDALONE_SCENES = [
       'FishingScene', 'GardenScene', 'BenchScene', 'CafeScene', 'HomesteadScene',
-      'PlayerHouseScene', 'HouseInteriorScene',
+      'PlayerHouseScene', 'HouseInteriorScene', 'FlowerShopScene',
     ];
 
     if (gameManager.time.day === 1 && gameManager.isFirstDayActive()) {

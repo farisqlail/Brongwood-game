@@ -208,6 +208,10 @@ export class PreloadScene extends Phaser.Scene {
     }
     for (let i = 1; i <= 2; i++) {
       this.load.image(`tile-rumput-besar-${i}`, `${treeAssets}/rumput_besar_${i}.png`);
+      this.load.image(`tile-pot-tangga-${i}`, `${treeAssets}/pot_tangga_${i}.png`);
+    }
+    for (let i = 1; i <= 5; i++) {
+      this.load.image(`tile-bunga-${i}`, `${treeAssets}/bunga_${i}.png`);
     }
 
     // Box (1-5)

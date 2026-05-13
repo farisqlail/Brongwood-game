@@ -41,6 +41,7 @@ export type SceneHUDMode =
   | 'bench'
   | 'homestead'
   | 'farm_shop'
+  | 'flower_shop'
   | 'player_house'
   | 'house_interior';
 
@@ -191,6 +192,7 @@ export class SceneHUD {
       case 'bench':          this.drawBenchTerrain(g);        break;
       case 'homestead':      this.drawHomesteadTerrain(g);    break;
       case 'farm_shop':      this.drawFarmShopTerrain(g);     break;
+      case 'flower_shop':    this.drawFlowerShopTerrain(g);   break;
       case 'player_house':   this.drawPlayerHouseTerrain(g);  break;
       case 'house_interior': this.drawHouseInteriorTerrain(g); break;
     }
@@ -489,6 +491,40 @@ export class SceneHUD {
     this.drawMinimapBorder(g);
   }
 
+  private drawFlowerShopTerrain(g: Phaser.GameObjects.Graphics): void {
+    g.fillStyle(0x5c3a1e, 1);
+    g.fillRect(IX, IY, MM_W, MM_H * 0.14);
+
+    g.fillStyle(0x8a6440, 1);
+    g.fillRect(IX, IY + MM_H * 0.14, MM_W, MM_H * 0.16);
+
+    g.fillStyle(0x7a5530, 1);
+    g.fillRect(IX, IY + MM_H * 0.30, MM_W, MM_H * 0.70);
+
+    g.lineStyle(1, 0x3d2610, 0.18);
+    for (let y = 0.34; y < 1.0; y += 0.12) {
+      g.lineBetween(IX, IY + MM_H * y, IX + MM_W, IY + MM_H * y);
+    }
+
+    g.fillStyle(0xff8cc8, 0.95);
+    for (const x of [0.12, 0.22, 0.78, 0.88]) {
+      g.fillCircle(IX + MM_W * x, IY + MM_H * 0.34, 2.5);
+    }
+    for (const x of [0.40, 0.48, 0.56, 0.64]) {
+      g.fillCircle(IX + MM_W * x, IY + MM_H * 0.62, 2.2);
+    }
+
+    g.fillStyle(0x6b4c2a, 0.92);
+    g.fillRect(IX + MM_W * 0.12, IY + MM_H * 0.45, MM_W * 0.20, MM_H * 0.08);
+    g.fillRect(IX + MM_W * 0.68, IY + MM_H * 0.45, MM_W * 0.20, MM_H * 0.08);
+    g.fillRect(IX + MM_W * 0.40, IY + MM_H * 0.62, MM_W * 0.22, MM_H * 0.08);
+
+    g.fillStyle(0xf2a65a, 0.6);
+    g.fillRect(IX + MM_W * 0.37, IY + MM_H * 0.94, MM_W * 0.26, MM_H * 0.05);
+
+    this.drawMinimapBorder(g);
+  }
+
   private drawMinimapBorder(g: Phaser.GameObjects.Graphics): void {
     g.lineStyle(1, 0x556677, 0.8);
     g.strokeRect(IX, IY, MM_W, MM_H);
@@ -576,6 +612,7 @@ export class SceneHUD {
       case 'bench':          return 'Taman';
       case 'homestead':      return 'Halaman Rumah';
       case 'farm_shop':      return 'Toko Tani';
+      case 'flower_shop':    return 'Toko Bunga';
       case 'player_house':   return 'Rumahku';
       case 'house_interior': return 'Rumah NPC';
       default:               return '???';
@@ -589,6 +626,7 @@ export class SceneHUD {
       case 'bench':          return '#f2d65a';
       case 'homestead':      return '#8fd05a';
       case 'farm_shop':      return '#f0bf72';
+      case 'flower_shop':    return '#ffd6ec';
       case 'player_house':   return '#f2a65a';
       case 'house_interior': return '#c8956a';
       default:               return '#cccccc';

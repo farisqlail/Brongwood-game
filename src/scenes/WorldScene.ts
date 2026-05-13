@@ -58,6 +58,7 @@ export class WorldScene extends Phaser.Scene {
   private promptText!: Phaser.GameObjects.Text;
   private nearbyNPC: NPC | null = null;
   private nearFarmShop: boolean = false;
+  private nearFlowerShop: boolean = false;
   private moneyText!: Phaser.GameObjects.Text;
 
   // Audio
@@ -179,6 +180,9 @@ export class WorldScene extends Phaser.Scene {
       if (this.mobileControls.actionPressed && !this.dialogueSystem.isActive && !this.phoneUI.opened) {
         if (this.activityZoneUI.isActivityActive) {
           this.activityZoneUI.cancelActivity();
+        } else if (this.nearFlowerShop) {
+          proceduralAudio.playClick();
+          this.enterFlowerShop();
         } else if (this.nearFarmShop) {
           proceduralAudio.playClick();
           this.enterFarmShop();
@@ -212,7 +216,7 @@ export class WorldScene extends Phaser.Scene {
     if (!this.phoneUI.opened && !this.activityZoneUI.isActivityActive) {
       this.checkNPCProximity();
       // Hide NPC prompt if player is in activity zone (activity prompt takes priority when no NPC nearby)
-      if (!this.nearbyNPC && !this.nearFarmShop && this.activityZoneUI.isInZone) {
+      if (!this.nearbyNPC && !this.nearFarmShop && !this.nearFlowerShop && this.activityZoneUI.isInZone) {
         this.promptText.setVisible(false);
       }
     } else {
@@ -466,6 +470,12 @@ export class WorldScene extends Phaser.Scene {
         return;
       }
 
+      if (this.nearFlowerShop && !this.dialogueSystem.isActive && !this.phoneUI.opened) {
+        proceduralAudio.playClick();
+        this.enterFlowerShop();
+        return;
+      }
+
       if (this.nearFarmShop && !this.dialogueSystem.isActive && !this.phoneUI.opened) {
         proceduralAudio.playClick();
         this.enterFarmShop();
@@ -619,6 +629,8 @@ export class WorldScene extends Phaser.Scene {
 
     const farmShopX = GAME_CONFIG.TILE_SIZE * 2.5;
     const farmShopY = GAME_CONFIG.TILE_SIZE * 1.5;
+    const flowerShopX = GAME_CONFIG.TILE_SIZE * 12.25;
+    const flowerShopY = GAME_CONFIG.TILE_SIZE * 2.62;
     const shopDist = Phaser.Math.Distance.Between(
       this.player.x,
       this.player.y,
@@ -626,10 +638,18 @@ export class WorldScene extends Phaser.Scene {
       farmShopY,
     );
     this.nearFarmShop = shopDist < 54;
+    const flowerShopDist = Phaser.Math.Distance.Between(
+      this.player.x,
+      this.player.y,
+      flowerShopX,
+      flowerShopY,
+    );
+    this.nearFlowerShop = flowerShopDist < 62;
 
     if (closest) {
       this.nearbyNPC = closest;
       this.nearFarmShop = false;
+      this.nearFlowerShop = false;
       this.promptText.setVisible(true);
       this.promptText.setText('[E] Talk');
       closest.playerInRange = true;
@@ -638,6 +658,8 @@ export class WorldScene extends Phaser.Scene {
       this.nearbyNPC = null;
       if (this.nearFarmShop) {
         this.promptText.setText('[E] Toko Tani').setVisible(true);
+      } else if (this.nearFlowerShop) {
+        this.promptText.setText('[E] Toko Bunga Rika').setVisible(true);
       } else {
         this.promptText.setVisible(false);
       }
@@ -654,6 +676,19 @@ export class WorldScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.sleep();
       this.scene.run('FarmSupplyShopScene');
+    });
+  }
+
+  private enterFlowerShop(): void {
+    if (this.isTransitioning) return;
+    this.isTransitioning = true;
+    this.player.freeze();
+    this.promptText.setVisible(false);
+
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.sleep();
+      this.scene.run('FlowerShopScene');
     });
   }
 
