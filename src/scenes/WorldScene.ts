@@ -461,6 +461,7 @@ export class WorldScene extends Phaser.Scene {
     this.moneyText.setOrigin(1, 0);
     this.moneyText.setScrollFactor(0);
     this.moneyText.setDepth(DEPTH.UI + 15);
+    this.moneyText.setVisible(false);
 
     // Handle E key press
     this.interactKey.on('down', () => {

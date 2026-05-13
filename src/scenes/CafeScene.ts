@@ -16,6 +16,8 @@ import { proceduralAudio } from '@/audio/ProceduralAudio';
 import { MobileControls } from '@/ui/MobileControls';
 import { ITEM_DEFS } from '@/types/inventory';
 import { CinematicLightingSystem } from '@/systems/CinematicLightingSystem';
+import { formatRupiah } from '@config/economy.config';
+import { InputGuard } from '@/ui/InputGuard';
 
 const CAFE_W = 640; // pixels
 const CAFE_H = 400; // pixels
@@ -27,6 +29,11 @@ const CAFE_TABLES = [
   { x: 548, y: 154, key: 'house2-meja-vertical',   scale: 0.85, collider: { w: 36, h: 72 } },
 ] as const;
 
+const CAFE_PRODUCTS = [
+  { id: 'coffee', label: 'Kopi', price: 12000 },
+  { id: 'nasi_campur', label: 'Nasi Campur', price: 28000 },
+] as const;
+
 export class CafeScene extends Phaser.Scene {
   private player!: Player;
   private barista!: NPC;
@@ -36,7 +43,10 @@ export class CafeScene extends Phaser.Scene {
   private nearbyNPC: NPC | null = null;
   private lighting!: CinematicLightingSystem;
   private exiting: boolean = false;
-  private coffeeOrdered: boolean = false;
+  private productMenuRequested: boolean = false;
+  private productMenuOpen: boolean = false;
+  private productBackdrop: Phaser.GameObjects.Rectangle | null = null;
+  private productObjects: Phaser.GameObjects.GameObject[] = [];
 
   private readonly onPlayerLocked = (payload: { locked: boolean }) => {
     if (payload.locked) this.player.freeze();
@@ -50,17 +60,17 @@ export class CafeScene extends Phaser.Scene {
 
   // Named handlers so we can remove them from EventBus on shutdown
   private readonly onChoiceMade = (p: GameEvents['dialogue:choice-made']) => {
-    if (p.dialogueId === 'barista_chat' && p.choiceId === 'coffee') {
-      this.coffeeOrdered = true;
+    if (p.dialogueId === 'barista_chat' && p.choiceId === 'order') {
+      this.productMenuRequested = true;
     }
   };
 
   private readonly onDialogueEnded = () => {
     this.barista.unfreeze();
     this.mobileControls.setGameVisible(true);
-    if (this.coffeeOrdered) {
-      this.coffeeOrdered = false;
-      this.giveCoffee();
+    if (this.productMenuRequested) {
+      this.productMenuRequested = false;
+      this.openProductPopup();
     }
   };
 
@@ -139,6 +149,7 @@ export class CafeScene extends Phaser.Scene {
       EventBus.off('dialogue:started', this.onDialogueStarted);
       EventBus.off('dialogue:choice-made', this.onChoiceMade);
       EventBus.off('dialogue:ended',       this.onDialogueEnded);
+      this.closeProductPopup(false);
       this.dialogueSystem.destroy();
       this.barista.destroy();
       this.mobileControls.destroy();
@@ -149,6 +160,12 @@ export class CafeScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     if (this.exiting) return;
     this.lighting.update(delta);
+
+    if (this.productMenuOpen) {
+      this.player.sprite.setVelocity(0, 0);
+      this.promptText.setVisible(false);
+      return;
+    }
 
     // Mobile joystick
     if (this.mobileControls.visible && !this.dialogueSystem.isActive) {
@@ -178,7 +195,7 @@ export class CafeScene extends Phaser.Scene {
   }
 
   private tryInteract(): void {
-    if (this.nearbyNPC && !this.dialogueSystem.isActive) {
+    if (this.nearbyNPC && !this.dialogueSystem.isActive && !this.productMenuOpen) {
       proceduralAudio.playClick();
       this.barista.freeze();
       this.barista.faceToward(this.player.x, this.player.y);
@@ -305,6 +322,160 @@ export class CafeScene extends Phaser.Scene {
     }
   }
 
+  private openProductPopup(): void {
+    if (this.productMenuOpen) return;
+
+    this.productMenuOpen = true;
+    this.player.freeze();
+    this.mobileControls.setGameVisible(false);
+    this.promptText.setVisible(false);
+
+    const cx = GAME_CONFIG.WIDTH / 2;
+    const cy = GAME_CONFIG.HEIGHT / 2;
+    const panelW = 292;
+    const panelH = 178;
+
+    this.productBackdrop = this.add.rectangle(cx, cy, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT, 0x000000, 0.62)
+      .setScrollFactor(0)
+      .setDepth(DEPTH.UI + 40);
+    this.productObjects.push(this.productBackdrop);
+
+    const panel = this.add.rectangle(cx, cy, panelW, panelH, 0x111827, 0.96);
+    panel.setStrokeStyle(1, 0x6b7a8c, 0.95).setScrollFactor(0).setDepth(DEPTH.UI + 41);
+    this.productObjects.push(panel);
+
+    this.productObjects.push(this.add.text(cx, cy - 70, 'Menu Cafe', {
+      fontSize: '11px',
+      color: '#f2a65a',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI + 42));
+
+    CAFE_PRODUCTS.forEach((product, index) => {
+      const item = ITEM_DEFS[product.id];
+      const rowY = cy - 28 + index * 56;
+      const card = this.add.rectangle(cx, rowY, 250, 46, 0x1c2836, 0.95);
+      card.setStrokeStyle(1, 0x3f5268, 0.8).setScrollFactor(0).setDepth(DEPTH.UI + 42);
+      this.productObjects.push(card);
+
+      const iconBg = this.add.rectangle(cx - 104, rowY, 34, 34, 0x101a24, 1);
+      iconBg.setStrokeStyle(1, 0x4d6177, 0.9).setScrollFactor(0).setDepth(DEPTH.UI + 43);
+      this.productObjects.push(iconBg);
+
+      if (item.textureKey && this.textures.exists(item.textureKey)) {
+        this.productObjects.push(this.add.image(cx - 104, rowY, item.textureKey)
+          .setScale(0.5)
+          .setScrollFactor(0)
+          .setDepth(DEPTH.UI + 44));
+      } else {
+        const cup = this.add.graphics();
+        cup.fillStyle(item.color, 1);
+        cup.fillRoundedRect(cx - 113, rowY - 9, 16, 18, 4);
+        cup.fillStyle(0xf5efe0, 1);
+        cup.fillRect(cx - 111, rowY - 12, 12, 3);
+        cup.setScrollFactor(0).setDepth(DEPTH.UI + 44);
+        this.productObjects.push(cup);
+      }
+
+      this.productObjects.push(this.add.text(cx - 80, rowY - 8, product.label, {
+        fontSize: '8px',
+        color: '#ffffff',
+        fontFamily: 'monospace',
+        fontStyle: 'bold',
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(DEPTH.UI + 44));
+
+      this.productObjects.push(this.add.text(cx - 80, rowY + 8, formatRupiah(product.price), {
+        fontSize: '7px',
+        color: '#f3e59a',
+        fontFamily: 'monospace',
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(DEPTH.UI + 44));
+
+      const buyBtn = this.add.rectangle(cx + 88, rowY, 56, 22, 0x2e6e3e, 0.95);
+      buyBtn.setStrokeStyle(1, 0x68a66a, 0.8);
+      buyBtn.setScrollFactor(0).setDepth(DEPTH.UI + 45);
+      buyBtn.setInteractive({ useHandCursor: true });
+      buyBtn.on('pointerover', () => buyBtn.setFillStyle(0x3f9253, 1));
+      buyBtn.on('pointerout', () => buyBtn.setFillStyle(0x2e6e3e, 0.95));
+      buyBtn.on('pointerdown', () => {
+        InputGuard.consume();
+        this.buyCafeProduct(product.id, product.price);
+      });
+      this.productObjects.push(buyBtn);
+
+      const buyText = this.add.text(cx + 88, rowY, 'Beli', {
+        fontSize: '8px',
+        color: '#e9ffe6',
+        fontFamily: 'monospace',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI + 46);
+      buyText.setInteractive({ useHandCursor: true });
+      buyText.on('pointerdown', () => {
+        InputGuard.consume();
+        this.buyCafeProduct(product.id, product.price);
+      });
+      this.productObjects.push(buyText);
+    });
+
+    const closeBtn = this.add.rectangle(cx + panelW / 2 - 16, cy - panelH / 2 + 16, 20, 20, 0x334455, 0.95);
+    closeBtn.setScrollFactor(0).setDepth(DEPTH.UI + 45);
+    closeBtn.setInteractive({ useHandCursor: true });
+    closeBtn.on('pointerdown', () => {
+      InputGuard.consume();
+      this.closeProductPopup();
+    });
+    this.productObjects.push(closeBtn);
+
+    const closeText = this.add.text(closeBtn.x, closeBtn.y, 'X', {
+      fontSize: '10px',
+      color: '#ffffff',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI + 46);
+    closeText.setInteractive({ useHandCursor: true });
+    closeText.on('pointerdown', () => {
+      InputGuard.consume();
+      this.closeProductPopup();
+    });
+    this.productObjects.push(closeText);
+  }
+
+  private closeProductPopup(unfreeze = true): void {
+    if (!this.productMenuOpen && this.productObjects.length === 0) return;
+
+    this.productMenuOpen = false;
+    for (const obj of this.productObjects) obj.destroy();
+    this.productObjects = [];
+    this.productBackdrop = null;
+
+    if (unfreeze && !this.exiting) {
+      this.player.unfreeze();
+      this.mobileControls.setGameVisible(true);
+    }
+  }
+
+  private buyCafeProduct(itemId: string, price: number): void {
+    const item = ITEM_DEFS[itemId];
+    if (!item) return;
+
+    if (gameManager.inventory.isFull()) {
+      this.showToast('Tas penuh.', 0xcc6655);
+      return;
+    }
+
+    if (!gameManager.spendMoney(price)) {
+      this.showToast('Uang tidak cukup.', 0xcc6655);
+      return;
+    }
+
+    const slot = gameManager.inventory.addItem({ ...item });
+    if (slot >= 0) {
+      proceduralAudio.playClick();
+      this.showToast(`${item.name} masuk ke inventori!`, 0xf2a65a);
+      this.closeProductPopup();
+    } else {
+      gameManager.addMoney(price);
+      this.showToast('Tas penuh.', 0xcc6655);
+    }
+  }
+
   private giveCoffee(): void {
     const inv = gameManager.inventory;
     const slot = inv.addItem(ITEM_DEFS.coffee);
@@ -369,15 +540,15 @@ const BARISTA_DIALOGUE: DialogueDefinition = {
     choice: {
       type: 'choice', id: 'choice',
       choices: [
-        { text: 'Kopi satu, ya.', choiceId: 'coffee', next: 'coffee' },
+        { text: 'Pesan sesuatu.', choiceId: 'order', next: 'order' },
         { text: 'Lihat-lihat dulu.', choiceId: 'look', next: 'look' },
         { text: 'Tempat ini nyaman.', choiceId: 'cozy', next: 'cozy' },
       ],
     },
-    coffee: {
-      type: 'text', id: 'coffee',
+    order: {
+      type: 'text', id: 'order',
       speaker: 'barista', speakerName: 'Hana (Barista)',
-      text: 'Siap. Silakan duduk di mana saja. Meja dekat jendela biasanya punya pemandangan terbaik.',
+      text: 'Silakan pilih dari menu. Kopi baru seduh, dan nasi campur hari ini masih hangat.',
       typeSpeed: 0.75,
       next: null,
     },

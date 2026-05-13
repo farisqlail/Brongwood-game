@@ -19,6 +19,14 @@ export const ITEM_DEFS: Record<string, InventoryItem> = {
     color: 0x8b4513,
     icon: 'cup',
   },
+  nasi_campur: {
+    id: 'nasi_campur',
+    name: 'Nasi Campur',
+    description: 'Sepiring nasi campur hangat dari cafe.\nLauk sederhana, rasanya rumahan.',
+    color: 0xf2d68a,
+    icon: 'circle',
+    textureKey: 'food-nasi-campur',
+  },
   cake: {
     id: 'cake',
     name: 'Cake Slice',

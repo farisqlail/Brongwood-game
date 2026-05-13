@@ -151,6 +151,7 @@ export class PreloadScene extends Phaser.Scene {
 
     const food = 'assets/tilemaps/food';
     this.load.image('food-kitchenset-1', `${food}/kitchenset_1.png`);
+    this.load.image('food-nasi-campur', `${food}/nasi_campur.png`);
 
     const utilityBox = 'assets/tilemaps/utilities/box';
     const utilityBoxFiles = [

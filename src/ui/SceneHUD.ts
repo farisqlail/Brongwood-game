@@ -24,16 +24,18 @@ import { InputGuard } from '@/ui/InputGuard';
 import { formatRupiah } from '@config/economy.config';
 
 // ─── Minimap panel geometry (mirrors WorldScene minimap) ──────
-const PX     = 6;
+const PW     = 112;
+const PH     = 88;
+const PX     = 480 - PW - 6;
 const PY     = 6;
-const PW     = 100;
 const PAD    = 4;
-const MM_W   = PW - PAD * 2;   // 92
-const MM_H   = 50;
-const INFO_H = 38;              // 3 text rows: location + time/day + period/weather
-const PH     = PAD + MM_H + PAD + 1 + PAD + INFO_H + PAD;
-const IX     = PX + PAD;
-const IY     = PY + PAD;
+const MM_W   = 40;
+const MM_H   = 40;
+const IX     = PX + 8;
+const IY     = PY + 12;
+const INFO_X = IX + MM_W + 6;
+const INFO_Y = PY + 8;
+const MONEY_Y = PY + PH - 19;
 
 export type SceneHUDMode =
   | 'fishing'
@@ -134,54 +136,56 @@ export class SceneHUD {
     this.dotG.setScrollFactor(0);
     this.dotG.setDepth(DEPTH.UI + 6);
 
-    // Info text rows below minimap
-    const infoY = PY + PAD + MM_H + PAD + 1 + PAD;
-
     // Row 0: location name
-    this.locationText = this.scene.add.text(PX + PAD, infoY, this.getLocationName(), {
-      fontSize: '7px',
+    this.locationText = this.scene.add.text(INFO_X, INFO_Y, this.getLocationName(), {
+      fontSize: '8px',
       fontFamily: 'monospace',
-      color: this.getLocationColor(),
+      color: '#3a2418',
       fontStyle: 'bold',
     });
-    this.locationText.setScrollFactor(0).setDepth(DEPTH.UI + 6);
+    this.locationText.setScrollFactor(0).setDepth(DEPTH.UI + 8);
 
     // Row 1: day + time  (updated every frame)
-    this.timeText = this.scene.add.text(PX + PAD, infoY + 10, '', {
-      fontSize: '6px',
+    this.timeText = this.scene.add.text(INFO_X, INFO_Y + 13, '', {
+      fontSize: '8px',
       fontFamily: 'monospace',
       color: '#ffffff',
     });
-    this.timeText.setScrollFactor(0).setDepth(DEPTH.UI + 6);
+    this.timeText.setScrollFactor(0).setDepth(DEPTH.UI + 8);
 
     // Row 2: period + weather  (updated every frame)
-    this.infoText = this.scene.add.text(PX + PAD, infoY + 20, '', {
-      fontSize: '5px',
+    this.infoText = this.scene.add.text(INFO_X, INFO_Y + 26, '', {
+      fontSize: '7px',
       fontFamily: 'monospace',
-      color: '#aabbcc',
+      color: '#3a2418',
     });
-    this.infoText.setScrollFactor(0).setDepth(DEPTH.UI + 6);
+    this.infoText.setScrollFactor(0).setDepth(DEPTH.UI + 8);
 
-    this.moneyText = this.scene.add.text(PX + PW - PAD, infoY + 29, '', {
-      fontSize: '5px',
+    this.moneyText = this.scene.add.text(PX + PW / 2, MONEY_Y, '', {
+      fontSize: '7px',
       fontFamily: 'monospace',
-      color: '#f2d65a',
+      color: '#fff0a8',
     });
-    this.moneyText.setOrigin(1, 0);
-    this.moneyText.setScrollFactor(0).setDepth(DEPTH.UI + 6);
+    this.moneyText.setOrigin(0.5, 0);
+    this.moneyText.setScrollFactor(0).setDepth(DEPTH.UI + 8);
   }
 
   private drawPanel(): void {
     const g = this.mapBg;
-    g.fillStyle(0x0d1117, 0.82);
-    g.fillRoundedRect(PX, PY, PW, PH, 3);
-    g.lineStyle(1, 0x445566, 0.7);
-    g.strokeRoundedRect(PX, PY, PW, PH, 3);
-    g.lineStyle(1, 0x334455, 0.9);
-    g.strokeRect(IX - 1, IY - 1, MM_W + 2, MM_H + 2);
-    const divY = PY + PAD + MM_H + PAD;
-    g.lineStyle(1, 0x334455, 0.5);
-    g.lineBetween(PX + PAD, divY, PX + PW - PAD, divY);
+    g.fillStyle(0x6b3b16, 0.96);
+    g.fillRoundedRect(PX, PY, PW, PH, 4);
+    g.lineStyle(2, 0x2f1b0f, 1);
+    g.strokeRoundedRect(PX, PY, PW, PH, 4);
+    g.fillStyle(0xe5a943, 1);
+    g.fillRoundedRect(INFO_X - 3, PY + 8, PW - MM_W - 17, 19, 3);
+    g.fillStyle(0xffcc55, 1);
+    g.fillRoundedRect(INFO_X - 3, PY + 30, PW - MM_W - 17, 28, 3);
+    g.fillStyle(0xb65d22, 1);
+    g.fillRoundedRect(PX + 8, MONEY_Y - 2, PW - 16, 16, 3);
+    g.fillStyle(0x143b2f, 1);
+    g.fillRoundedRect(IX - 2, IY - 2, MM_W + 4, MM_H + 4, 4);
+    g.lineStyle(2, 0xffc35a, 1);
+    g.strokeRoundedRect(IX - 2, IY - 2, MM_W + 4, MM_H + 4, 4);
   }
 
   private drawTerrain(): void {
@@ -526,7 +530,7 @@ export class SceneHUD {
   }
 
   private drawMinimapBorder(g: Phaser.GameObjects.Graphics): void {
-    g.lineStyle(1, 0x556677, 0.8);
+    g.lineStyle(1, 0xffe3a0, 0.8);
     g.strokeRect(IX, IY, MM_W, MM_H);
   }
 
@@ -561,10 +565,11 @@ export class SceneHUD {
     const mm   = time.minute.toString().padStart(2, '0');
     const col  = this.periodColor(time.period);
 
-    this.timeText.setText(`Hari ${time.day}  ${hh}:${mm}`).setColor(col);
+    this.locationText.setText(`Day ${time.day}`);
+    this.timeText.setText(`${hh}:${mm}`).setColor(col);
     this.infoText
-      .setText(`${this.periodLabel(time.period)}  ${this.weatherLabel(weatherState)}`)
-      .setColor(col);
+      .setText(this.weatherLabel(weatherState))
+      .setColor('#3a2418');
     this.moneyText.setText(formatRupiah(gameManager.money));
   }
 

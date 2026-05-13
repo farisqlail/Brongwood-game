@@ -154,12 +154,18 @@ export class PhoneUI {
   private buildHUDIcon(): void {
     // Phone icon in top-right area (below clock)
     this.phoneIcon = this.scene.add.text(
-      GAME_CONFIG.WIDTH - 22, 22,
+      GAME_CONFIG.WIDTH - 26, 54,
       '\u260E', // ☎ phone symbol
-      { fontSize: '10px', color: '#aabbcc', fontFamily: 'monospace' }
+      {
+        fontSize: '11px',
+        color: '#4c2a12',
+        fontFamily: 'monospace',
+        backgroundColor: '#ffcc55',
+        padding: { x: 3, y: 1 },
+      }
     );
     this.phoneIcon.setScrollFactor(0);
-    this.phoneIcon.setDepth(DEPTH.UI + 5);
+    this.phoneIcon.setDepth(DEPTH.UI + 12);
     this.phoneIcon.setInteractive({ useHandCursor: true });
     this.phoneIcon.on('pointerdown', () => {
       InputGuard.consume();
@@ -168,10 +174,10 @@ export class PhoneUI {
 
     // Notification dot
     this.notifDot = this.scene.add.circle(
-      GAME_CONFIG.WIDTH - 14, 20, 3, 0xf2a65a
+      GAME_CONFIG.WIDTH - 13, 54, 3, 0xf25a5a
     );
     this.notifDot.setScrollFactor(0);
-    this.notifDot.setDepth(DEPTH.UI + 6);
+    this.notifDot.setDepth(DEPTH.UI + 13);
     this.notifDot.setVisible(false);
   }
 
