@@ -36,6 +36,10 @@ const IY     = PY + 12;
 const INFO_X = IX + MM_W + 6;
 const INFO_Y = PY + 8;
 const MONEY_Y = PY + PH - 19;
+const STAMINA_X = PX + 8;
+const STAMINA_Y = PY + PH + 4;
+const STAMINA_W = PW - 16;
+const STAMINA_H = 7;
 
 export type SceneHUDMode =
   | 'fishing'
@@ -55,6 +59,10 @@ export class SceneHUD {
 
   // Minimap
   private mapBg!: Phaser.GameObjects.Graphics;
+  private terrainG!: Phaser.GameObjects.Graphics;
+  private staminaG!: Phaser.GameObjects.Graphics;
+  private minimapMaskShape!: Phaser.GameObjects.Graphics;
+  private minimapMask!: Phaser.Display.Masks.GeometryMask;
   private dotG!:  Phaser.GameObjects.Graphics;
   private locationText!: Phaser.GameObjects.Text;
   private timeText!:     Phaser.GameObjects.Text;
@@ -86,6 +94,7 @@ export class SceneHUD {
   /** Call every frame with player world position and current weather state. */
   update(playerX: number, playerY: number, weatherState = 'clear'): void {
     this.drawPlayerDot(playerX, playerY);
+    this.drawStaminaBar();
     this.updateInfoTexts(weatherState);
     this.inventoryUI.redrawSlots();
     this.phoneUI.update();
@@ -93,6 +102,10 @@ export class SceneHUD {
 
   destroy(): void {
     this.mapBg.destroy();
+    this.terrainG.destroy();
+    this.staminaG.destroy();
+    this.minimapMask.destroy();
+    this.minimapMaskShape.destroy();
     this.dotG.destroy();
     this.locationText.destroy();
     this.timeText.destroy();
@@ -106,6 +119,7 @@ export class SceneHUD {
   /** Hide hotbar + phone icon (e.g. during pause) */
   setVisible(visible: boolean): void {
     this.clickZone.setVisible(visible);
+    this.staminaG.setVisible(visible);
     this.inventoryUI.setVisible(visible);
     this.phoneUI.setVisible(visible);
   }
@@ -115,12 +129,29 @@ export class SceneHUD {
   // ============================================================
 
   private buildMinimap(): void {
-    // Static terrain panel (drawn once)
+    // Static panel chrome.
     this.mapBg = this.scene.add.graphics();
     this.mapBg.setScrollFactor(0);
     this.mapBg.setDepth(DEPTH.UI + 5);
     this.drawPanel();
+
+    this.minimapMaskShape = this.scene.add.graphics();
+    this.minimapMaskShape.fillStyle(0xffffff, 1);
+    this.minimapMaskShape.fillRect(IX, IY, MM_W, MM_H);
+    this.minimapMaskShape.setScrollFactor(0);
+    this.minimapMaskShape.setVisible(false);
+    this.minimapMask = this.minimapMaskShape.createGeometryMask();
+
+    // Static terrain content, clipped to the minimap viewport.
+    this.terrainG = this.scene.add.graphics();
+    this.terrainG.setScrollFactor(0);
+    this.terrainG.setDepth(DEPTH.UI + 6);
+    this.terrainG.setMask(this.minimapMask);
     this.drawTerrain();
+
+    this.staminaG = this.scene.add.graphics();
+    this.staminaG.setScrollFactor(0);
+    this.staminaG.setDepth(DEPTH.UI + 8);
 
     this.clickZone = this.scene.add.rectangle(PX + PW / 2, PY + PH / 2, PW, PH, 0x000000, 0);
     this.clickZone.setScrollFactor(0);
@@ -134,7 +165,8 @@ export class SceneHUD {
     // Dynamic player dot layer
     this.dotG = this.scene.add.graphics();
     this.dotG.setScrollFactor(0);
-    this.dotG.setDepth(DEPTH.UI + 6);
+    this.dotG.setDepth(DEPTH.UI + 7);
+    this.dotG.setMask(this.minimapMask);
 
     // Row 0: location name
     this.locationText = this.scene.add.text(INFO_X, INFO_Y, this.getLocationName(), {
@@ -189,7 +221,7 @@ export class SceneHUD {
   }
 
   private drawTerrain(): void {
-    const g = this.mapBg;
+    const g = this.terrainG;
     switch (this.mode) {
       case 'fishing':        this.drawFishingTerrain(g);      break;
       case 'garden':         this.drawGardenTerrain(g);       break;
@@ -553,6 +585,21 @@ export class SceneHUD {
     g.fillCircle(cx, cy, 4);
     g.fillStyle(0xffffff, 1);
     g.fillCircle(cx, cy, 2);
+  }
+
+  private drawStaminaBar(): void {
+    const g = this.staminaG;
+    const ratio = gameManager.staminaRatio;
+    const fillW = Math.max(0, Math.floor((STAMINA_W - 2) * ratio));
+    const fillColor = ratio > 0.55 ? 0x7cc66a : ratio > 0.25 ? 0xf2c75c : 0xd96a4a;
+
+    g.clear();
+    g.fillStyle(0x2f1b0f, 0.88);
+    g.fillRoundedRect(STAMINA_X, STAMINA_Y, STAMINA_W, STAMINA_H, 2);
+    g.fillStyle(fillColor, 1);
+    g.fillRoundedRect(STAMINA_X + 1, STAMINA_Y + 1, fillW, STAMINA_H - 2, 1);
+    g.lineStyle(1, 0xffe3a0, 0.55);
+    g.strokeRoundedRect(STAMINA_X, STAMINA_Y, STAMINA_W, STAMINA_H, 2);
   }
 
   // ============================================================

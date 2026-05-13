@@ -29,9 +29,10 @@ const PHONE_H = 260;
 const PHONE_X = (GAME_CONFIG.WIDTH - PHONE_W) / 2;
 const PHONE_Y = (GAME_CONFIG.HEIGHT - PHONE_H) / 2;
 const MSG_AREA_X = PHONE_X + 8;
-const MSG_AREA_Y = PHONE_Y + 28;
+const THREAD_TAB_Y = PHONE_Y + 27;
+const MSG_AREA_Y = PHONE_Y + 42;
 const MSG_AREA_W = PHONE_W - 16;
-const MSG_AREA_H = PHONE_H - 70;
+const MSG_AREA_H = PHONE_H - 84;
 const RESPONSE_Y = PHONE_Y + PHONE_H - 38;
 const MAX_VISIBLE_MSGS = 6;
 
@@ -62,6 +63,7 @@ export class PhoneUI {
   // Message display
   private msgObjects: Phaser.GameObjects.GameObject[] = [];
   private responseObjects: Phaser.GameObjects.GameObject[] = [];
+  private threadTabObjects: Phaser.GameObjects.GameObject[] = [];
 
   // Scroll state
   private scrollOffset: number = 0;
@@ -97,6 +99,7 @@ export class PhoneUI {
     this.isOpen = true;
 
     // Mark thread as read
+    this.selectInitialThread();
     gameManager.phone.markThreadRead(this.currentThreadId);
     this.updateNotifDot();
 
@@ -107,6 +110,7 @@ export class PhoneUI {
     this.closeBtn.setVisible(true);
 
     // Render messages
+    this.updateHeaderText();
     this.renderMessages();
 
     // Emit phone opened event
@@ -122,6 +126,7 @@ export class PhoneUI {
 
     this.hidePhone();
     this.clearMessages();
+    this.clearThreadTabs();
 
     // Emit phone closed event
     EventBus.emit('phone:closed', {});
@@ -259,6 +264,7 @@ export class PhoneUI {
 
   private renderMessages(): void {
     this.clearMessages();
+    this.renderThreadTabs();
 
     const thread = gameManager.phone.getThread(this.currentThreadId);
     const messages = thread.messages;
@@ -434,6 +440,7 @@ export class PhoneUI {
     this.closeBtn.setVisible(false);
     this.noMsgText.setVisible(false);
     this.clearMessages();
+    this.clearThreadTabs();
   }
 
   private clearMessages(): void {
@@ -441,6 +448,78 @@ export class PhoneUI {
     for (const obj of this.responseObjects) obj.destroy();
     this.msgObjects = [];
     this.responseObjects = [];
+  }
+
+  private renderThreadTabs(): void {
+    this.clearThreadTabs();
+
+    const threads = gameManager.phone.getAllThreads();
+    if (threads.length <= 1) return;
+
+    let x = PHONE_X + 8;
+    for (const thread of threads.slice(0, 4)) {
+      const label = this.getThreadName(thread.npcId);
+      const isActive = thread.npcId === this.currentThreadId;
+      const tabW = Math.max(26, label.length * 5 + 8);
+
+      const bg = this.scene.add.rectangle(
+        x + tabW / 2,
+        THREAD_TAB_Y + 5,
+        tabW,
+        10,
+        isActive ? 0x5d6b7a : 0x263340,
+        0.95,
+      );
+      bg.setScrollFactor(0);
+      bg.setDepth(UI_DEPTH + 3);
+      bg.setInteractive({ useHandCursor: true });
+
+      const text = this.scene.add.text(x + 4, THREAD_TAB_Y + 2, label, {
+        fontSize: '5px',
+        color: thread.unreadCount > 0 ? '#ffd36a' : '#ccddee',
+        fontFamily: 'monospace',
+      });
+      text.setScrollFactor(0);
+      text.setDepth(UI_DEPTH + 4);
+
+      bg.on('pointerdown', () => {
+        InputGuard.consume();
+        this.currentThreadId = thread.npcId;
+        gameManager.phone.markThreadRead(this.currentThreadId);
+        this.updateHeaderText();
+        this.updateNotifDot();
+        this.renderMessages();
+      });
+
+      this.threadTabObjects.push(bg, text);
+      x += tabW + 4;
+    }
+  }
+
+  private clearThreadTabs(): void {
+    for (const obj of this.threadTabObjects) obj.destroy();
+    this.threadTabObjects = [];
+  }
+
+  private selectInitialThread(): void {
+    const unreadThread = gameManager.phone.getAllThreads().find(thread => thread.unreadCount > 0);
+    if (unreadThread) {
+      this.currentThreadId = unreadThread.npcId;
+    }
+  }
+
+  private updateHeaderText(): void {
+    this.headerText.setText(`\u260E ${this.getThreadName(this.currentThreadId)}`);
+  }
+
+  private getThreadName(npcId: string): string {
+    switch (npcId) {
+      case 'rika': return 'Rika';
+      case 'fisher': return 'Pak Jaya';
+      case 'elder': return 'Bu Sari';
+      case 'farmer': return 'Pak Wira';
+      default: return npcId;
+    }
   }
 
   private updateNotifDot(): void {

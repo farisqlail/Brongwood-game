@@ -32,6 +32,8 @@ import { TOWN_NPCS } from '@config/npcs.config';
 import { STARTING_MONEY } from '@config/economy.config';
 import { FIRST_DAY_FLAG, FirstDayStage, getNextFirstDayStage } from '@config/firstDay.config';
 
+export const MAX_STAMINA = 100;
+
 /**
  * Scene-dependent systems that need a Phaser scene reference.
  */
@@ -131,6 +133,7 @@ class GameManagerImpl {
       player: playerState,
       time: this.time.serialize(),
       relationships: this.relationships.serialize(),
+      phone: this.phone.serialize(),
       completedEvents: [],
       dialogueFlags: {},
       gameFlags: this.gameFlags,
@@ -143,8 +146,9 @@ class GameManagerImpl {
 
     this.time.deserialize(data.time);
     this.relationships.deserialize(data.relationships);
-    this.initializeRelationships();
+    this.phone.deserialize(data.phone);
     this.gameFlags = data.gameFlags ?? {};
+    this.initializeRelationships();
     this.npcSchedules.evaluateAll();
 
     return data;
@@ -154,9 +158,11 @@ class GameManagerImpl {
     const defaults = SaveSystem.createNewGameData();
     this.time.setTime(defaults.time.hour, defaults.time.minute, defaults.time.day);
     this.relationships.deserialize({});
+    this.phone.deserialize({ threads: {}, delivered: [] });
     this.initializeRelationships();
     this.gameFlags = {
       money: STARTING_MONEY,
+      stamina: MAX_STAMINA,
       [FIRST_DAY_FLAG]: 'wake_up',
     };
     this.npcSchedules.evaluateAll();
@@ -169,6 +175,39 @@ class GameManagerImpl {
 
   setMoney(amount: number): void {
     this.gameFlags.money = Math.max(0, Math.floor(amount));
+  }
+
+  get maxStamina(): number {
+    return MAX_STAMINA;
+  }
+
+  get stamina(): number {
+    const value = this.gameFlags.stamina;
+    return typeof value === 'number' ? Math.max(0, Math.min(MAX_STAMINA, value)) : MAX_STAMINA;
+  }
+
+  get staminaRatio(): number {
+    return this.stamina / MAX_STAMINA;
+  }
+
+  get isExhausted(): boolean {
+    return this.stamina <= 0;
+  }
+
+  consumeStamina(amount: number): boolean {
+    const cost = Math.max(0, Math.floor(amount));
+    if (cost <= 0) return true;
+    if (this.stamina < cost) return false;
+    this.gameFlags.stamina = this.stamina - cost;
+    return true;
+  }
+
+  restoreStamina(amount: number): void {
+    this.gameFlags.stamina = Math.min(MAX_STAMINA, this.stamina + Math.max(0, Math.floor(amount)));
+  }
+
+  resetStamina(): void {
+    this.gameFlags.stamina = MAX_STAMINA;
   }
 
   get firstDayStage(): FirstDayStage {
@@ -214,6 +253,9 @@ class GameManagerImpl {
     }
     if (typeof this.gameFlags.money !== 'number') {
       this.gameFlags.money = STARTING_MONEY;
+    }
+    if (typeof this.gameFlags.stamina !== 'number') {
+      this.gameFlags.stamina = MAX_STAMINA;
     }
   }
 }

@@ -129,6 +129,16 @@ export class ActivityZoneUI {
     if (!this.activeZoneId) return false;
     if (this.activitySystem.current) return false;
 
+    const config = ACTIVITY_CONFIGS[this.activeZoneId];
+    if (config.requiredTool && gameManager.inventory.getSelectedItem()?.id !== config.requiredTool) {
+      this.showPrompt(`Pilih ${config.requiredTool === 'fishing_rod' ? 'fishing rod' : 'tool'}`);
+      return false;
+    }
+    if (config.staminaCost && gameManager.stamina < config.staminaCost) {
+      this.showPrompt('Stamina habis');
+      return false;
+    }
+
     this.activitySystem.start(this.activeZoneId);
     this.hidePrompt();
     return true;

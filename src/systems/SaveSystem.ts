@@ -30,6 +30,7 @@
  */
 
 import { EventBus } from '@/core/EventBus';
+import { ConversationThread } from '@/systems/PhoneSystem';
 import { RelationshipData } from './RelationshipSystem';
 import { STARTING_MONEY } from '@config/economy.config';
 import { FIRST_DAY_FLAG } from '@config/firstDay.config';
@@ -76,6 +77,12 @@ export interface SaveData {
 
   /** General game flags (misc state) */
   gameFlags: Record<string, boolean | number | string>;
+
+  /** Phone conversations and delivered scheduled messages */
+  phone: {
+    threads: Record<string, ConversationThread>;
+    delivered: string[];
+  };
 }
 
 // ============================================================
@@ -236,6 +243,7 @@ export class SaveSystem {
     current.dialogueFlags = current.dialogueFlags ?? {};
     current.gameFlags = current.gameFlags ?? {};
     current.relationships = current.relationships ?? {};
+    current.phone = current.phone ?? { threads: {}, delivered: [] };
 
     return current;
   }
@@ -264,8 +272,13 @@ export class SaveSystem {
       relationships: {},
       completedEvents: [],
       dialogueFlags: {},
+      phone: {
+        threads: {},
+        delivered: [],
+      },
       gameFlags: {
         money: STARTING_MONEY,
+        stamina: 100,
         [FIRST_DAY_FLAG]: 'wake_up',
       },
     };

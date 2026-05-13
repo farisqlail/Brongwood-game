@@ -100,8 +100,12 @@ export interface MessageConditions {
   minDay?: number;
   /** Required relationship stage */
   minStage?: string;
+  /** Minimum total interactions with this sender */
+  minInteractions?: number;
   /** Required flags */
   requiredFlags?: string[];
+  /** Required relationship memory tags */
+  requiredMemoryTags?: string[];
   /** Required completed events */
   requiredEvents?: string[];
   /** Minimum hours since last message from this sender */
@@ -294,32 +298,56 @@ export class PhoneSystem {
 
   /** Check if any scheduled messages should be delivered */
   private checkScheduledMessages = (): void => {
-    for (const scheduled of this.scheduledMessages) {
-      if (scheduled.oneShot && this.deliveredMessageIds.has(scheduled.id)) continue;
-      if (!this.meetsConditions(scheduled.conditions, scheduled.message.sender as string)) continue;
+    const ready = this.scheduledMessages
+      .filter((scheduled) => {
+        if (scheduled.oneShot && this.deliveredMessageIds.has(scheduled.id)) return false;
+        return this.meetsConditions(scheduled.conditions, scheduled.message.sender as string);
+      })
+      .sort((a, b) => b.priority - a.priority);
 
-      // Deliver the message
-      this.deliverMessage(
-        scheduled.message.sender as string,
-        scheduled.message.text,
-        scheduled.message.responses
-      );
+    const scheduled = ready[0];
+    if (!scheduled) return;
 
-      this.deliveredMessageIds.add(scheduled.id);
-    }
+    this.deliverMessage(
+      scheduled.message.sender as string,
+      scheduled.message.text,
+      scheduled.message.responses
+    );
+
+    this.deliveredMessageIds.add(scheduled.id);
   };
 
   /** Check if message conditions are met */
   private meetsConditions(conditions: MessageConditions, npcId: string): boolean {
     const time = gameManager.time;
+    const relationship = gameManager.relationships.get(npcId);
 
     if (conditions.timePeriods && !conditions.timePeriods.includes(time.period)) return false;
     if (conditions.minDay && time.day < conditions.minDay) return false;
+    if (conditions.minInteractions && (relationship?.totalInteractions ?? 0) < conditions.minInteractions) return false;
 
     if (conditions.minStage) {
       const stage = gameManager.relationships.getStage(npcId);
       const stageOrder = ['stranger', 'acquaintance', 'friend', 'close_friend', 'confidant', 'soulmate'];
       if (stageOrder.indexOf(stage) < stageOrder.indexOf(conditions.minStage as never)) return false;
+    }
+
+    if (conditions.requiredFlags) {
+      for (const flag of conditions.requiredFlags) {
+        if (!gameManager.relationships.hasFlag(npcId, flag)) return false;
+      }
+    }
+
+    if (conditions.requiredMemoryTags) {
+      for (const tag of conditions.requiredMemoryTags) {
+        if (!gameManager.relationships.hasMemoryWithTag(npcId, tag)) return false;
+      }
+    }
+
+    if (conditions.blockedByFlags) {
+      for (const flag of conditions.blockedByFlags) {
+        if (gameManager.relationships.hasFlag(npcId, flag)) return false;
+      }
     }
 
     if (conditions.minHoursSinceLastMessage) {

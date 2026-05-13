@@ -234,9 +234,13 @@ export class VegetationSystem {
       }
 
       // Collision body
-      const col = this.collisionGroup.create(h.x, h.y + 8, '_collider') as Phaser.Physics.Arcade.Sprite;
+      const isFormerPlayerHouse = h.variant === 4;
+      const col = this.collisionGroup.create(h.x, h.y + (isFormerPlayerHouse ? 5 : 8), '_collider') as Phaser.Physics.Arcade.Sprite;
       col.setVisible(false);
-      col.body!.setSize(55 * h.scale, 35 * h.scale);
+      col.body!.setSize(
+        (isFormerPlayerHouse ? 88 : 55) * h.scale,
+        (isFormerPlayerHouse ? 58 : 35) * h.scale,
+      );
       col.refreshBody();
     }
   }

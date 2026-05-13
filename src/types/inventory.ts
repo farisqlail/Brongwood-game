@@ -6,7 +6,7 @@ export interface InventoryItem {
   /** Hex colour used to draw the slot icon */
   color: number;
   /** Shape hint for the mini icon renderer */
-  icon: 'cup' | 'circle' | 'envelope' | 'key' | 'cake' | 'book' | 'gem' | 'box' | 'meat';
+  icon: 'cup' | 'circle' | 'envelope' | 'key' | 'cake' | 'book' | 'gem' | 'box' | 'meat' | 'tool';
   /** Optional texture key for image-based icons */
   textureKey?: string;
 }
@@ -124,6 +124,48 @@ export const ITEM_DEFS: Record<string, InventoryItem> = {
     color: 0x7bbd5a,
     icon: 'box',
     textureKey: 'farm-karung_kubis',
+  },
+  hoe: {
+    id: 'hoe',
+    name: 'Hoe',
+    description: 'Alat untuk mencangkul tanah kebun.',
+    color: 0xb8864a,
+    icon: 'tool',
+  },
+  watering_can: {
+    id: 'watering_can',
+    name: 'Watering Can',
+    description: 'Penyiram tanaman. Wajib untuk merawat crop.',
+    color: 0x5fa8d3,
+    icon: 'tool',
+  },
+  axe: {
+    id: 'axe',
+    name: 'Axe',
+    description: 'Kapak untuk menebang kayu. Belum ada target khusus.',
+    color: 0x9aa4ad,
+    icon: 'tool',
+  },
+  pickaxe: {
+    id: 'pickaxe',
+    name: 'Pickaxe',
+    description: 'Beliung untuk batu dan tambang nanti.',
+    color: 0x8f9aa8,
+    icon: 'tool',
+  },
+  fishing_rod: {
+    id: 'fishing_rod',
+    name: 'Fishing Rod',
+    description: 'Joran sederhana untuk memancing di pantai.',
+    color: 0xc99b5a,
+    icon: 'tool',
+  },
+  seed_bag: {
+    id: 'seed_bag',
+    name: 'Seed Bag',
+    description: 'Kantung bibit. Pakai ini untuk menanam bibit yang tersedia.',
+    color: 0xd0a24a,
+    icon: 'box',
   },
 
   // === Meats ===

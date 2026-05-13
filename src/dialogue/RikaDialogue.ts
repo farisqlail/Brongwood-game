@@ -7,7 +7,19 @@
  * - Whether specific events have happened
  */
 
+import { RelationshipData, RelationshipStage } from '@/systems/RelationshipSystem';
 import { DialogueDefinition } from './DialogueTypes';
+
+export type RikaDialogueLocation = 'downtown' | 'flower_shop' | 'fishing';
+
+export interface RikaDialogueContext {
+  day: number;
+  timePeriod: string;
+  weather: string;
+  location: RikaDialogueLocation;
+  relationshipStage: RelationshipStage;
+  relationship?: RelationshipData;
+}
 
 /**
  * First meeting dialogue (stranger stage).
@@ -260,15 +272,315 @@ export const RIKA_EVENING: DialogueDefinition = {
   },
 };
 
+export const RIKA_FIRST_DAY_CHECKIN: DialogueDefinition = {
+  id: 'rika_first_day_checkin',
+  startNode: 'start',
+  nodes: {
+    start: {
+      type: 'text',
+      id: 'start',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Hari pertama biasanya aneh, ya? Semua jalan terasa seperti sedang menguji apakah kamu hafal arah pulang.',
+      emotion: 'gentle_smile',
+      typeSpeed: 0.65,
+      next: 'follow',
+    },
+    follow: {
+      type: 'text',
+      id: 'follow',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Kalau Brongwood terasa terlalu pelan, jangan buru-buru menilai. Kota ini memang kenalannya pakai tempo lambat.',
+      typeSpeed: 0.7,
+      next: 'choice',
+    },
+    choice: {
+      type: 'choice',
+      id: 'choice',
+      choices: [
+        {
+          text: 'Aku sedang mencoba membiasakan diri.',
+          choiceId: 'settling_in',
+          next: 'settling',
+          effects: [{ type: 'add_trust', npcId: 'rika', amount: 4 }],
+        },
+        {
+          text: 'Sejauh ini, aku suka tempat ini.',
+          choiceId: 'like_town',
+          next: 'likes_town',
+          effects: [{ type: 'add_affection', npcId: 'rika', amount: 4 }],
+        },
+      ],
+    },
+    settling: {
+      type: 'text',
+      id: 'settling',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Pelan-pelan saja. Bahkan tanaman yang sok kuat pun butuh waktu sebelum akarnya percaya pada tanah baru.',
+      emotion: 'warm',
+      typeSpeed: 0.65,
+      next: null,
+    },
+    likes_town: {
+      type: 'text',
+      id: 'likes_town',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Bagus. Nanti kalau kamu mulai mengeluh soal jalanan yang sama terus, berarti kamu resmi warga sini.',
+      emotion: 'happy',
+      typeSpeed: 0.7,
+      next: null,
+    },
+  },
+};
+
+export const RIKA_RAINY_DAY: DialogueDefinition = {
+  id: 'rika_rainy_day',
+  startNode: 'start',
+  nodes: {
+    start: {
+      type: 'text',
+      id: 'start',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Hujan begini bikin semua warna kota jadi lebih jujur. Hijau jadi hijau beneran, atap jadi lebih tua.',
+      emotion: 'melancholic',
+      typeSpeed: 0.65,
+      next: 'follow',
+    },
+    follow: {
+      type: 'text',
+      id: 'follow',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Aku suka hujan, tapi kadang dia terlalu pintar mengingatkan hal-hal yang sudah lama pura-pura rapi.',
+      typeSpeed: 0.65,
+      next: 'memory',
+    },
+    memory: {
+      type: 'action',
+      id: 'memory',
+      actions: [
+        {
+          type: 'create_memory',
+          npcId: 'rika',
+          memoryId: 'rika_rainy_small_talk',
+          description: 'Talked with Rika while rain softened Brongwood.',
+          tags: ['rainy', 'gentle'],
+        },
+        { type: 'add_trust', npcId: 'rika', amount: 3 },
+      ],
+      next: null,
+    },
+  },
+};
+
+export const RIKA_FLOWER_SHOP: DialogueDefinition = {
+  id: 'rika_flower_shop',
+  startNode: 'start',
+  nodes: {
+    start: {
+      type: 'text',
+      id: 'start',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Selamat datang di markas kecilku. Kalau ada bunga yang kelihatan menghakimi, abaikan. Mereka memang begitu.',
+      emotion: 'happy',
+      typeSpeed: 0.7,
+      next: 'follow',
+    },
+    follow: {
+      type: 'text',
+      id: 'follow',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Di toko, aku biasanya lebih cerewet. Mungkin karena di sini aku kalah jumlah sama pot tanaman.',
+      typeSpeed: 0.7,
+      next: 'choice',
+    },
+    choice: {
+      type: 'choice',
+      id: 'choice',
+      choices: [
+        {
+          text: 'Tempat ini terasa seperti kamu.',
+          choiceId: 'shop_feels_like_you',
+          next: 'warm',
+          effects: [
+            { type: 'add_affection', npcId: 'rika', amount: 6 },
+            { type: 'add_trust', npcId: 'rika', amount: 2 },
+          ],
+        },
+        {
+          text: 'Bunga mana yang paling kamu suka?',
+          choiceId: 'favorite_flower',
+          next: 'favorite',
+          effects: [{ type: 'add_trust', npcId: 'rika', amount: 4 }],
+        },
+      ],
+    },
+    warm: {
+      type: 'text',
+      id: 'warm',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Wah. Itu pujian yang licik, karena susah dibalas tanpa jadi malu sendiri.',
+      emotion: 'warm',
+      typeSpeed: 0.62,
+      next: null,
+    },
+    favorite: {
+      type: 'text',
+      id: 'favorite',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Yang belum mekar. Ada sesuatu yang menenangkan dari hal kecil yang belum selesai, tapi tetap berusaha.',
+      emotion: 'gentle_smile',
+      typeSpeed: 0.62,
+      next: null,
+    },
+  },
+};
+
+export const RIKA_FISHING_SPOT: DialogueDefinition = {
+  id: 'rika_fishing_spot',
+  startNode: 'start',
+  nodes: {
+    start: {
+      type: 'text',
+      id: 'start',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Pantai selalu terdengar seperti sedang menasihati orang, ya? Masalahnya, ombak ngomongnya muter-muter.',
+      emotion: 'gentle_smile',
+      typeSpeed: 0.7,
+      next: 'follow',
+    },
+    follow: {
+      type: 'text',
+      id: 'follow',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Kalau kamu mancing di sini, jangan terlalu serius. Ikan bisa mencium ambisi. Mungkin.',
+      typeSpeed: 0.72,
+      next: null,
+    },
+  },
+};
+
+export const RIKA_FRIEND_DAY: DialogueDefinition = {
+  id: 'rika_friend_day',
+  startNode: 'start',
+  nodes: {
+    start: {
+      type: 'text',
+      id: 'start',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Aku mulai hafal suara langkahmu. Tenang, itu belum menyeramkan. Masih level observasi warga kecil.',
+      emotion: 'warm',
+      typeSpeed: 0.65,
+      next: 'follow',
+    },
+    follow: {
+      type: 'text',
+      id: 'follow',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Aneh juga, ya. Dulu kamu orang baru. Sekarang kalau sehari tidak kelihatan, kota rasanya seperti ada kursi yang kosong.',
+      typeSpeed: 0.62,
+      next: null,
+    },
+  },
+};
+
+export const RIKA_CLOSE_FRIEND_NIGHT: DialogueDefinition = {
+  id: 'rika_close_friend_night',
+  startNode: 'start',
+  nodes: {
+    start: {
+      type: 'text',
+      id: 'start',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Malam membuat Brongwood terdengar lebih kecil. Seperti semua rumah menahan napas bersamaan.',
+      emotion: 'melancholic',
+      typeSpeed: 0.58,
+      next: 'confide',
+    },
+    confide: {
+      type: 'text',
+      id: 'confide',
+      speaker: 'rika',
+      speakerName: 'Rika',
+      text: 'Aku senang kamu ada. Tidak perlu melakukan apa-apa. Kadang ditemani tanpa dibereskan itu cukup.',
+      emotion: 'warm',
+      typeSpeed: 0.55,
+      next: 'memory',
+    },
+    memory: {
+      type: 'action',
+      id: 'memory',
+      actions: [
+        {
+          type: 'create_memory',
+          npcId: 'rika',
+          memoryId: 'shared_vulnerable_moment',
+          description: 'Rika admitted that quiet company is enough.',
+          tags: ['shared_vulnerable_moment', 'night', 'vulnerable'],
+        },
+        { type: 'add_trust', npcId: 'rika', amount: 6 },
+      ],
+      next: null,
+    },
+  },
+};
+
 /**
  * Get the appropriate dialogue for Rika based on current game state.
  */
 export function getRikaDialogue(
   hasMetRika: boolean,
-  timePeriod: string
+  timePeriod: string,
+  context?: Partial<RikaDialogueContext>
 ): DialogueDefinition {
   if (!hasMetRika) {
     return RIKA_FIRST_MEETING;
+  }
+
+  const stage = context?.relationshipStage ?? 'acquaintance';
+  const location = context?.location ?? 'downtown';
+  const weather = context?.weather ?? 'clear';
+  const day = context?.day ?? 1;
+  const interactions = context?.relationship?.totalInteractions ?? 0;
+
+  if (location === 'flower_shop') {
+    return RIKA_FLOWER_SHOP;
+  }
+
+  if (location === 'fishing') {
+    return RIKA_FISHING_SPOT;
+  }
+
+  if (weather !== 'clear') {
+    return RIKA_RAINY_DAY;
+  }
+
+  if (stage === 'close_friend' || stage === 'confidant' || stage === 'soulmate') {
+    if (timePeriod === 'night' || timePeriod === 'late_night') {
+      return RIKA_CLOSE_FRIEND_NIGHT;
+    }
+    return RIKA_FRIEND_DAY;
+  }
+
+  if (stage === 'friend' && interactions > 5) {
+    return RIKA_FRIEND_DAY;
+  }
+
+  if (day === 1) {
+    return RIKA_FIRST_DAY_CHECKIN;
   }
 
   if (timePeriod === 'morning' || timePeriod === 'dawn') {

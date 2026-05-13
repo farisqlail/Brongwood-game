@@ -103,9 +103,24 @@ export class AudioSystem {
    * If the same track is already playing, does nothing.
    */
   playBGM(key: string, volume?: number): void {
-    if (this.bgm.currentKey === key && !this.bgm.fadingOut) return;
-
     const targetVol = volume ?? this.bgmVolume;
+
+    if (this.bgm.currentKey === key && !this.bgm.fadingOut) {
+      if (this.bgm.currentSound && this.isSoundPlaying(this.bgm.currentSound)) {
+        this.setSoundVolume(this.bgm.currentSound, targetVol * this.masterVolume);
+        this.stopDuplicateSounds(key, this.bgm.currentSound);
+        return;
+      }
+
+      const existingSound = this.findPlayingSound(key);
+      if (existingSound) {
+        this.bgm.currentSound = existingSound;
+        this.bgm.targetVolume = targetVol;
+        this.setSoundVolume(existingSound, targetVol * this.masterVolume);
+        this.stopDuplicateSounds(key, existingSound);
+        return;
+      }
+    }
 
     // Fade out current track
     if (this.bgm.currentSound && this.bgm.currentKey !== key) {
@@ -117,6 +132,18 @@ export class AudioSystem {
       // Audio not loaded yet — store intent for when it loads
       this.bgm.currentKey = key;
       this.bgm.currentSound = null;
+      return;
+    }
+
+    const existingSound = this.findPlayingSound(key);
+    if (existingSound) {
+      this.bgm.currentKey = key;
+      this.bgm.currentSound = existingSound;
+      this.bgm.targetVolume = targetVol;
+      this.bgm.fadingOut = false;
+      this.setSoundVolume(existingSound, targetVol * this.masterVolume);
+      this.stopDuplicateSounds(key, existingSound);
+      EventBus.emit('audio:bgm-changed', { trackKey: key });
       return;
     }
 
@@ -301,12 +328,30 @@ export class AudioSystem {
     });
   }
 
+  private findPlayingSound(key: string): Phaser.Sound.BaseSound | null {
+    return this.scene.sound.getAll(key).find(sound => this.isSoundPlaying(sound)) ?? null;
+  }
+
+  private stopDuplicateSounds(key: string, keepSound: Phaser.Sound.BaseSound): void {
+    for (const sound of this.scene.sound.getAll(key)) {
+      if (sound === keepSound || !this.isSoundPlaying(sound)) continue;
+      sound.stop();
+      sound.destroy();
+    }
+  }
+
+  private isSoundPlaying(sound: Phaser.Sound.BaseSound): boolean {
+    return (sound as Phaser.Sound.BaseSound & { isPlaying?: boolean }).isPlaying === true;
+  }
+
+  private setSoundVolume(sound: Phaser.Sound.BaseSound, volume: number): void {
+    (sound as Phaser.Sound.BaseSound & { setVolume?: (value: number) => void }).setVolume?.(volume);
+  }
+
   /** Update all playing sounds to reflect volume changes */
   private updateAllVolumes(): void {
     if (this.bgm.currentSound) {
-      (this.bgm.currentSound as Phaser.Sound.WebAudioSound).setVolume(
-        this.bgm.targetVolume * this.masterVolume
-      );
+      this.setSoundVolume(this.bgm.currentSound, this.bgm.targetVolume * this.masterVolume);
     }
 
     for (const layer of this.ambienceLayers.values()) {

@@ -15,6 +15,7 @@
 import Phaser from 'phaser';
 import { Direction } from '@/types';
 import { PLAYER_CONFIG } from '@config/game.config';
+import { gameManager } from '@/managers/GameManager';
 
 export interface MovementInput {
   up: boolean;
@@ -120,7 +121,7 @@ export class MovementSystem {
     }
 
     // Apply speed
-    const speed = PLAYER_CONFIG.SPEED;
+    const speed = PLAYER_CONFIG.SPEED * (gameManager.isExhausted ? 0.62 : 1);
     entity.setVelocity(vx * speed, vy * speed);
 
     // Update direction (prioritize last pressed for responsiveness)

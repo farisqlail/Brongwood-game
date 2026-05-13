@@ -231,7 +231,15 @@ export class FishingScene extends Phaser.Scene {
     this.promptText.setVisible(false);
     gameManager.relationships.recordInteraction('rika', gameManager.time.day);
     const hasMetRika = gameManager.relationships.hasFlag('rika', 'met_rika');
-    this.dialogueSystem.start(getRikaDialogue(hasMetRika, gameManager.time.period));
+    const relationship = gameManager.relationships.get('rika');
+    this.dialogueSystem.start(getRikaDialogue(hasMetRika, gameManager.time.period, {
+      day: gameManager.time.day,
+      timePeriod: gameManager.time.period,
+      weather: this.atmosphere.weatherState,
+      location: 'fishing',
+      relationshipStage: relationship?.stage ?? 'stranger',
+      relationship,
+    }));
     return true;
   }
 

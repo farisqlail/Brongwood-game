@@ -242,7 +242,15 @@ export class FlowerShopScene extends Phaser.Scene {
     this.rika.faceToward(this.player.sprite.x, this.player.sprite.y);
     gameManager.relationships.recordInteraction('rika', gameManager.time.day);
     const hasMetRika = gameManager.relationships.hasFlag('rika', 'met_rika');
-    this.dialogueSystem.start(getRikaDialogue(hasMetRika, gameManager.time.period));
+    const relationship = gameManager.relationships.get('rika');
+    this.dialogueSystem.start(getRikaDialogue(hasMetRika, gameManager.time.period, {
+      day: gameManager.time.day,
+      timePeriod: gameManager.time.period,
+      weather: this.atmosphere.weatherState,
+      location: 'flower_shop',
+      relationshipStage: relationship?.stage ?? 'stranger',
+      relationship,
+    }));
   }
 
   private readonly onPlayerLocked = (payload: { locked: boolean }) => {

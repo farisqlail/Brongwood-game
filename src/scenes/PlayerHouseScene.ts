@@ -300,6 +300,7 @@ export class PlayerHouseScene extends Phaser.Scene {
     this.cameras.main.fadeOut(1000, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       gameManager.time.advanceTo(7, 0);
+      gameManager.resetStamina();
       if (gameManager.firstDayStage === 'sleep') {
         gameManager.advanceFirstDay('sleep');
       }

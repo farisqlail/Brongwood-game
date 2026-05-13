@@ -111,7 +111,6 @@ export class WorldScene extends Phaser.Scene {
     this.setupCamera();
     this.setupCollisions();
     this.setupZones();
-    this.setupPlayerHouseEntrance();
     this.setupInteraction();
     this.initializeSystems();
     this.registerEvents();
@@ -384,41 +383,6 @@ export class WorldScene extends Phaser.Scene {
         );
       }
     }
-  }
-
-  /**
-   * Setup the player's house entrance in the world.
-   * House is at bottom-left area (tile 4, row 8) — one of the existing house positions.
-   */
-  private setupPlayerHouseEntrance(): void {
-    const ts = GAME_CONFIG.TILE_SIZE;
-
-    // House entrance position (bottom-left house area)
-    const houseX = ts * 4;
-    const houseY = ts * 8;
-    const doorW = ts * 1.2;
-    const doorH = ts * 0.6;
-
-    // Overlap zone for entering the house
-    const enterZone = this.add.zone(houseX, houseY, doorW, doorH);
-    this.physics.add.existing(enterZone, true);
-    this.physics.add.overlap(
-      this.player.sprite, enterZone,
-      () => this.enterPlayerHouse(),
-      undefined, this
-    );
-  }
-
-  private enterPlayerHouse(): void {
-    if (this.isTransitioning) return;
-    this.isTransitioning = true;
-    this.player.freeze();
-
-    this.cameras.main.fadeOut(300, 0, 0, 0);
-    this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.sleep();
-      this.scene.run('PlayerHouseScene');
-    });
   }
 
   /**
@@ -715,7 +679,15 @@ export class WorldScene extends Phaser.Scene {
       gameManager.relationships.recordInteraction('rika', gameManager.time.day);
 
       const hasMetRika = gameManager.relationships.hasFlag('rika', 'met_rika');
-      const dialogue = getRikaDialogue(hasMetRika, gameManager.time.period);
+      const relationship = gameManager.relationships.get('rika');
+      const dialogue = getRikaDialogue(hasMetRika, gameManager.time.period, {
+        day: gameManager.time.day,
+        timePeriod: gameManager.time.period,
+        weather: this.weatherSystem.state,
+        location: 'downtown',
+        relationshipStage: relationship?.stage ?? 'stranger',
+        relationship,
+      });
 
       // Check if rainy night event should trigger
       if (!hasMetRika || gameManager.time.period === 'night' || gameManager.time.period === 'late_night') {
@@ -770,16 +742,6 @@ export class WorldScene extends Phaser.Scene {
       color: this.getSignInfo(z.id).color,
       icon: this.getSignInfo(z.id).icon,
     }));
-
-    minimapMarkers.push({
-      id: 'house',
-      x: ts * 3.5,
-      y: ts * 7.5,
-      width: ts * 1.2,
-      height: ts * 0.6,
-      color: 0xffaa44,
-      icon: '\u{1F3E0}',
-    });
 
     this.minimapSystem.setZoneMarkers(minimapMarkers);
   }

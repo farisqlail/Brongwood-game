@@ -592,6 +592,15 @@ export class InventoryUI {
         g.fillTriangle(cx - 1 * s, cy - 5 * s, cx - 4 * s, cy - 1 * s, cx + 1 * s, cy - 3 * s);
         break;
 
+      case 'tool':
+        g.lineStyle(2 * s, c, 1);
+        g.lineBetween(cx - 6 * s, cy + 6 * s, cx + 5 * s, cy - 5 * s);
+        g.fillStyle(0x6b4a2a, 1);
+        g.fillRect(cx - 2 * s, cy + 2 * s, 4 * s, 7 * s);
+        g.fillStyle(c, 1);
+        g.fillTriangle(cx + 3 * s, cy - 7 * s, cx + 8 * s, cy - 4 * s, cx + 4 * s, cy + 1 * s);
+        break;
+
       default:
         g.fillStyle(c, 1);
         g.fillRect(cx - 5 * s, cy - 5 * s, 10 * s, 10 * s);

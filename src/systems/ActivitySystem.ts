@@ -59,6 +59,10 @@ export interface ActivityConfig {
   cameraZoom?: number;
   /** Whether player can cancel early */
   cancellable: boolean;
+  /** Stamina spent when starting this activity */
+  staminaCost?: number;
+  /** Tool that must be selected in the hotbar */
+  requiredTool?: string;
   /** Possible outcomes (for fishing, gardening) */
   outcomes?: ActivityOutcome[];
 }
@@ -96,6 +100,8 @@ export const ACTIVITY_CONFIGS: Record<ActivityId, ActivityConfig> = {
     advancesTime: true,
     cameraZoom: 1.2,
     cancellable: true,
+    staminaCost: 12,
+    requiredTool: 'fishing_rod',
     outcomes: [
       { id: 'small_fish', text: 'You caught a small fish. The ocean is calm today.', chance: 0.4 },
       { id: 'nothing', text: 'Nothing bites. But the sound of waves is nice.', chance: 0.3 },
@@ -111,6 +117,7 @@ export const ACTIVITY_CONFIGS: Record<ActivityId, ActivityConfig> = {
     advancesTime: true,
     cameraZoom: 1.15,
     cancellable: true,
+    staminaCost: 10,
     outcomes: [
       { id: 'flower_grew', text: 'A small bud appeared. It should bloom in a few days.', chance: 0.5 },
       { id: 'watered', text: 'The soil is moist. The plants look happy.', chance: 0.4 },
@@ -125,6 +132,7 @@ export const ACTIVITY_CONFIGS: Record<ActivityId, ActivityConfig> = {
     advancesTime: true,
     cameraZoom: 1.1,
     cancellable: true,
+    staminaCost: 10,
     outcomes: [
       { id: 'fed', text: 'The animals eat calmly. The pen feels warmer now.', chance: 0.45 },
       { id: 'brushed', text: 'You brush the animals and tidy the straw.', chance: 0.35 },
@@ -153,6 +161,7 @@ export const ACTIVITY_CONFIGS: Record<ActivityId, ActivityConfig> = {
     promptText: 'Sit and rest',
     advancesTime: true,
     cancellable: true,
+    staminaCost: 4,
   },
   stargazing: {
     id: 'stargazing',
@@ -163,6 +172,7 @@ export const ACTIVITY_CONFIGS: Record<ActivityId, ActivityConfig> = {
     advancesTime: true,
     cameraZoom: 0.9, // Zoom out to show sky
     cancellable: true,
+    staminaCost: 4,
     outcomes: [
       { id: 'shooting_star', text: 'A shooting star crosses the sky. You make a wish.', chance: 0.15 },
       { id: 'quiet', text: 'The stars are bright tonight. The world feels vast.', chance: 0.5 },
@@ -206,6 +216,8 @@ export class ActivitySystem {
 
     const config = ACTIVITY_CONFIGS[activityId];
     if (!config) return false;
+    if (config.requiredTool && gameManager.inventory.getSelectedItem()?.id !== config.requiredTool) return false;
+    if (config.staminaCost && !gameManager.consumeStamina(config.staminaCost)) return false;
 
     this._current = {
       config,

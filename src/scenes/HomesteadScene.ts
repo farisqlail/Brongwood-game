@@ -47,6 +47,12 @@ const FARM_TILE_W = 21;
 const FARM_TILE_H = 19;
 const FARM_INTERACT_W = 20;
 const FARM_INTERACT_H = 18;
+const STAMINA_HOE_COST = 5;
+const STAMINA_PLANT_COST = 8;
+const STAMINA_WATER_COST = 4;
+const STAMINA_HARVEST_COST = 6;
+const STAMINA_CLEAR_COST = 5;
+const STARTER_TOOL_IDS = ['hoe', 'watering_can', 'axe', 'pickaxe', 'fishing_rod', 'seed_bag'] as const;
 const CARROT_FRAMES = ['wortel_1', 'wortel_2', 'wortel_3', 'wortel_4', 'wortel_5'] as const;
 const ONION_FRAMES = [
   'bawang_merah_1', 'bawang_merah_2', 'bawang_merah_3', 'bawang_merah_4',
@@ -54,12 +60,41 @@ const ONION_FRAMES = [
 ] as const;
 
 type CropKind = 'carrot' | 'onion';
+type CropQuality = 'normal' | 'silver' | 'gold';
+type ToolId = typeof STARTER_TOOL_IDS[number];
+
+interface CropConfig {
+  seedId: string;
+  cropItemId: 'carrot' | 'red_onion';
+  label: string;
+  seedLabel: string;
+  seasons: Array<'spring' | 'summer' | 'autumn' | 'winter'>;
+}
+
+const CROP_CONFIGS: Record<CropKind, CropConfig> = {
+  carrot: {
+    seedId: 'carrot_seed',
+    cropItemId: 'carrot',
+    label: 'wortel',
+    seedLabel: 'Bibit wortel',
+    seasons: ['spring'],
+  },
+  onion: {
+    seedId: 'red_onion_seed',
+    cropItemId: 'red_onion',
+    label: 'bawang',
+    seedLabel: 'Bibit bawang',
+    seasons: ['spring'],
+  },
+};
 
 interface FarmPlotState {
+  tilled: boolean;
   crop: CropKind | null;
   stage: number;
   plantedDay: number;
   lastWateredDay: number;
+  missedWaterDays: number;
   rotten: boolean;
 }
 
@@ -110,6 +145,7 @@ export class HomesteadScene extends Phaser.Scene {
     this.buildBackground();
     this.buildHouse();
     this.buildCropField();
+    this.ensureStarterTools();
     this.buildFarmPlots();
     this.buildDecor();
     this.player = new Player(this, ENTRY_SPAWN_X, ENTRY_SPAWN_Y);
@@ -329,10 +365,18 @@ export class HomesteadScene extends Phaser.Scene {
         ...def,
         base,
         plant: null,
-        state,
+        state: this.normalizePlotState(state),
       };
       this.farmPlots.push(plot);
       this.refreshPlotSprite(plot);
+    }
+  }
+
+  private ensureStarterTools(): void {
+    for (const toolId of STARTER_TOOL_IDS) {
+      if (!gameManager.inventory.hasItem(toolId)) {
+        gameManager.inventory.addItem({ ...ITEM_DEFS[toolId] });
+      }
     }
   }
 
@@ -360,8 +404,20 @@ export class HomesteadScene extends Phaser.Scene {
     return plots;
   }
 
-  private createEmptyPlotState(): FarmPlotState {
-    return { crop: null, stage: 0, plantedDay: 0, lastWateredDay: 0, rotten: false };
+  private createEmptyPlotState(tilled = false): FarmPlotState {
+    return { tilled, crop: null, stage: 0, plantedDay: 0, lastWateredDay: 0, missedWaterDays: 0, rotten: false };
+  }
+
+  private normalizePlotState(state: Partial<FarmPlotState>): FarmPlotState {
+    return {
+      tilled: state.tilled ?? state.crop !== null,
+      crop: state.crop ?? null,
+      stage: state.stage ?? 0,
+      plantedDay: state.plantedDay ?? 0,
+      lastWateredDay: state.lastWateredDay ?? 0,
+      missedWaterDays: state.missedWaterDays ?? 0,
+      rotten: state.rotten ?? false,
+    };
   }
 
   private loadFarmState(): Record<string, FarmPlotState> {
@@ -395,7 +451,12 @@ export class HomesteadScene extends Phaser.Scene {
       const wasWateredYesterday = state.lastWateredDay >= this.lastFarmDay;
       if (wasWateredYesterday) {
         state.stage = Math.min(state.stage + 1, this.getCropFrames(state.crop).length - 1);
-      } else if (currentDay - state.lastWateredDay > 1) {
+        state.missedWaterDays = 0;
+      } else {
+        state.missedWaterDays += currentDay - this.lastFarmDay;
+      }
+
+      if (state.missedWaterDays >= 1) {
         state.rotten = true;
       }
 
@@ -407,6 +468,14 @@ export class HomesteadScene extends Phaser.Scene {
   }
 
   private refreshPlotSprite(plot: FarmPlot): void {
+    if (plot.state.tilled) {
+      plot.base.clearTint();
+      plot.base.setAlpha(plot.state.lastWateredDay === gameManager.time.day ? 1 : 0.82);
+    } else {
+      plot.base.setTint(0x5f7f3a);
+      plot.base.setAlpha(0.42);
+    }
+
     if (!plot.state.crop) {
       plot.plant?.destroy();
       plot.plant = null;
@@ -751,16 +820,24 @@ export class HomesteadScene extends Phaser.Scene {
 
   private getPlotPrompt(plot: FarmPlot): string {
     const state = plot.state;
+    const selectedTool = this.getSelectedTool();
+    if (!state.tilled) {
+      return selectedTool === 'hoe' ? '[E] Cangkul tanah' : 'Pilih hoe untuk cangkul';
+    }
+
     if (!state.crop) {
       const targetCrop = this.getSelectedSeedCrop();
       if (!targetCrop) {
-        return this.hasAnySeed() ? 'Pilih bibit dulu' : 'Butuh bibit';
+        return this.hasAnySeed() ? 'Pilih seed bag / bibit' : 'Butuh bibit';
       }
+      if (!this.isCropInSeason(targetCrop)) return 'Bibit ini belum musim';
       return `[E] Tanam ${this.getCropLabel(targetCrop)}`;
     }
+
     const cropName = this.getCropLabel(state.crop);
     if (state.rotten) return '[E] Bersihkan tanaman busuk';
     if (state.stage >= this.getCropFrames(state.crop).length - 1) return `[E] Panen ${cropName}`;
+    if (selectedTool !== 'watering_can') return 'Pilih watering can';
     if (state.lastWateredDay === gameManager.time.day) return `${cropName} sudah disiram`;
     return `[E] Siram ${cropName}`;
   }
@@ -768,6 +845,21 @@ export class HomesteadScene extends Phaser.Scene {
   private interactWithPlot(plot: FarmPlot): void {
     const state = plot.state;
     const today = gameManager.time.day;
+    const selectedTool = this.getSelectedTool();
+
+    if (!state.tilled) {
+      if (selectedTool !== 'hoe') {
+        this.popFarmText(plot.x, plot.y - 26, 'Pilih hoe dulu');
+        return;
+      }
+      if (!this.spendStamina(STAMINA_HOE_COST, plot.x, plot.y)) return;
+      state.tilled = true;
+      proceduralAudio.playClick();
+      this.refreshPlotSprite(plot);
+      this.popFarmText(plot.x, plot.y - 26, 'Tanah dicangkul');
+      this.saveFarmState();
+      return;
+    }
 
     if (!state.crop) {
       const cropToPlant = this.getSelectedSeedCrop();
@@ -776,7 +868,12 @@ export class HomesteadScene extends Phaser.Scene {
         return;
       }
 
-      const selectedSlot = gameManager.inventory.getSelectedSlot();
+      if (!this.isCropInSeason(cropToPlant)) {
+        this.popFarmText(plot.x, plot.y - 26, 'Belum musim tanam');
+        return;
+      }
+
+      const selectedSlot = this.getSeedSlotForPlanting(cropToPlant);
       if (selectedSlot === -1) {
         this.popFarmText(plot.x, plot.y - 26, 'Pilih bibit dulu');
         return;
@@ -784,16 +881,20 @@ export class HomesteadScene extends Phaser.Scene {
 
       const selectedItem = gameManager.inventory.getSlot(selectedSlot);
       const seedItemId = this.getSeedItemId(cropToPlant);
-      if (!selectedItem || selectedItem.id !== seedItemId || !gameManager.inventory.consumeOneAtSlot(selectedSlot)) {
+      if (!selectedItem || selectedItem.id !== seedItemId) {
         this.popFarmText(plot.x, plot.y - 26, `Butuh ${this.getSeedLabel(cropToPlant)}`);
         return;
       }
+      if (!this.spendStamina(STAMINA_PLANT_COST, plot.x, plot.y)) return;
+      if (!gameManager.inventory.consumeOneAtSlot(selectedSlot)) return;
 
       plot.state = {
+        tilled: true,
         crop: cropToPlant,
         stage: 0,
         plantedDay: today,
         lastWateredDay: today,
+        missedWaterDays: 0,
         rotten: false,
       };
       proceduralAudio.playClick();
@@ -807,7 +908,8 @@ export class HomesteadScene extends Phaser.Scene {
     }
 
     if (state.rotten) {
-      plot.state = this.createEmptyPlotState();
+      if (!this.spendStamina(STAMINA_CLEAR_COST, plot.x, plot.y)) return;
+      plot.state = this.createEmptyPlotState(true);
       proceduralAudio.playClick();
       this.refreshPlotSprite(plot);
       this.popFarmText(plot.x, plot.y - 26, 'Dibersihkan');
@@ -816,29 +918,48 @@ export class HomesteadScene extends Phaser.Scene {
     }
 
     if (state.stage >= this.getCropFrames(state.crop).length - 1) {
-      const item = state.crop === 'carrot' ? ITEM_DEFS.carrot : ITEM_DEFS.red_onion;
+      const quality = this.rollCropQuality(state);
+      const item = this.createHarvestItem(state.crop, quality);
+      if (gameManager.inventory.isFull() && !gameManager.inventory.hasItem(item.id)) {
+        this.popFarmText(plot.x, plot.y - 26, 'Tas penuh');
+        return;
+      }
+      if (!this.spendStamina(STAMINA_HARVEST_COST, plot.x, plot.y)) return;
       const slot = gameManager.inventory.addItem({ ...item });
       if (slot === -1) {
         this.popFarmText(plot.x, plot.y - 26, 'Tas penuh');
         return;
       }
-      plot.state = this.createEmptyPlotState();
+      plot.state = this.createEmptyPlotState(true);
       proceduralAudio.playClick();
       this.refreshPlotSprite(plot);
-      this.popFarmText(plot.x, plot.y - 26, 'Panen!');
+      this.popFarmText(plot.x, plot.y - 26, `Panen ${this.getQualityLabel(quality)}!`);
       this.saveFarmState();
       return;
     }
 
     if (state.lastWateredDay !== today) {
+      if (selectedTool !== 'watering_can') {
+        this.popFarmText(plot.x, plot.y - 26, 'Pilih watering can');
+        return;
+      }
+      if (!this.spendStamina(STAMINA_WATER_COST, plot.x, plot.y)) return;
       state.lastWateredDay = today;
+      state.missedWaterDays = 0;
       proceduralAudio.playClick();
+      this.refreshPlotSprite(plot);
       this.playWaterEffect(plot.x, plot.y);
       this.saveFarmState();
       return;
     }
 
     this.popFarmText(plot.x, plot.y - 26, 'Sudah disiram');
+  }
+
+  private spendStamina(cost: number, x: number, y: number): boolean {
+    if (gameManager.consumeStamina(cost)) return true;
+    this.popFarmText(x, y - 26, 'Stamina habis');
+    return false;
   }
 
   private playWaterEffect(x: number, y: number): void {
@@ -859,17 +980,24 @@ export class HomesteadScene extends Phaser.Scene {
     this.popFarmText(x, y - 28, 'Disiram');
   }
 
-  private hasSeedForPlot(plot: FarmPlot): boolean {
-    return this.getSelectedSeedCrop() !== null;
+  private getSelectedTool(): ToolId | null {
+    const selected = gameManager.inventory.getSelectedItem();
+    if (!selected) return null;
+    return (STARTER_TOOL_IDS as readonly string[]).includes(selected.id) ? selected.id as ToolId : null;
   }
 
   private getSeedItemId(cropKind: CropKind): 'carrot_seed' | 'red_onion_seed' {
-    return cropKind === 'carrot' ? 'carrot_seed' : 'red_onion_seed';
+    return CROP_CONFIGS[cropKind].seedId as 'carrot_seed' | 'red_onion_seed';
   }
 
   private getSelectedSeedCrop(): CropKind | null {
     const selected = gameManager.inventory.getSelectedItem();
     if (!selected) return null;
+    if (selected.id === 'seed_bag') {
+      if (gameManager.inventory.hasItem('red_onion_seed')) return 'onion';
+      if (gameManager.inventory.hasItem('carrot_seed')) return 'carrot';
+      return null;
+    }
     if (selected.id === 'carrot_seed') {
       return 'carrot';
     }
@@ -879,16 +1007,63 @@ export class HomesteadScene extends Phaser.Scene {
     return null;
   }
 
+  private getSeedSlotForPlanting(cropKind: CropKind): number {
+    const selectedSlot = gameManager.inventory.getSelectedSlot();
+    const selectedItem = selectedSlot === -1 ? null : gameManager.inventory.getSlot(selectedSlot);
+    const seedItemId = this.getSeedItemId(cropKind);
+    if (selectedItem?.id === seedItemId) return selectedSlot;
+    return gameManager.inventory.findFirstSlotByItemId(seedItemId);
+  }
+
   private hasAnySeed(): boolean {
     return gameManager.inventory.hasItem('carrot_seed') || gameManager.inventory.hasItem('red_onion_seed');
   }
 
   private getCropLabel(cropKind: CropKind): string {
-    return cropKind === 'carrot' ? 'wortel' : 'bawang';
+    return CROP_CONFIGS[cropKind].label;
   }
 
   private getSeedLabel(cropKind: CropKind): string {
-    return cropKind === 'carrot' ? 'Bibit wortel' : 'Bibit bawang';
+    return CROP_CONFIGS[cropKind].seedLabel;
+  }
+
+  private createHarvestItem(cropKind: CropKind, quality: CropQuality) {
+    const base = ITEM_DEFS[CROP_CONFIGS[cropKind].cropItemId];
+    if (quality === 'normal') return { ...base };
+
+    const qualityName = quality === 'gold' ? 'Gold' : 'Silver';
+    return {
+      ...base,
+      id: `${base.id}_${quality}`,
+      name: `${base.name} (${qualityName})`,
+      description: `${base.description}\nQuality: ${qualityName}.`,
+      color: quality === 'gold' ? 0xf2d65a : 0xc8d0d6,
+    };
+  }
+
+  private rollCropQuality(state: FarmPlotState): CropQuality {
+    const grewCleanly = state.missedWaterDays === 0;
+    const ageBonus = Math.max(0, gameManager.time.day - state.plantedDay);
+    const roll = Math.random() + (grewCleanly ? 0.18 : 0) + Math.min(ageBonus, 6) * 0.015;
+    if (roll > 0.88) return 'gold';
+    if (roll > 0.62) return 'silver';
+    return 'normal';
+  }
+
+  private getQualityLabel(quality: CropQuality): string {
+    switch (quality) {
+      case 'gold': return 'Gold';
+      case 'silver': return 'Silver';
+      default: return 'Normal';
+    }
+  }
+
+  private isCropInSeason(cropKind: CropKind): boolean {
+    return CROP_CONFIGS[cropKind].seasons.includes(this.getCurrentSeason());
+  }
+
+  private getCurrentSeason(): 'spring' | 'summer' | 'autumn' | 'winter' {
+    return 'spring';
   }
 
   private popFarmText(x: number, y: number, text: string): void {

@@ -27,6 +27,28 @@ export const RIKA_MESSAGES: ScheduledMessage[] = [
   // ACQUAINTANCE STAGE
   // ============================================================
   {
+    id: 'rika_msg_first_quiet',
+    message: {
+      id: 'rika_msg_first_quiet',
+      sender: 'rika',
+      text: 'Ini Rika. Aku simpan nomormu tadi. Tidak perlu dibalas cepat. Cuma... selamat datang lagi di Brongwood.',
+      responses: [
+        { text: 'Makasih. Pesan ini menenangkan.', effects: [{ type: 'trust', npcId: 'rika', amount: 4 }] },
+        { text: 'Aku senang kamu mengirim pesan.', effects: [{ type: 'affection', npcId: 'rika', amount: 4 }] },
+      ],
+    },
+    conditions: {
+      timePeriods: ['evening', 'night'],
+      minDay: 1,
+      minStage: 'acquaintance',
+      minInteractions: 1,
+      requiredFlags: ['met_rika'],
+      minHoursSinceLastMessage: 8,
+    },
+    priority: 30,
+    oneShot: true,
+  },
+  {
     id: 'rika_msg_morning_1',
     message: {
       id: 'rika_msg_morning_1',
@@ -41,6 +63,7 @@ export const RIKA_MESSAGES: ScheduledMessage[] = [
       timePeriods: ['morning'],
       minDay: 3,
       minStage: 'acquaintance',
+      requiredFlags: ['met_rika'],
       minHoursSinceLastMessage: 12,
     },
     priority: 10,
@@ -61,6 +84,7 @@ export const RIKA_MESSAGES: ScheduledMessage[] = [
       timePeriods: ['evening', 'night'],
       minDay: 4,
       minStage: 'acquaintance',
+      requiredMemoryTags: ['rainy'],
       minHoursSinceLastMessage: 8,
     },
     priority: 15,
@@ -150,7 +174,7 @@ export const RIKA_MESSAGES: ScheduledMessage[] = [
       minDay: 15,
       minStage: 'close_friend',
       minHoursSinceLastMessage: 16,
-      requiredFlags: ['rika_opened_up'],
+      requiredMemoryTags: ['shared_vulnerable_moment'],
     },
     priority: 30,
     oneShot: true,
@@ -173,6 +197,67 @@ export const RIKA_MESSAGES: ScheduledMessage[] = [
       minHoursSinceLastMessage: 20,
     },
     priority: 35,
+    oneShot: true,
+  },
+
+  // ============================================================
+  // TOWN WHISPERS - rare, gentle signs that the town is noticing you
+  // ============================================================
+  {
+    id: 'fisher_msg_first_catch',
+    message: {
+      id: 'fisher_msg_first_catch',
+      sender: 'fisher',
+      text: 'Anak baru, kalau ke pantai pagi-pagi jangan lupa lihat warna air. Kalau hijau tua, ikan lagi malas. Kita hormati kemalasan mereka.',
+      responses: [
+        { text: 'Terima kasih, Pak. Akan kuingat.', effects: [{ type: 'trust', npcId: 'fisher', amount: 3 }] },
+        { text: 'Ikan malas terdengar masuk akal.', effects: [{ type: 'affection', npcId: 'fisher', amount: 2 }] },
+      ],
+    },
+    conditions: {
+      timePeriods: ['morning'],
+      minDay: 3,
+      minHoursSinceLastMessage: 20,
+    },
+    priority: 5,
+    oneShot: true,
+  },
+  {
+    id: 'elder_msg_town_lights',
+    message: {
+      id: 'elder_msg_town_lights',
+      sender: 'elder',
+      text: 'Lampu rumahmu terlihat dari jalan kecil tadi malam. Aneh ya, satu lampu baru bisa membuat kota tua terasa tidak terlalu kosong.',
+      responses: [
+        { text: 'Aku juga mulai merasa tidak terlalu sendiri.', effects: [{ type: 'trust', npcId: 'elder', amount: 4 }] },
+        { text: 'Terima kasih sudah memperhatikan.', effects: [{ type: 'affection', npcId: 'elder', amount: 2 }] },
+      ],
+    },
+    conditions: {
+      timePeriods: ['night'],
+      minDay: 5,
+      minHoursSinceLastMessage: 30,
+    },
+    priority: 6,
+    oneShot: true,
+  },
+  {
+    id: 'farmer_msg_seed_patience',
+    message: {
+      id: 'farmer_msg_seed_patience',
+      sender: 'farmer',
+      text: 'Kalau tanamanmu belum tumbuh, jangan langsung curiga pada bibit. Kadang hidup cuma sedang bekerja di bawah tanah.',
+      responses: [
+        { text: 'Aku butuh mendengar itu hari ini.', effects: [{ type: 'trust', npcId: 'farmer', amount: 3 }] },
+        { text: 'Baik, aku akan sabar.', effects: [{ type: 'affection', npcId: 'farmer', amount: 2 }] },
+      ],
+    },
+    conditions: {
+      timePeriods: ['afternoon', 'evening'],
+      minDay: 7,
+      minHoursSinceLastMessage: 30,
+    },
+    priority: 5,
     oneShot: true,
   },
 ];

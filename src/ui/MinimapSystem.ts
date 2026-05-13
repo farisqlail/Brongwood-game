@@ -36,6 +36,10 @@ const IY      = PY + 12;
 const INFO_X  = IX + MM_W + 6;
 const INFO_Y  = PY + 8;
 const MONEY_Y = PY + PH - 19;
+const STAMINA_X = PX + 8;
+const STAMINA_Y = PY + PH + 4;
+const STAMINA_W = PW - 16;
+const STAMINA_H = 7;
 
 // ─── Terrain feature colours ──────────────────────────────────
 const C_GRASS  = 0x2e5e26;
@@ -62,6 +66,10 @@ export interface MinimapZoneMarker {
 export class MinimapSystem {
   private scene: Phaser.Scene;
   private g: Phaser.GameObjects.Graphics;
+  private mapG: Phaser.GameObjects.Graphics;
+  private frameG: Phaser.GameObjects.Graphics;
+  private minimapMaskShape: Phaser.GameObjects.Graphics;
+  private minimapMask: Phaser.Display.Masks.GeometryMask;
   private texts: Phaser.GameObjects.Text[] = [];
   private mapW: number;
   private mapH: number;
@@ -77,6 +85,22 @@ export class MinimapSystem {
     this.g = scene.add.graphics();
     this.g.setScrollFactor(0);
     this.g.setDepth(DEPTH.UI + 5);
+
+    this.mapG = scene.add.graphics();
+    this.mapG.setScrollFactor(0);
+    this.mapG.setDepth(DEPTH.UI + 6);
+
+    this.frameG = scene.add.graphics();
+    this.frameG.setScrollFactor(0);
+    this.frameG.setDepth(DEPTH.UI + 7.5);
+
+    this.minimapMaskShape = scene.add.graphics();
+    this.minimapMaskShape.fillStyle(0xffffff, 1);
+    this.minimapMaskShape.fillRect(IX, IY, MM_W, MM_H);
+    this.minimapMaskShape.setScrollFactor(0);
+    this.minimapMaskShape.setVisible(false);
+    this.minimapMask = this.minimapMaskShape.createGeometryMask();
+    this.mapG.setMask(this.minimapMask);
 
     // Invisible click zone over the entire panel — opens pause menu
     this.clickZone = scene.add.rectangle(PX + PW / 2, PY + PH / 2, PW, PH, 0x000000, 0);
@@ -126,6 +150,7 @@ export class MinimapSystem {
       });
       t.setScrollFactor(0);
       t.setDepth(DEPTH.UI + 7);
+      t.setMask(this.minimapMask);
       this.zoneLabels.push(t);
     }
   }
@@ -138,15 +163,23 @@ export class MinimapSystem {
     isRaining: boolean,
   ): void {
     this.g.clear();
+    this.mapG.clear();
+    this.frameG.clear();
     this.drawPanel();
     this.drawTerrain();
     this.drawZoneMarkers();
     this.drawDots(playerX, playerY, rika, townNPCs);
+    this.drawMinimapFrame();
+    this.drawStaminaBar();
     this.updateInfo(playerX, playerY, isRaining);
   }
 
   destroy(): void {
     this.g.destroy();
+    this.mapG.destroy();
+    this.frameG.destroy();
+    this.minimapMask.destroy();
+    this.minimapMaskShape.destroy();
     this.clickZone.destroy();
     for (const t of this.texts) t.destroy();
     for (const t of this.zoneLabels) t.destroy();
@@ -176,7 +209,7 @@ export class MinimapSystem {
   }
 
   private drawTerrain(): void {
-    const g  = this.g;
+    const g  = this.mapG;
     const ts = GAME_CONFIG.TILE_SIZE;
 
     // Helper: world tile coords → minimap pixel
@@ -261,9 +294,26 @@ export class MinimapSystem {
       g.fillRect(mx - 1.3, my - 1.3, 2.6, 2.6);
     }
 
-    // 6. Minimap border clip (re-draw frame on top of terrain)
+  }
+
+  private drawMinimapFrame(): void {
+    const g = this.frameG;
     g.lineStyle(1, 0xffe3a0, 0.8);
     g.strokeRect(IX, IY, MM_W, MM_H);
+  }
+
+  private drawStaminaBar(): void {
+    const g = this.g;
+    const ratio = gameManager.staminaRatio;
+    const fillW = Math.max(0, Math.floor((STAMINA_W - 2) * ratio));
+    const fillColor = ratio > 0.55 ? 0x7cc66a : ratio > 0.25 ? 0xf2c75c : 0xd96a4a;
+
+    g.fillStyle(0x2f1b0f, 0.88);
+    g.fillRoundedRect(STAMINA_X, STAMINA_Y, STAMINA_W, STAMINA_H, 2);
+    g.fillStyle(fillColor, 1);
+    g.fillRoundedRect(STAMINA_X + 1, STAMINA_Y + 1, fillW, STAMINA_H - 2, 1);
+    g.lineStyle(1, 0xffe3a0, 0.55);
+    g.strokeRoundedRect(STAMINA_X, STAMINA_Y, STAMINA_W, STAMINA_H, 2);
   }
 
   private drawDots(
@@ -272,7 +322,7 @@ export class MinimapSystem {
     rika: NPC,
     townNPCs: NPC[],
   ): void {
-    const g = this.g;
+    const g = this.mapG;
 
     const toMM = (wx: number, wy: number) => ({
       x: IX + (wx / this.mapW) * MM_W,
@@ -303,7 +353,7 @@ export class MinimapSystem {
 
   private drawZoneMarkers(): void {
     if (this.zoneMarkers.length === 0) return;
-    const g = this.g;
+    const g = this.mapG;
 
     for (const marker of this.zoneMarkers) {
       // Convert world position to minimap position
