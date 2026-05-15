@@ -25,6 +25,7 @@ import { PauseMenuUI } from '@/ui/PauseMenuUI';
 import { proceduralAudio } from '@/audio/ProceduralAudio';
 import { FirstDayObjectiveUI } from '@/ui/FirstDayObjectiveUI';
 import { FIRST_DAY_OBJECTIVES } from '@config/firstDay.config';
+import { formatRupiah } from '@config/economy.config';
 
 const ROOM_W = 480;
 const ROOM_H = 384;
@@ -300,15 +301,20 @@ export class PlayerHouseScene extends Phaser.Scene {
     this.cameras.main.fadeOut(1000, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       gameManager.time.advanceTo(7, 0);
+      const shippingPayout = gameManager.claimShippingBin();
       gameManager.resetStamina();
       if (gameManager.firstDayStage === 'sleep') {
         gameManager.advanceFirstDay('sleep');
       }
       this.cameras.main.fadeIn(1500, 0, 0, 0);
 
+      const wakeText = shippingPayout > 0
+        ? `Hari ${gameManager.time.day}\nShipping +${formatRupiah(shippingPayout)}`
+        : `Hari ${gameManager.time.day}`;
       const dayText = this.add
-        .text(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, `Hari ${gameManager.time.day}`, {
+        .text(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, wakeText, {
           fontSize: '12px', color: '#f2a65a', fontFamily: 'monospace',
+          align: 'center',
         })
         .setOrigin(0.5)
         .setScrollFactor(0)

@@ -27,12 +27,35 @@ import { PhoneSystem } from '@/systems/PhoneSystem';
 import { StorySystem } from '@/systems/StorySystem';
 import { SaveSystem, SaveData } from '@/systems/SaveSystem';
 import { InventorySystem } from '@/systems/InventorySystem';
+import { InventoryItem } from '@/types/inventory';
 import { RIKA_MESSAGES } from '@/dialogue/messages/RikaMessages';
 import { TOWN_NPCS } from '@config/npcs.config';
 import { STARTING_MONEY } from '@config/economy.config';
 import { FIRST_DAY_FLAG, FirstDayStage, getNextFirstDayStage } from '@config/firstDay.config';
 
 export const MAX_STAMINA = 100;
+const PASSIVE_STAMINA_DRAIN_INTERVAL_MINUTES = 60;
+const PASSIVE_STAMINA_DRAIN_DAY = 1;
+const PASSIVE_STAMINA_DRAIN_EVENING = 1;
+const PASSIVE_STAMINA_DRAIN_LATE_NIGHT = 2;
+const SHIPPING_VALUE_KEY = 'shippingBinValue';
+const SHIPPING_COUNT_KEY = 'shippingBinCount';
+const SHIPPING_PRICES: Record<string, number> = {
+  carrot: 80,
+  red_onion: 120,
+  flower: 35,
+  gem: 250,
+  meat_1: 90,
+  meat_2: 110,
+  meat_3: 95,
+  meat_4: 160,
+  meat_5: 105,
+  small_fish: 85,
+  rare_fish: 320,
+  coffee: 6000,
+  cake: 9000,
+  nasi_campur: 14000,
+};
 
 /**
  * Scene-dependent systems that need a Phaser scene reference.
@@ -61,6 +84,7 @@ class GameManagerImpl {
   // --- State ---
   private _initialized: boolean = false;
   private _gameplayActive: boolean = false;
+  private _lastPassiveStaminaDrainMinute: number = 0;
   public gameFlags: Record<string, boolean | number | string> = {};
 
   constructor() {
@@ -120,6 +144,7 @@ class GameManagerImpl {
     if (!this._gameplayActive) return;
 
     this.time.update(delta);
+    this.updatePassiveStaminaDrain();
     this._sceneSystems.atmosphere?.update();
     this.save.updatePlayTime(delta);
   }
@@ -145,6 +170,7 @@ class GameManagerImpl {
     if (!data) return null;
 
     this.time.deserialize(data.time);
+    this._lastPassiveStaminaDrainMinute = this.time.totalMinutes;
     this.relationships.deserialize(data.relationships);
     this.phone.deserialize(data.phone);
     this.gameFlags = data.gameFlags ?? {};
@@ -157,6 +183,7 @@ class GameManagerImpl {
   newGame(): void {
     const defaults = SaveSystem.createNewGameData();
     this.time.setTime(defaults.time.hour, defaults.time.minute, defaults.time.day);
+    this._lastPassiveStaminaDrainMinute = this.time.totalMinutes;
     this.relationships.deserialize({});
     this.phone.deserialize({ threads: {}, delivered: [] });
     this.initializeRelationships();
@@ -208,6 +235,7 @@ class GameManagerImpl {
 
   resetStamina(): void {
     this.gameFlags.stamina = MAX_STAMINA;
+    this._lastPassiveStaminaDrainMinute = this.time.totalMinutes;
   }
 
   get firstDayStage(): FirstDayStage {
@@ -246,6 +274,56 @@ class GameManagerImpl {
     return true;
   }
 
+  get shippingBinValue(): number {
+    const value = this.gameFlags[SHIPPING_VALUE_KEY];
+    return typeof value === 'number' ? Math.max(0, Math.floor(value)) : 0;
+  }
+
+  get shippingBinCount(): number {
+    const value = this.gameFlags[SHIPPING_COUNT_KEY];
+    return typeof value === 'number' ? Math.max(0, Math.floor(value)) : 0;
+  }
+
+  getShippingPrice(item: InventoryItem): number {
+    if (item.icon === 'tool' || item.id.endsWith('_seed') || item.id === 'seed_bag') return 0;
+    if (item.id === 'letter' || item.id === 'old_key' || item.id === 'book') return 0;
+
+    const quality = item.id.match(/^(.*)_(silver|gold)$/);
+    const baseId = quality?.[1] ?? item.id;
+    const multiplier = quality?.[2] === 'gold' ? 2 : quality?.[2] === 'silver' ? 1.5 : 1;
+    const basePrice = SHIPPING_PRICES[baseId] ?? 0;
+
+    return Math.floor(basePrice * multiplier);
+  }
+
+  shipInventorySlot(slotIndex: number): { success: boolean; message: string; value: number; itemName?: string } {
+    const item = this.inventory.getSlot(slotIndex);
+    if (!item) return { success: false, message: 'Pilih item dulu', value: 0 };
+
+    const value = this.getShippingPrice(item);
+    if (value <= 0) {
+      return { success: false, message: 'Item ini tidak bisa dijual', value: 0, itemName: item.name };
+    }
+
+    const shipped = this.inventory.consumeOneAtSlot(slotIndex);
+    if (!shipped) return { success: false, message: 'Item tidak ditemukan', value: 0 };
+
+    this.gameFlags[SHIPPING_VALUE_KEY] = this.shippingBinValue + value;
+    this.gameFlags[SHIPPING_COUNT_KEY] = this.shippingBinCount + 1;
+
+    return { success: true, message: `${shipped.name} masuk shipping bin`, value, itemName: shipped.name };
+  }
+
+  claimShippingBin(): number {
+    const payout = this.shippingBinValue;
+    if (payout <= 0) return 0;
+
+    this.addMoney(payout);
+    this.gameFlags[SHIPPING_VALUE_KEY] = 0;
+    this.gameFlags[SHIPPING_COUNT_KEY] = 0;
+    return payout;
+  }
+
   private initializeRelationships(): void {
     this.relationships.initRelationship('rika');
     for (const npc of TOWN_NPCS) {
@@ -257,6 +335,47 @@ class GameManagerImpl {
     if (typeof this.gameFlags.stamina !== 'number') {
       this.gameFlags.stamina = MAX_STAMINA;
     }
+    if (typeof this.gameFlags[SHIPPING_VALUE_KEY] !== 'number') {
+      this.gameFlags[SHIPPING_VALUE_KEY] = 0;
+    }
+    if (typeof this.gameFlags[SHIPPING_COUNT_KEY] !== 'number') {
+      this.gameFlags[SHIPPING_COUNT_KEY] = 0;
+    }
+    if (this._lastPassiveStaminaDrainMinute <= 0) {
+      this._lastPassiveStaminaDrainMinute = this.time.totalMinutes;
+    }
+  }
+
+  private updatePassiveStaminaDrain(): void {
+    const currentMinute = this.time.totalMinutes;
+
+    if (this._lastPassiveStaminaDrainMinute <= 0) {
+      this._lastPassiveStaminaDrainMinute = currentMinute;
+      return;
+    }
+
+    const elapsedIntervals = Math.floor(
+      (currentMinute - this._lastPassiveStaminaDrainMinute) / PASSIVE_STAMINA_DRAIN_INTERVAL_MINUTES,
+    );
+    if (elapsedIntervals <= 0 || this.stamina <= 0) return;
+
+    const drain = this.getPassiveStaminaDrainAmount() * elapsedIntervals;
+    this.gameFlags.stamina = Math.max(0, this.stamina - drain);
+    this._lastPassiveStaminaDrainMinute += elapsedIntervals * PASSIVE_STAMINA_DRAIN_INTERVAL_MINUTES;
+  }
+
+  private getPassiveStaminaDrainAmount(): number {
+    const hour = this.time.hour;
+
+    if (hour >= 22 || hour < 5) {
+      return PASSIVE_STAMINA_DRAIN_LATE_NIGHT;
+    }
+
+    if (hour >= 18) {
+      return PASSIVE_STAMINA_DRAIN_EVENING;
+    }
+
+    return PASSIVE_STAMINA_DRAIN_DAY;
   }
 }
 

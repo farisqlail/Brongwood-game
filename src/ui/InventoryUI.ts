@@ -11,6 +11,7 @@
 
 import Phaser from 'phaser';
 import { DEPTH, GAME_CONFIG } from '@config/game.config';
+import { gameManager } from '@/managers/GameManager';
 import { InventoryItem } from '@/types/inventory';
 import { BAG_SLOTS, HOTBAR_SLOTS, InventorySystem, MAX_SLOTS } from '@/systems/InventorySystem';
 import { InputGuard } from '@/ui/InputGuard';
@@ -54,6 +55,12 @@ const CLR_BAG_BTN_ACTIVE = 0x37516b;
 
 const POP_DEPTH = DEPTH.UI + 20;
 const BAG_PANEL_DEPTH = DEPTH.UI + 15;
+
+const STAMINA_RESTORE_BY_ITEM: Record<string, number> = {
+  coffee: 18,
+  cake: 24,
+  nasi_campur: 45,
+};
 
 type SlotPosition = {
   x: number;
@@ -419,7 +426,7 @@ export class InventoryUI {
     const textX = px + POP_PAD + 32;
     this.popName.setPosition(textX, py + POP_PAD);
     this.popName.setText(item.name);
-    this.btnUseTxt.setText(this.isSelectableSeed(item) ? 'Pilih' : 'Use');
+    this.btnUseTxt.setText(this.isSelectableItem(item) ? 'Pilih' : 'Use');
 
     this.popDesc.setPosition(px + POP_PAD, py + POP_PAD + 18);
     this.popDesc.setText(item.description);
@@ -491,8 +498,23 @@ export class InventoryUI {
     const item = this.inventory.getSlot(this.activeSlot);
     if (!item) return;
 
-    if (this.isSelectableSeed(item)) {
+    if (this.isSelectableItem(item)) {
       this.inventory.selectSlot(this.activeSlot);
+      this.hidePopup();
+      this.redrawSlots();
+      return;
+    }
+
+    const staminaRestore = STAMINA_RESTORE_BY_ITEM[item.id];
+    if (staminaRestore !== undefined) {
+      if (gameManager.stamina >= gameManager.maxStamina) {
+        this.showUseToast('Stamina penuh');
+        return;
+      }
+
+      this.inventory.removeItem(this.activeSlot);
+      gameManager.restoreStamina(staminaRestore);
+      this.showUseToast(`+${staminaRestore} stamina`);
       this.hidePopup();
       this.redrawSlots();
       return;
@@ -607,8 +629,32 @@ export class InventoryUI {
     }
   }
 
-  private isSelectableSeed(item: InventoryItem): boolean {
-    return item.id.endsWith('_seed');
+  private isSelectableItem(item: InventoryItem): boolean {
+    return item.id.endsWith('_seed')
+      || item.id === 'seed_bag'
+      || item.icon === 'tool';
+  }
+
+  private showUseToast(message: string): void {
+    const toast = this.scene.add.text(GAME_CONFIG.WIDTH / 2, SLOT_Y - 14, message, {
+      fontSize: '7px',
+      color: '#f2d65a',
+      fontFamily: 'monospace',
+      backgroundColor: '#00000099',
+      padding: { x: 6, y: 3 },
+    });
+    toast.setOrigin(0.5);
+    toast.setScrollFactor(0);
+    toast.setDepth(POP_DEPTH + 5);
+
+    this.scene.tweens.add({
+      targets: toast,
+      y: toast.y - 12,
+      alpha: 0,
+      duration: 900,
+      ease: 'Sine.easeOut',
+      onComplete: () => toast.destroy(),
+    });
   }
 
   private drawSlot(

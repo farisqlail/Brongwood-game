@@ -133,8 +133,8 @@ export class FarmSupplyShopScene extends Phaser.Scene {
 
     for (const x of [126, 220, 314]) {
       this.add.rectangle(x, 84, 54, 16, 0x9d7446).setDepth(DEPTH.GROUND_DECOR + 1);
-      this.add.image(x - 12, 78, 'farm-bibit_wortel').setScale(0.55).setDepth(DEPTH.GROUND_DECOR + 2);
-      this.add.image(x + 12, 78, 'farm-bibit_bawang_merah').setScale(0.55).setDepth(DEPTH.GROUND_DECOR + 2);
+      this.addSeedShelfIcon(x - 12, 78, 'farm-bibit_wortel', 0xf39a3a);
+      this.addSeedShelfIcon(x + 12, 78, 'farm-bibit_bawang_merah', 0xb84b73);
     }
 
     this.add.text(SHOP_W / 2, 34, 'TOKO TANI', {
@@ -143,6 +143,17 @@ export class FarmSupplyShopScene extends Phaser.Scene {
       fontFamily: 'monospace',
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(DEPTH.GROUND_DECOR + 2);
+  }
+
+  private addSeedShelfIcon(x: number, y: number, textureKey: string, fallbackColor: number): void {
+    if (this.textures.exists(textureKey)) {
+      this.add.image(x, y, textureKey).setScale(0.55).setDepth(DEPTH.GROUND_DECOR + 2);
+      return;
+    }
+
+    this.add.rectangle(x, y, 12, 12, fallbackColor, 1)
+      .setStrokeStyle(1, 0x3b2618, 0.65)
+      .setDepth(DEPTH.GROUND_DECOR + 2);
   }
 
   private createColliders(): void {
@@ -381,7 +392,7 @@ export class FarmSupplyShopScene extends Phaser.Scene {
     const item = ITEM_DEFS[itemId];
     if (!item) return;
 
-    if (gameManager.inventory.isFull()) {
+    if (gameManager.inventory.isFull() && !gameManager.inventory.hasItem(itemId)) {
       this.showToast('Tas penuh.');
       return;
     }

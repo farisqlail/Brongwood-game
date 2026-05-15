@@ -8,10 +8,7 @@ import { GAME_CONFIG, DEPTH } from '@config/game.config';
 import { Player } from '@/entities/Player';
 import { NPC } from '@/entities/NPC';
 import { TEXTURE_KEYS } from '@config/assets.manifest';
-import { DialogueSystem } from '@/dialogue/DialogueSystem';
-import { DialogueDefinition } from '@/dialogue/DialogueTypes';
 import { gameManager } from '@/managers/GameManager';
-import { EventBus, GameEvents } from '@/core/EventBus';
 import { proceduralAudio } from '@/audio/ProceduralAudio';
 import { MobileControls } from '@/ui/MobileControls';
 import { ITEM_DEFS } from '@/types/inventory';
@@ -31,48 +28,21 @@ const CAFE_TABLES = [
 
 const CAFE_PRODUCTS = [
   { id: 'coffee', label: 'Kopi', price: 12000 },
+  { id: 'cake', label: 'Cake Slice', price: 18000 },
   { id: 'nasi_campur', label: 'Nasi Campur', price: 28000 },
 ] as const;
 
 export class CafeScene extends Phaser.Scene {
   private player!: Player;
   private barista!: NPC;
-  private dialogueSystem!: DialogueSystem;
   private mobileControls!: MobileControls;
   private promptText!: Phaser.GameObjects.Text;
   private nearbyNPC: NPC | null = null;
   private lighting!: CinematicLightingSystem;
   private exiting: boolean = false;
-  private productMenuRequested: boolean = false;
   private productMenuOpen: boolean = false;
   private productBackdrop: Phaser.GameObjects.Rectangle | null = null;
   private productObjects: Phaser.GameObjects.GameObject[] = [];
-
-  private readonly onPlayerLocked = (payload: { locked: boolean }) => {
-    if (payload.locked) this.player.freeze();
-    else this.player.unfreeze();
-  };
-
-  private readonly onDialogueStarted = () => {
-    this.mobileControls.setGameVisible(false);
-    this.promptText.setVisible(false);
-  };
-
-  // Named handlers so we can remove them from EventBus on shutdown
-  private readonly onChoiceMade = (p: GameEvents['dialogue:choice-made']) => {
-    if (p.dialogueId === 'barista_chat' && p.choiceId === 'order') {
-      this.productMenuRequested = true;
-    }
-  };
-
-  private readonly onDialogueEnded = () => {
-    this.barista.unfreeze();
-    this.mobileControls.setGameVisible(true);
-    if (this.productMenuRequested) {
-      this.productMenuRequested = false;
-      this.openProductPopup();
-    }
-  };
 
   constructor() {
     super({ key: 'CafeScene' });
@@ -114,27 +84,18 @@ export class CafeScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, CAFE_W, CAFE_H);
     this.cameras.main.centerOn(CAFE_W / 2, CAFE_H / 2);
 
-    // Dialogue
-    this.dialogueSystem = new DialogueSystem(this);
-
     // Interaction (E key)
     const eKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     eKey.on('down', () => this.tryInteract());
 
     // Prompt
-    this.promptText = this.add.text(CAFE_W / 2, CAFE_H - 50, '[E] Talk', {
+    this.promptText = this.add.text(CAFE_W / 2, CAFE_H - 50, '[E] Beli', {
       fontSize: '9px', color: '#ffffff', fontFamily: 'monospace',
       backgroundColor: '#00000099', padding: { x: 8, y: 4 },
     }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI).setVisible(false);
 
     // Mobile
     this.mobileControls = new MobileControls(this);
-
-    // Dialogue events
-    EventBus.on('event:player-locked', this.onPlayerLocked, this);
-    EventBus.on('dialogue:started', this.onDialogueStarted, this);
-    EventBus.on('dialogue:choice-made', this.onChoiceMade, this);
-    EventBus.on('dialogue:ended',       this.onDialogueEnded, this);
 
     // Stop outdoor audio
     proceduralAudio.stopBirds();
@@ -145,12 +106,7 @@ export class CafeScene extends Phaser.Scene {
     this.cameras.main.fadeIn(400, 0, 0, 0);
 
     this.events.on('shutdown', () => {
-      EventBus.off('event:player-locked', this.onPlayerLocked);
-      EventBus.off('dialogue:started', this.onDialogueStarted);
-      EventBus.off('dialogue:choice-made', this.onChoiceMade);
-      EventBus.off('dialogue:ended',       this.onDialogueEnded);
       this.closeProductPopup(false);
-      this.dialogueSystem.destroy();
       this.barista.destroy();
       this.mobileControls.destroy();
       this.lighting.destroy();
@@ -168,7 +124,7 @@ export class CafeScene extends Phaser.Scene {
     }
 
     // Mobile joystick
-    if (this.mobileControls.visible && !this.dialogueSystem.isActive) {
+    if (this.mobileControls.visible && !this.productMenuOpen) {
       const js = this.mobileControls.joystickState;
       this.player.setJoystickInput(js.isActive, js.forceX, js.forceY);
       if (this.mobileControls.actionPressed) this.tryInteract();
@@ -178,15 +134,12 @@ export class CafeScene extends Phaser.Scene {
     this.barista.update(delta);
 
     // Proximity check
-    if (!this.dialogueSystem.isActive) {
-      const dist = Phaser.Math.Distance.Between(
-        this.player.x, this.player.y, this.barista.sprite.x, this.barista.sprite.y
-      );
-      this.nearbyNPC = dist < 60 ? this.barista : null;
-      this.promptText.setVisible(this.nearbyNPC !== null);
-    } else {
-      this.promptText.setVisible(false);
-    }
+    const dist = Phaser.Math.Distance.Between(
+      this.player.x, this.player.y, this.barista.sprite.x, this.barista.sprite.y
+    );
+    this.nearbyNPC = dist < 60 ? this.barista : null;
+    this.promptText.setText('[E] Beli');
+    this.promptText.setVisible(this.nearbyNPC !== null);
 
     // EXIT: if player walks past bottom edge
     if (this.player.y > CAFE_H - 10) {
@@ -195,11 +148,11 @@ export class CafeScene extends Phaser.Scene {
   }
 
   private tryInteract(): void {
-    if (this.nearbyNPC && !this.dialogueSystem.isActive && !this.productMenuOpen) {
+    if (this.nearbyNPC && !this.productMenuOpen) {
       proceduralAudio.playClick();
       this.barista.freeze();
       this.barista.faceToward(this.player.x, this.player.y);
-      this.dialogueSystem.start(BARISTA_DIALOGUE);
+      this.openProductPopup();
       this.promptText.setVisible(false);
     }
   }
@@ -333,7 +286,7 @@ export class CafeScene extends Phaser.Scene {
     const cx = GAME_CONFIG.WIDTH / 2;
     const cy = GAME_CONFIG.HEIGHT / 2;
     const panelW = 292;
-    const panelH = 178;
+    const panelH = 230;
 
     this.productBackdrop = this.add.rectangle(cx, cy, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT, 0x000000, 0.62)
       .setScrollFactor(0)
@@ -344,7 +297,7 @@ export class CafeScene extends Phaser.Scene {
     panel.setStrokeStyle(1, 0x6b7a8c, 0.95).setScrollFactor(0).setDepth(DEPTH.UI + 41);
     this.productObjects.push(panel);
 
-    this.productObjects.push(this.add.text(cx, cy - 70, 'Menu Cafe', {
+    this.productObjects.push(this.add.text(cx, cy - 94, 'Menu Cafe', {
       fontSize: '11px',
       color: '#f2a65a',
       fontFamily: 'monospace',
@@ -353,7 +306,7 @@ export class CafeScene extends Phaser.Scene {
 
     CAFE_PRODUCTS.forEach((product, index) => {
       const item = ITEM_DEFS[product.id];
-      const rowY = cy - 28 + index * 56;
+      const rowY = cy - 48 + index * 56;
       const card = this.add.rectangle(cx, rowY, 250, 46, 0x1c2836, 0.95);
       card.setStrokeStyle(1, 0x3f5268, 0.8).setScrollFactor(0).setDepth(DEPTH.UI + 42);
       this.productObjects.push(card);
@@ -447,6 +400,7 @@ export class CafeScene extends Phaser.Scene {
 
     if (unfreeze && !this.exiting) {
       this.player.unfreeze();
+      this.barista.unfreeze();
       this.mobileControls.setGameVisible(true);
     }
   }
@@ -455,7 +409,7 @@ export class CafeScene extends Phaser.Scene {
     const item = ITEM_DEFS[itemId];
     if (!item) return;
 
-    if (gameManager.inventory.isFull()) {
+    if (gameManager.inventory.isFull() && !gameManager.inventory.hasItem(itemId)) {
       this.showToast('Tas penuh.', 0xcc6655);
       return;
     }
@@ -522,49 +476,3 @@ export class CafeScene extends Phaser.Scene {
   }
 }
 
-// ============================================================
-// BARISTA DIALOGUE
-// ============================================================
-
-const BARISTA_DIALOGUE: DialogueDefinition = {
-  id: 'barista_chat',
-  startNode: 's1',
-  nodes: {
-    s1: {
-      type: 'text', id: 's1',
-      speaker: 'barista', speakerName: 'Hana (Barista)',
-      text: 'Selamat datang. Mau pesan apa? Hari ini ada kopi baru seduh dan kue rumahan.',
-      typeSpeed: 0.75,
-      next: 'choice',
-    },
-    choice: {
-      type: 'choice', id: 'choice',
-      choices: [
-        { text: 'Pesan sesuatu.', choiceId: 'order', next: 'order' },
-        { text: 'Lihat-lihat dulu.', choiceId: 'look', next: 'look' },
-        { text: 'Tempat ini nyaman.', choiceId: 'cozy', next: 'cozy' },
-      ],
-    },
-    order: {
-      type: 'text', id: 'order',
-      speaker: 'barista', speakerName: 'Hana (Barista)',
-      text: 'Silakan pilih dari menu. Kopi baru seduh, dan nasi campur hari ini masih hangat.',
-      typeSpeed: 0.75,
-      next: null,
-    },
-    look: {
-      type: 'text', id: 'look',
-      speaker: 'barista', speakerName: 'Hana (Barista)',
-      text: 'Santai saja. Kami buka sampai malam. Kalau sore, suasananya lebih tenang.',
-      typeSpeed: 0.75,
-      next: null,
-    },
-    cozy: {
-      type: 'text', id: 'cozy',
-      speaker: 'barista', speakerName: 'Hana (Barista)',
-      text: 'Terima kasih. Aku memang ingin tempat ini terasa seperti rumah. Semua orang butuh tempat hangat untuk rehat.',
-      typeSpeed: 0.75,
-      next: null,
-    },
-  },
-};

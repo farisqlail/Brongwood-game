@@ -22,6 +22,7 @@ import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
 import { proceduralAudio } from '@/audio/ProceduralAudio';
 import { ITEM_DEFS } from '@/types/inventory';
 import { FirstDayObjectiveUI } from '@/ui/FirstDayObjectiveUI';
+import { formatRupiah } from '@config/economy.config';
 
 const VIEW_W = GAME_CONFIG.WIDTH;
 const VIEW_H = GAME_CONFIG.HEIGHT;
@@ -37,6 +38,9 @@ const HOUSE_SCALE = 0.43;
 const DOOR_X = ox(385);
 const DOOR_Y = oy(162);
 const DOOR_INTERACT_RADIUS = 26;
+const SHIPPING_BIN_X = ox(468);
+const SHIPPING_BIN_Y = oy(184);
+const SHIPPING_BIN_RADIUS = 34;
 const FIELD_RECT = { x: ox(-18), y: oy(152), w: 166, h: 80 };
 const ENTRY_SPAWN_X = HOMESTEAD_W - 48;
 const ENTRY_SPAWN_Y = oy(156);
@@ -47,11 +51,11 @@ const FARM_TILE_W = 21;
 const FARM_TILE_H = 19;
 const FARM_INTERACT_W = 20;
 const FARM_INTERACT_H = 18;
-const STAMINA_HOE_COST = 5;
-const STAMINA_PLANT_COST = 8;
-const STAMINA_WATER_COST = 4;
-const STAMINA_HARVEST_COST = 6;
-const STAMINA_CLEAR_COST = 5;
+const STAMINA_HOE_COST = 2;
+const STAMINA_PLANT_COST = 2;
+const STAMINA_WATER_COST = 1;
+const STAMINA_HARVEST_COST = 2;
+const STAMINA_CLEAR_COST = 2;
 const STARTER_TOOL_IDS = ['hoe', 'watering_can', 'axe', 'pickaxe', 'fishing_rod', 'seed_bag'] as const;
 const CARROT_FRAMES = ['wortel_1', 'wortel_2', 'wortel_3', 'wortel_4', 'wortel_5'] as const;
 const ONION_FRAMES = [
@@ -124,6 +128,7 @@ export class HomesteadScene extends Phaser.Scene {
   private lastFarmDay = 1;
   private exiting = false;
   private nearDoor = false;
+  private nearShippingBin = false;
   private readonly onPlayerLocked = (payload: { locked: boolean }) => {
     if (payload.locked) this.player.freeze();
     else this.player.unfreeze();
@@ -136,6 +141,7 @@ export class HomesteadScene extends Phaser.Scene {
   create(): void {
     this.exiting = false;
     this.nearDoor = false;
+    this.nearShippingBin = false;
     this.nearbyPlot = null;
     this.farmPlots = [];
     this.sound.stopByKey(AUDIO_KEYS.BGM_SCENE_1_6);
@@ -213,6 +219,7 @@ export class HomesteadScene extends Phaser.Scene {
     this.player.update();
     this.updateFarmGrowth();
     this.checkDoorProximity();
+    this.checkShippingBinProximity();
     this.checkFarmProximity();
     this.activitySystem.update(delta);
     this.activityZoneUI.update(delta);
@@ -592,6 +599,7 @@ export class HomesteadScene extends Phaser.Scene {
     }
 
     this.drawFlowerSprinkles(g);
+    this.drawShippingBin(g);
 
     g.fillStyle(0x9d8b73, 0.7);
     for (let i = 0; i < 38; i++) {
@@ -649,6 +657,7 @@ export class HomesteadScene extends Phaser.Scene {
       { x: FIELD_RECT.x + FIELD_RECT.w / 2, y: FIELD_RECT.y + FIELD_RECT.h / 2, rx: FIELD_RECT.w / 2 + 32, ry: FIELD_RECT.h / 2 + 28 },
       { x: ox(59), y: oy(323), rx: 92, ry: 56 },
       { x: DOOR_X, y: DOOR_Y + 10, rx: 34, ry: 28 },
+      { x: SHIPPING_BIN_X, y: SHIPPING_BIN_Y + 8, rx: 34, ry: 28 },
       { x: ENTRY_SPAWN_X - 26, y: ENTRY_SPAWN_Y, rx: 74, ry: 54 },
     ];
 
@@ -677,6 +686,30 @@ export class HomesteadScene extends Phaser.Scene {
       g.lineBetween(crate.x + 5, crate.y + 5, crate.x + 5, crate.y + 10);
       g.lineBetween(crate.x + 9, crate.y + 8, crate.x + 9, crate.y + 13);
     }
+  }
+
+  private drawShippingBin(g: Phaser.GameObjects.Graphics): void {
+    const x = SHIPPING_BIN_X;
+    const y = SHIPPING_BIN_Y;
+
+    g.fillStyle(0x6b3f1f, 1);
+    g.fillRoundedRect(x - 17, y - 8, 34, 25, 3);
+    g.fillStyle(0x8a5528, 1);
+    g.fillRoundedRect(x - 20, y - 16, 40, 12, 2);
+    g.lineStyle(1, 0xd2a063, 0.85);
+    g.strokeRoundedRect(x - 20, y - 16, 40, 33, 3);
+    g.lineBetween(x - 10, y - 5, x - 10, y + 15);
+    g.lineBetween(x + 8, y - 5, x + 8, y + 15);
+    g.fillStyle(0xe6c27a, 1);
+    g.fillRect(x - 8, y - 13, 16, 3);
+
+    this.add.text(x, y + 25, 'JUAL', {
+      fontSize: '6px',
+      color: '#f7e4aa',
+      fontFamily: 'monospace',
+      backgroundColor: '#00000055',
+      padding: { x: 3, y: 1 },
+    }).setOrigin(0.5).setDepth(DEPTH.ENTITIES + 1);
   }
 
   private drawFlowerSprinkles(g: Phaser.GameObjects.Graphics): void {
@@ -713,6 +746,7 @@ export class HomesteadScene extends Phaser.Scene {
     this.addColliderBox(ox(382), oy(418), 38, 18);
     this.addColliderBox(ox(-20), oy(424), 18, 16);
     this.addColliderBox(ox(452), oy(440), 18, 16);
+    this.addColliderBox(SHIPPING_BIN_X - 18, SHIPPING_BIN_Y - 14, 36, 28);
   }
 
   private addColliderBox(x: number, y: number, width: number, height: number): void {
@@ -748,6 +782,11 @@ export class HomesteadScene extends Phaser.Scene {
       return;
     }
 
+    if (this.nearShippingBin) {
+      this.shipSelectedItem();
+      return;
+    }
+
     if (this.nearbyPlot) {
       this.interactWithPlot(this.nearbyPlot);
       return;
@@ -772,8 +811,32 @@ export class HomesteadScene extends Phaser.Scene {
     }
   }
 
+  private checkShippingBinProximity(): void {
+    if (this.nearDoor || this.activityZoneUI.isActivityActive) {
+      this.nearShippingBin = false;
+      return;
+    }
+
+    const dist = Phaser.Math.Distance.Between(this.player.sprite.x, this.player.sprite.y, SHIPPING_BIN_X, SHIPPING_BIN_Y);
+    this.nearShippingBin = dist < SHIPPING_BIN_RADIUS;
+
+    if (!this.nearShippingBin) return;
+
+    const selected = gameManager.inventory.getSelectedItem();
+    const price = selected ? gameManager.getShippingPrice(selected) : 0;
+    const pending = gameManager.shippingBinValue;
+    const prompt = selected && price > 0
+      ? `[E] Kirim ${selected.name} (${this.formatRp(price)})`
+      : pending > 0
+        ? `Shipping: ${this.formatRp(pending)}`
+        : 'Pilih item jual';
+
+    this.doorPrompt.setText(prompt);
+    this.doorPrompt.setVisible(true);
+  }
+
   private checkFarmProximity(): void {
-    if (this.nearDoor || this.activityZoneUI.isActivityActive) return;
+    if (this.nearDoor || this.nearShippingBin || this.activityZoneUI.isActivityActive) return;
 
     const target = this.getFarmInteractionPoint();
     let closest: FarmPlot | null = null;
@@ -797,6 +860,25 @@ export class HomesteadScene extends Phaser.Scene {
 
     this.doorPrompt.setText(this.getPlotPrompt(closest));
     this.doorPrompt.setVisible(true);
+  }
+
+  private shipSelectedItem(): void {
+    const selectedSlot = gameManager.inventory.getSelectedSlot();
+    if (selectedSlot === -1) {
+      this.popFarmText(SHIPPING_BIN_X, SHIPPING_BIN_Y - 34, 'Pilih item dulu');
+      return;
+    }
+
+    const result = gameManager.shipInventorySlot(selectedSlot);
+    this.popFarmText(
+      SHIPPING_BIN_X,
+      SHIPPING_BIN_Y - 34,
+      result.success ? `Dikirim +${this.formatRp(result.value)}` : result.message,
+    );
+
+    if (result.success) {
+      proceduralAudio.playClick();
+    }
   }
 
   private getFarmInteractionPoint(): { x: number; y: number } {
@@ -1064,6 +1146,10 @@ export class HomesteadScene extends Phaser.Scene {
 
   private getCurrentSeason(): 'spring' | 'summer' | 'autumn' | 'winter' {
     return 'spring';
+  }
+
+  private formatRp(amount: number): string {
+    return formatRupiah(amount);
   }
 
   private popFarmText(x: number, y: number, text: string): void {

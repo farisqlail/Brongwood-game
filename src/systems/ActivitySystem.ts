@@ -100,7 +100,7 @@ export const ACTIVITY_CONFIGS: Record<ActivityId, ActivityConfig> = {
     advancesTime: true,
     cameraZoom: 1.2,
     cancellable: true,
-    staminaCost: 12,
+    staminaCost: 4,
     requiredTool: 'fishing_rod',
     outcomes: [
       { id: 'small_fish', text: 'You caught a small fish. The ocean is calm today.', chance: 0.4 },
@@ -117,7 +117,7 @@ export const ACTIVITY_CONFIGS: Record<ActivityId, ActivityConfig> = {
     advancesTime: true,
     cameraZoom: 1.15,
     cancellable: true,
-    staminaCost: 10,
+    staminaCost: 3,
     outcomes: [
       { id: 'flower_grew', text: 'A small bud appeared. It should bloom in a few days.', chance: 0.5 },
       { id: 'watered', text: 'The soil is moist. The plants look happy.', chance: 0.4 },
@@ -132,7 +132,7 @@ export const ACTIVITY_CONFIGS: Record<ActivityId, ActivityConfig> = {
     advancesTime: true,
     cameraZoom: 1.1,
     cancellable: true,
-    staminaCost: 10,
+    staminaCost: 3,
     outcomes: [
       { id: 'fed', text: 'The animals eat calmly. The pen feels warmer now.', chance: 0.45 },
       { id: 'brushed', text: 'You brush the animals and tidy the straw.', chance: 0.35 },
@@ -161,7 +161,7 @@ export const ACTIVITY_CONFIGS: Record<ActivityId, ActivityConfig> = {
     promptText: 'Sit and rest',
     advancesTime: true,
     cancellable: true,
-    staminaCost: 4,
+    staminaCost: 1,
   },
   stargazing: {
     id: 'stargazing',
@@ -172,7 +172,7 @@ export const ACTIVITY_CONFIGS: Record<ActivityId, ActivityConfig> = {
     advancesTime: true,
     cameraZoom: 0.9, // Zoom out to show sky
     cancellable: true,
-    staminaCost: 4,
+    staminaCost: 1,
     outcomes: [
       { id: 'shooting_star', text: 'A shooting star crosses the sky. You make a wish.', chance: 0.15 },
       { id: 'quiet', text: 'The stars are bright tonight. The world feels vast.', chance: 0.5 },
