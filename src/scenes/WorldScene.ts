@@ -35,6 +35,8 @@ import { PauseMenuUI } from '@/ui/PauseMenuUI';
 import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
 import { formatRupiah } from '@config/economy.config';
 import { FirstDayObjectiveUI } from '@/ui/FirstDayObjectiveUI';
+import { ForagingSystem } from '@/systems/ForagingSystem';
+import { tryGiveSelectedItemToNpc } from '@/systems/GiftSystem';
 
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
@@ -55,6 +57,7 @@ export class WorldScene extends Phaser.Scene {
 
   // Interaction
   private interactKey!: Phaser.Input.Keyboard.Key;
+  private giftKey!: Phaser.Input.Keyboard.Key;
   private promptText!: Phaser.GameObjects.Text;
   private nearbyNPC: NPC | null = null;
   private nearFarmShop: boolean = false;
@@ -80,6 +83,7 @@ export class WorldScene extends Phaser.Scene {
   // Activity system + zones
   private activitySystem!: ActivitySystem;
   private activityZoneUI!: ActivityZoneUI;
+  private foragingSystem!: ForagingSystem;
 
   // Pause menu
   private pauseMenu!: PauseMenuUI;
@@ -139,6 +143,7 @@ export class WorldScene extends Phaser.Scene {
     this.activitySystem = new ActivitySystem();
     this.activityZoneUI = new ActivityZoneUI(this, this.activitySystem);
     this.setupActivityZones();
+    this.setupForaging();
 
     // Pause menu (ESC key + minimap click)
     this.pauseMenu = new PauseMenuUI(this);
@@ -192,6 +197,8 @@ export class WorldScene extends Phaser.Scene {
         } else if (this.activityZoneUI.isInZone && !this.nearbyNPC) {
           proceduralAudio.playClick();
           this.activityZoneUI.startActivity();
+        } else if (this.foragingSystem.tryCollect()) {
+          return;
         } else if (this.nearbyNPC) {
           proceduralAudio.playClick();
           this.startNPCDialogue(this.nearbyNPC);
@@ -225,6 +232,17 @@ export class WorldScene extends Phaser.Scene {
     } else {
       this.promptText.setVisible(false);
     }
+
+    const foragePromptAllowed =
+      !this.phoneUI.opened &&
+      !this.activityZoneUI.isActivityActive &&
+      !this.dialogueSystem.isActive &&
+      !this.nearbyNPC &&
+      !this.nearFarmShop &&
+      !this.nearFlowerShop &&
+      !this.nearCafe &&
+      !this.activityZoneUI.isInZone;
+    this.foragingSystem.update(foragePromptAllowed);
 
     // Audio: footsteps when walking
     if (this.player.isMoving && proceduralAudio.initialized) {
@@ -396,6 +414,7 @@ export class WorldScene extends Phaser.Scene {
   private setupInteraction(): void {
     // E key for interaction
     this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    this.giftKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.G);
 
     // Prompt text (hidden by default)
     // Position above the inventory bar (SLOT_Y = HEIGHT - 38, bar starts ~HEIGHT - 43)
@@ -465,11 +484,21 @@ export class WorldScene extends Phaser.Scene {
         return;
       }
 
+      if (!this.dialogueSystem.isActive && !this.phoneUI.opened && this.foragingSystem.tryCollect()) {
+        return;
+      }
+
       // Otherwise, interact with NPC
       if (this.nearbyNPC && !this.dialogueSystem.isActive && !this.phoneUI.opened) {
         proceduralAudio.playClick();
         this.startNPCDialogue(this.nearbyNPC);
       }
+    });
+
+    this.giftKey.on('down', () => {
+      if (this.dialogueSystem.isActive || this.phoneUI.opened || this.pauseMenu.opened) return;
+      if (!this.nearbyNPC || this.nearbyNPC.id !== 'rika') return;
+      this.tryGiftNpc(this.nearbyNPC);
     });
 
     // P key to toggle phone
@@ -635,7 +664,7 @@ export class WorldScene extends Phaser.Scene {
       this.nearFlowerShop = false;
       this.nearCafe = false;
       this.promptText.setVisible(true);
-      this.promptText.setText('[E] Talk');
+      this.promptText.setText(closest.id === 'rika' ? '[E] Bicara  [G] Hadiah' : '[E] Talk');
       closest.playerInRange = true;
     } else {
       if (this.nearbyNPC) this.nearbyNPC.playerInRange = false;
@@ -778,6 +807,56 @@ export class WorldScene extends Phaser.Scene {
     }));
 
     this.minimapSystem.setZoneMarkers(minimapMarkers);
+  }
+
+  private tryGiftNpc(npc: NPC): void {
+    npc.faceToward(this.player.x, this.player.y);
+    const result = tryGiveSelectedItemToNpc(npc.id, gameManager.time.day);
+    this.showNpcToast(result.message, result.color);
+    if (result.success) {
+      proceduralAudio.playClick();
+    }
+  }
+
+  private showNpcToast(message: string, color: number): void {
+    const toast = this.add.text(this.player.x, this.player.y - 44, message, {
+      fontSize: '8px',
+      color: Phaser.Display.Color.IntegerToColor(color).rgba,
+      fontFamily: 'monospace',
+      backgroundColor: '#00000099',
+      padding: { x: 6, y: 4 },
+    });
+    toast.setOrigin(0.5);
+    toast.setDepth(DEPTH.UI + 18);
+
+    this.tweens.add({
+      targets: toast,
+      y: toast.y - 18,
+      alpha: 0,
+      duration: 1100,
+      ease: 'Sine.easeOut',
+      onComplete: () => toast.destroy(),
+    });
+  }
+
+  private setupForaging(): void {
+    const w = this.mapData.widthInPixels;
+    const h = this.mapData.heightInPixels;
+    this.foragingSystem = new ForagingSystem(this, {
+      locationId: this.mapKey,
+      player: this.player.sprite,
+      dailyCount: 7,
+      itemIds: ['flower', 'mushroom', 'berry'],
+      areas: [
+        { x: 70, y: 90, width: Math.max(120, w - 140), height: Math.max(90, h - 180) },
+        { x: 48, y: Math.max(100, h - 170), width: Math.max(120, w - 96), height: 92 },
+      ],
+      avoid: [
+        { x: GAME_CONFIG.TILE_SIZE * 2.5, y: GAME_CONFIG.TILE_SIZE * 1.5, radius: 80 },
+        { x: GAME_CONFIG.TILE_SIZE * 7.5, y: GAME_CONFIG.TILE_SIZE * 2.25, radius: 80 },
+        { x: GAME_CONFIG.TILE_SIZE * 12.25, y: GAME_CONFIG.TILE_SIZE * 2.62, radius: 90 },
+      ],
+    });
   }
 
   /**
@@ -976,6 +1055,7 @@ export class WorldScene extends Phaser.Scene {
     this.moneyText.destroy();
     this.phoneUI.destroy();
     this.activityZoneUI.destroy();
+    this.foragingSystem.destroy();
     this.pauseMenu.destroy();
     this.objectiveUI.destroy();
     proceduralAudio.stopAll();

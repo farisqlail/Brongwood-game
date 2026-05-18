@@ -26,6 +26,7 @@ import { EventBus } from '@/core/EventBus';
 import { gameManager } from '@/managers/GameManager';
 import { AudioSystem } from '@/systems/AudioSystem';
 import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
+import { ForagingSystem } from '@/systems/ForagingSystem';
 
 const W = GAME_CONFIG.WIDTH;
 const H = GAME_CONFIG.HEIGHT;
@@ -62,6 +63,7 @@ export class BenchScene extends Phaser.Scene {
   private atmosphere!: SceneAtmosphere;
   private nightSky!: Phaser.GameObjects.Graphics;
   private ownedAudioSystem: AudioSystem | null = null;
+  private foragingSystem!: ForagingSystem;
   private lanternGlows: Phaser.GameObjects.Graphics[] = [];
   private fireflyGs:    Phaser.GameObjects.Graphics[] = [];
   private butterflies:  Phaser.GameObjects.Graphics[] = [];
@@ -97,6 +99,22 @@ export class BenchScene extends Phaser.Scene {
     // Player masuk dari sisi kanan (datang dari kota)
     this.player = new Player(this, W - 30, PATH_Y + 10);
     this.player.sprite.setCollideWorldBounds(true);
+    this.foragingSystem = new ForagingSystem(this, {
+      locationId: 'bench',
+      player: this.player.sprite,
+      dailyCount: 6,
+      itemIds: ['flower', 'mushroom', 'berry'],
+      areas: [
+        { x: 24, y: SKY_H + 16, width: 120, height: PATH_TOP - SKY_H - 28 },
+        { x: 308, y: SKY_H + 16, width: 132, height: PATH_TOP - SKY_H - 28 },
+        { x: 36, y: PATH_BOTTOM + 24, width: 132, height: H - PATH_BOTTOM - 42 },
+        { x: 312, y: PATH_BOTTOM + 24, width: 120, height: H - PATH_BOTTOM - 42 },
+      ],
+      avoid: [
+        { x: W - 30, y: PATH_Y + 10, radius: 56 },
+        { x: 210, y: PATH_TOP - 4, radius: 58 },
+      ],
+    });
 
     this.cameras.main.setBounds(0, 0, W, H);
     this.cameras.main.centerOn(W / 2, H / 2);
@@ -119,6 +137,7 @@ export class BenchScene extends Phaser.Scene {
     this.input.keyboard!
       .addKey(Phaser.Input.Keyboard.KeyCodes.E)
       .on('down', () => {
+        if (this.foragingSystem.tryCollect()) return;
         if (this.activityZoneUI.isActivityActive) {
           this.activityZoneUI.cancelActivity();
         } else if (this.activityZoneUI.isInZone) {
@@ -158,6 +177,7 @@ export class BenchScene extends Phaser.Scene {
       const js = this.mobileControls.joystickState;
       this.player.setJoystickInput(js.isActive, js.forceX, js.forceY);
       if (this.mobileControls.actionPressed) {
+        if (this.foragingSystem.tryCollect()) return;
         if (this.activityZoneUI.isActivityActive) this.activityZoneUI.cancelActivity();
         else if (this.activityZoneUI.isInZone) this.activityZoneUI.startActivity();
       }
@@ -166,6 +186,7 @@ export class BenchScene extends Phaser.Scene {
     this.player.update();
     this.activitySystem.update(delta);
     this.activityZoneUI.update(delta);
+    this.foragingSystem.update(!this.activityZoneUI.isInZone && !this.activityZoneUI.isActivityActive);
 
     // Keluar kembali ke kota (tepi kanan)
     if (!this.exiting && this.player.sprite.x > W - 22) {
@@ -852,6 +873,7 @@ export class BenchScene extends Phaser.Scene {
     this.pauseMenu.destroy();
     this.hud.destroy();
     this.atmosphere.destroy();
+    this.foragingSystem.destroy();
     for (const tuft of this.grassTufts) tuft.destroy();
     this.grassTufts = [];
     for (const grass of this.skyGrassObjects) grass.destroy();

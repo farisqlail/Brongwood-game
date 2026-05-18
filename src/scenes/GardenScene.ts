@@ -27,6 +27,7 @@ import { gameManager } from '@/managers/GameManager';
 import { AudioSystem } from '@/systems/AudioSystem';
 import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
 import { UtilityInteractionSystem, UtilityObjectPlacement } from '@/systems/UtilityInteractionSystem';
+import { ForagingSystem } from '@/systems/ForagingSystem';
 
 const W = GAME_CONFIG.WIDTH;
 const H = GAME_CONFIG.HEIGHT;
@@ -71,6 +72,7 @@ export class GardenScene extends Phaser.Scene {
   private atmosphere!: SceneAtmosphere;
   private ownedAudioSystem: AudioSystem | null = null;
   private utilityInteractions!: UtilityInteractionSystem;
+  private foragingSystem!: ForagingSystem;
   private exiting = false;
   private readonly onPlayerLocked = (payload: { locked: boolean }) => {
     if (payload.locked) this.player.freeze();
@@ -97,6 +99,22 @@ export class GardenScene extends Phaser.Scene {
     this.player = new Player(this, W / 2, H - 80);
     this.player.sprite.setCollideWorldBounds(true);
     this.utilityInteractions = new UtilityInteractionSystem(this, this.player.sprite, UTILITY_OBJECTS);
+    this.foragingSystem = new ForagingSystem(this, {
+      locationId: 'garden',
+      player: this.player.sprite,
+      dailyCount: 6,
+      itemIds: ['flower', 'mushroom', 'berry'],
+      areas: [
+        { x: 14, y: 34, width: 120, height: 86 },
+        { x: W - 134, y: 34, width: 120, height: 92 },
+        { x: 14, y: 230, width: 126, height: 46 },
+        { x: W - 144, y: 220, width: 130, height: 56 },
+      ],
+      avoid: [
+        { x: W / 2, y: H - 80, radius: 58 },
+        { x: W / 2, y: BOTTOM_PATH_Y, radius: 62 },
+      ],
+    });
 
     this.cameras.main.setBounds(0, 0, W, H);
     this.cameras.main.centerOn(W / 2, H / 2);
@@ -119,6 +137,7 @@ export class GardenScene extends Phaser.Scene {
     this.input.keyboard!
       .addKey(Phaser.Input.Keyboard.KeyCodes.E)
       .on('down', () => {
+        if (this.foragingSystem.tryCollect()) return;
         if (this.utilityInteractions.tryInteract()) return;
 
         if (this.activityZoneUI.isActivityActive) {
@@ -156,6 +175,7 @@ export class GardenScene extends Phaser.Scene {
       const js = this.mobileControls.joystickState;
       this.player.setJoystickInput(js.isActive, js.forceX, js.forceY);
       if (this.mobileControls.actionPressed) {
+        if (this.foragingSystem.tryCollect()) return;
         if (this.utilityInteractions.tryInteract()) return;
         if (this.activityZoneUI.isActivityActive) this.activityZoneUI.cancelActivity();
         else if (this.activityZoneUI.isInZone) this.activityZoneUI.startActivity();
@@ -166,6 +186,7 @@ export class GardenScene extends Phaser.Scene {
     this.utilityInteractions.update();
     this.activitySystem.update(delta);
     this.activityZoneUI.update(delta);
+    this.foragingSystem.update(!this.activityZoneUI.isInZone && !this.activityZoneUI.isActivityActive);
 
     // Keluar kembali ke kota (tepi bawah)
     // Threshold 55px dari bawah karena world bounds + body offset
@@ -585,6 +606,7 @@ export class GardenScene extends Phaser.Scene {
     this.hud.destroy();
     this.atmosphere.destroy();
     this.utilityInteractions.destroy();
+    this.foragingSystem.destroy();
     this.ownedAudioSystem?.destroy();
     if (this.ownedAudioSystem) {
       gameManager.registerSceneSystems({ audio: null });

@@ -76,7 +76,32 @@ export interface RelationshipData {
   totalInteractions: number;
   /** Last interaction day */
   lastInteractionDay: number;
+  /** Last day this NPC received a gift */
+  lastGiftDay: number;
 }
+
+export type GiftReaction = 'loved' | 'liked' | 'neutral' | 'disliked';
+
+interface GiftTasteProfile {
+  loved: string[];
+  liked: string[];
+  disliked: string[];
+}
+
+const GIFT_TASTE_PROFILES: Record<string, GiftTasteProfile> = {
+  rika: {
+    loved: ['flower', 'jasmine_seed'],
+    liked: ['berry', 'shell', 'coffee'],
+    disliked: ['mushroom', 'meat_1', 'meat_2', 'meat_3', 'meat_4', 'meat_5'],
+  },
+};
+
+const GIFT_REACTION_EFFECTS: Record<GiftReaction, { affection: number; trust: number }> = {
+  loved: { affection: 20, trust: 4 },
+  liked: { affection: 10, trust: 2 },
+  neutral: { affection: 4, trust: 1 },
+  disliked: { affection: -6, trust: 0 },
+};
 
 /** Requirements to advance to a relationship stage */
 interface StageRequirement {
@@ -143,6 +168,7 @@ export class RelationshipSystem {
       daysSinceLastVisit: 0,
       totalInteractions: 0,
       lastInteractionDay: 0,
+      lastGiftDay: -1,
     });
   }
 
@@ -250,6 +276,50 @@ export class RelationshipSystem {
     return this.relationships.get(npcId)?.memories.some(m => m.tags.includes(tag)) ?? false;
   }
 
+  canReceiveGiftToday(npcId: string, currentDay: number): boolean {
+    const data = this.relationships.get(npcId);
+    if (!data) return false;
+    return data.lastGiftDay !== currentDay;
+  }
+
+  getGiftReaction(npcId: string, itemId: string): GiftReaction {
+    const profile = GIFT_TASTE_PROFILES[npcId];
+    if (!profile) return 'neutral';
+    if (profile.loved.includes(itemId)) return 'loved';
+    if (profile.liked.includes(itemId)) return 'liked';
+    if (profile.disliked.includes(itemId)) return 'disliked';
+    return 'neutral';
+  }
+
+  receiveGift(
+    npcId: string,
+    itemId: string,
+    currentDay: number,
+  ): { success: boolean; reaction: GiftReaction; affectionDelta: number; trustDelta: number } {
+    const data = this.relationships.get(npcId);
+    if (!data || !this.canReceiveGiftToday(npcId, currentDay)) {
+      return { success: false, reaction: 'neutral', affectionDelta: 0, trustDelta: 0 };
+    }
+
+    const reaction = this.getGiftReaction(npcId, itemId);
+    const effects = GIFT_REACTION_EFFECTS[reaction];
+    data.lastGiftDay = currentDay;
+
+    if (effects.affection !== 0) {
+      this.addAffection(npcId, effects.affection);
+    }
+    if (effects.trust !== 0) {
+      this.addTrust(npcId, effects.trust);
+    }
+
+    return {
+      success: true,
+      reaction,
+      affectionDelta: effects.affection,
+      trustDelta: effects.trust,
+    };
+  }
+
   // ============================================================
   // CONDITIONAL CHECKS (for dialogue/event gating)
   // ============================================================
@@ -300,7 +370,10 @@ export class RelationshipSystem {
   deserialize(data: Record<string, RelationshipData>): void {
     this.relationships.clear();
     for (const [npcId, relData] of Object.entries(data)) {
-      this.relationships.set(npcId, relData);
+      this.relationships.set(npcId, {
+        ...relData,
+        lastGiftDay: typeof relData.lastGiftDay === 'number' ? relData.lastGiftDay : -1,
+      });
     }
   }
 

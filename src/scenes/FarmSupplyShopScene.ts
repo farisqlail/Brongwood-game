@@ -9,7 +9,13 @@ import { AudioSystem } from '@/systems/AudioSystem';
 import { bootstrapGameplayAudio } from '@/systems/SceneAudioBootstrap';
 import { PauseMenuUI } from '@/ui/PauseMenuUI';
 import { proceduralAudio } from '@/audio/ProceduralAudio';
-import { FARM_SUPPLY_SHOP_ITEMS, formatRupiah } from '@config/economy.config';
+import {
+  FARM_SUPPLY_SEED_ITEMS,
+  FARM_TOOL_UPGRADES,
+  formatRupiah,
+  type ShopItemConfig,
+  type ToolUpgradeConfig,
+} from '@config/economy.config';
 import { ITEM_DEFS } from '@/types/inventory';
 import { InputGuard } from '@/ui/InputGuard';
 import { FirstDayObjectiveUI } from '@/ui/FirstDayObjectiveUI';
@@ -19,6 +25,7 @@ const SHOP_H = 384;
 const COUNTER_Y = 120;
 const EXIT_GAP_X1 = 192;
 const EXIT_GAP_X2 = 288;
+type FarmShopTab = 'seeds' | 'upgrades';
 
 export class FarmSupplyShopScene extends Phaser.Scene {
   private player!: Player;
@@ -39,8 +46,14 @@ export class FarmSupplyShopScene extends Phaser.Scene {
   private shopListMaskShape: Phaser.GameObjects.Graphics | null = null;
   private shopListViewport = new Phaser.Geom.Rectangle();
   private moneyLabel: Phaser.GameObjects.Text | null = null;
+  private shopTab: FarmShopTab = 'seeds';
+  private seedTabButton: Phaser.GameObjects.Rectangle | null = null;
+  private seedTabText: Phaser.GameObjects.Text | null = null;
+  private upgradeTabButton: Phaser.GameObjects.Rectangle | null = null;
+  private upgradeTabText: Phaser.GameObjects.Text | null = null;
   private buyButtons: Phaser.GameObjects.Rectangle[] = [];
   private buyButtonTexts: Phaser.GameObjects.Text[] = [];
+  private shopListObjects: Phaser.GameObjects.GameObject[] = [];
   private closeButton: Phaser.GameObjects.Rectangle | null = null;
   private closeButtonText: Phaser.GameObjects.Text | null = null;
   private shopScrollOffset = 0;
@@ -225,69 +238,44 @@ export class FarmSupplyShopScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.shopContainer.add(this.moneyLabel);
 
-    FARM_SUPPLY_SHOP_ITEMS.forEach((item, index) => {
-      const itemDef = ITEM_DEFS[item.id];
-      const cardY = listStartY + index * rowGap;
-      const card = this.add.rectangle(cx, cardY, 258, 34, 0x1c2836, 0.95);
-      card.setStrokeStyle(1, 0x3f5268, 0.8);
-      this.shopListContainer!.add(card);
-
-      const iconFrame = this.add.rectangle(cx - 104, cardY, 28, 28, 0x101a24, 1);
-      iconFrame.setStrokeStyle(1, 0x4d6177, 0.9);
-      this.shopListContainer!.add(iconFrame);
-
-      if (itemDef?.textureKey && this.textures.exists(itemDef.textureKey)) {
-        const icon = this.add.image(cx - 104, cardY, itemDef.textureKey);
-        icon.setScale(0.42);
-        this.shopListContainer!.add(icon);
-      } else {
-        const fallback = this.add.rectangle(cx - 104, cardY, 20, 20, itemDef?.color ?? 0xcccccc, 1);
-        this.shopListContainer!.add(fallback);
-      }
-
-      const itemName = this.add.text(cx - 84, cardY, item.label, {
-        fontSize: '8px',
-        color: '#ffffff',
-        fontFamily: 'monospace',
-      }).setOrigin(0, 0.5);
-      this.shopListContainer!.add(itemName);
-
-      const price = this.add.text(cx + 30, cardY, formatRupiah(item.price), {
-        fontSize: '7px',
-        color: '#f3e59a',
-        fontFamily: 'monospace',
-      }).setOrigin(0.5);
-      this.shopListContainer!.add(price);
-
-      const buyBtn = this.add.rectangle(cx + 92, cardY, 50, 18, 0x2e6e3e, 0.95);
-      buyBtn.setScrollFactor(0).setDepth(DEPTH.UI + 42).setVisible(false);
-      buyBtn.setInteractive({ useHandCursor: true });
-      buyBtn.on('pointerover', () => buyBtn.setFillStyle(0x3f9253, 1));
-      buyBtn.on('pointerout', () => buyBtn.setFillStyle(0x2e6e3e, 0.95));
-      buyBtn.on('pointerdown', () => {
-        InputGuard.consume();
-        this.buyItem(item.id, item.price);
-      });
-      this.shopListContainer!.add(buyBtn);
-      this.buyButtons.push(buyBtn);
-
-      const buyText = this.add.text(cx + 92, cardY, 'Beli', {
-        fontSize: '7px',
-        color: '#e9ffe6',
-        fontFamily: 'monospace',
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI + 43).setVisible(false);
-      buyText.setInteractive({ useHandCursor: true });
-      buyText.on('pointerdown', () => {
-        InputGuard.consume();
-        this.buyItem(item.id, item.price);
-      });
-      buyText.on('pointerover', () => buyBtn.setFillStyle(0x3f9253, 1));
-      buyText.on('pointerout', () => buyBtn.setFillStyle(0x2e6e3e, 0.95));
-      this.shopListContainer!.add(buyText);
-      this.buyButtonTexts.push(buyText);
+    this.seedTabButton = this.add.rectangle(cx - 58, cy - 48, 84, 20, 0x36516b, 0.95);
+    this.seedTabButton.setInteractive({ useHandCursor: true });
+    this.seedTabButton.on('pointerdown', () => {
+      InputGuard.consume();
+      this.setShopTab('seeds');
     });
-    this.shopScrollMin = Math.min(0, listViewportH - (FARM_SUPPLY_SHOP_ITEMS.length * rowGap + 16));
-    this.updateShopListScroll(0);
+    this.seedTabText = this.add.text(cx - 58, cy - 48, 'Bibit', {
+      fontSize: '7px',
+      color: '#ffffff',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5);
+    this.seedTabText.setInteractive({ useHandCursor: true });
+    this.seedTabText.on('pointerdown', () => {
+      InputGuard.consume();
+      this.setShopTab('seeds');
+    });
+
+    this.upgradeTabButton = this.add.rectangle(cx + 40, cy - 48, 108, 20, 0x273544, 0.95);
+    this.upgradeTabButton.setInteractive({ useHandCursor: true });
+    this.upgradeTabButton.on('pointerdown', () => {
+      InputGuard.consume();
+      this.setShopTab('upgrades');
+    });
+    this.upgradeTabText = this.add.text(cx + 40, cy - 48, 'Upgrade Alat', {
+      fontSize: '7px',
+      color: '#d8e3ef',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5);
+    this.upgradeTabText.setInteractive({ useHandCursor: true });
+    this.upgradeTabText.on('pointerdown', () => {
+      InputGuard.consume();
+      this.setShopTab('upgrades');
+    });
+
+    this.shopContainer.add(this.seedTabButton);
+    this.shopContainer.add(this.seedTabText);
+    this.shopContainer.add(this.upgradeTabButton);
+    this.shopContainer.add(this.upgradeTabText);
 
     this.closeButton = this.add.rectangle(cx + panelW / 2 - 16, cy - panelH / 2 + 16, 20, 20, 0x334455, 0.95);
     this.closeButton.setScrollFactor(0).setDepth(DEPTH.UI + 42).setVisible(false);
@@ -311,6 +299,8 @@ export class FarmSupplyShopScene extends Phaser.Scene {
     });
     this.closeButtonText.on('pointerover', () => this.closeButton?.setFillStyle(0x44607a, 1));
     this.closeButtonText.on('pointerout', () => this.closeButton?.setFillStyle(0x334455, 0.95));
+
+    this.rebuildShopList();
   }
 
   private handleAction(): void {
@@ -352,16 +342,163 @@ export class FarmSupplyShopScene extends Phaser.Scene {
     }
   }
 
+  private setShopTab(tab: FarmShopTab): void {
+    if (this.shopTab === tab && this.shopListObjects.length > 0) return;
+    this.shopTab = tab;
+    this.seedTabButton?.setFillStyle(tab === 'seeds' ? 0x36516b : 0x273544, 0.95);
+    this.upgradeTabButton?.setFillStyle(tab === 'upgrades' ? 0x36516b : 0x273544, 0.95);
+    this.seedTabText?.setColor(tab === 'seeds' ? '#ffffff' : '#d8e3ef');
+    this.upgradeTabText?.setColor(tab === 'upgrades' ? '#ffffff' : '#d8e3ef');
+    this.rebuildShopList();
+  }
+
+  private rebuildShopList(): void {
+    if (!this.shopListContainer) return;
+
+    for (const obj of this.shopListObjects) {
+      obj.destroy();
+    }
+    this.shopListObjects = [];
+    this.buyButtons = [];
+    this.buyButtonTexts = [];
+
+    const cx = GAME_CONFIG.WIDTH / 2;
+    const listStartY = GAME_CONFIG.HEIGHT / 2 - 40;
+    const rowGap = 38;
+    const rowWidth = 244;
+
+    if (this.shopTab === 'seeds') {
+      FARM_SUPPLY_SEED_ITEMS.forEach((item, index) => {
+        const rowY = listStartY + index * rowGap;
+        const rowBg = this.add.rectangle(cx, rowY, rowWidth, 30, 0x1b2838, 0.92)
+          .setStrokeStyle(1, 0x334d68, 0.8)
+          .setScrollFactor(0)
+          .setDepth(DEPTH.UI + 41)
+          .setVisible(this.shopOpen);
+        const nameText = this.add.text(cx - 112, rowY - 8, item.label, {
+          fontSize: '8px',
+          color: '#ffffff',
+          fontFamily: 'monospace',
+          fontStyle: 'bold',
+        }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(DEPTH.UI + 42).setVisible(this.shopOpen);
+        const descText = this.add.text(cx - 112, rowY + 7, item.description, {
+          fontSize: '6px',
+          color: '#9fb6cc',
+          fontFamily: 'monospace',
+          wordWrap: { width: 148 },
+        }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(DEPTH.UI + 42).setVisible(this.shopOpen);
+        const priceText = this.add.text(cx + 28, rowY, formatRupiah(item.price), {
+          fontSize: '7px',
+          color: '#f3e59a',
+          fontFamily: 'monospace',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI + 42).setVisible(this.shopOpen);
+        const buyButton = this.add.rectangle(cx + 92, rowY, 56, 22, 0x2f6d44, 0.95)
+          .setScrollFactor(0)
+          .setDepth(DEPTH.UI + 42)
+          .setVisible(this.shopOpen)
+          .setInteractive({ useHandCursor: true });
+        const buyText = this.add.text(cx + 92, rowY, 'Beli', {
+          fontSize: '7px',
+          color: '#ffffff',
+          fontFamily: 'monospace',
+          fontStyle: 'bold',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI + 43).setVisible(this.shopOpen);
+
+        buyButton.on('pointerdown', () => {
+          InputGuard.consume();
+          this.buyItem(item.id, item.price);
+        });
+        buyText.setInteractive({ useHandCursor: true });
+        buyText.on('pointerdown', () => {
+          InputGuard.consume();
+          this.buyItem(item.id, item.price);
+        });
+
+        this.shopListObjects.push(rowBg, nameText, descText, priceText, buyButton, buyText);
+        this.buyButtons.push(buyButton);
+        this.buyButtonTexts.push(buyText);
+      });
+    } else {
+      FARM_TOOL_UPGRADES.forEach((upgrade, index) => {
+        const rowY = listStartY + index * rowGap;
+        const level = gameManager.getToolLevel(upgrade.id);
+        const hasTool = gameManager.inventory.hasItem(upgrade.id);
+        const isMax = level >= 3;
+        const price = upgrade.basePrice * level;
+        const canBuy = hasTool && !isMax;
+        const buttonLabel = !hasTool ? 'Belum punya' : isMax ? 'Maks' : 'Upgrade';
+        const buttonColor = !hasTool ? 0x4b3640 : isMax ? 0x4b4b4b : 0x6d4a2f;
+        const priceLabel = isMax ? 'Lv.3 selesai' : formatRupiah(price);
+
+        const rowBg = this.add.rectangle(cx, rowY, rowWidth, 30, 0x1b2838, 0.92)
+          .setStrokeStyle(1, 0x5d4b34, 0.8)
+          .setScrollFactor(0)
+          .setDepth(DEPTH.UI + 41)
+          .setVisible(this.shopOpen);
+        const nameText = this.add.text(cx - 112, rowY - 8, `${upgrade.label} Lv.${level}${isMax ? '' : ` -> Lv.${level + 1}`}`, {
+          fontSize: '8px',
+          color: '#ffffff',
+          fontFamily: 'monospace',
+          fontStyle: 'bold',
+        }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(DEPTH.UI + 42).setVisible(this.shopOpen);
+        const descText = this.add.text(cx - 112, rowY + 7, upgrade.description, {
+          fontSize: '6px',
+          color: '#c9b69d',
+          fontFamily: 'monospace',
+          wordWrap: { width: 148 },
+        }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(DEPTH.UI + 42).setVisible(this.shopOpen);
+        const priceText = this.add.text(cx + 28, rowY, priceLabel, {
+          fontSize: '7px',
+          color: isMax ? '#aab6c4' : '#f3e59a',
+          fontFamily: 'monospace',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI + 42).setVisible(this.shopOpen);
+        const buyButton = this.add.rectangle(cx + 92, rowY, 56, 22, buttonColor, 0.95)
+          .setScrollFactor(0)
+          .setDepth(DEPTH.UI + 42)
+          .setVisible(this.shopOpen);
+        const buyText = this.add.text(cx + 92, rowY, buttonLabel, {
+          fontSize: '6px',
+          color: '#ffffff',
+          fontFamily: 'monospace',
+          fontStyle: 'bold',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UI + 43).setVisible(this.shopOpen);
+
+        if (canBuy) {
+          buyButton.setInteractive({ useHandCursor: true });
+          buyButton.on('pointerdown', () => {
+            InputGuard.consume();
+            this.buyUpgrade(upgrade);
+          });
+          buyText.setInteractive({ useHandCursor: true });
+          buyText.on('pointerdown', () => {
+            InputGuard.consume();
+            this.buyUpgrade(upgrade);
+          });
+        }
+
+        this.shopListObjects.push(rowBg, nameText, descText, priceText, buyButton, buyText);
+        this.buyButtons.push(buyButton);
+        this.buyButtonTexts.push(buyText);
+      });
+    }
+
+    this.shopListContainer.add(this.shopListObjects);
+    const contentHeight = (this.shopTab === 'seeds' ? FARM_SUPPLY_SEED_ITEMS.length : FARM_TOOL_UPGRADES.length) * rowGap;
+    this.shopScrollMin = Math.min(0, this.shopListViewport.height - contentHeight - 8);
+    this.updateShopListScroll(0);
+  }
+
   private checkCounterProximity(): void {
     const dist = Phaser.Math.Distance.Between(this.player.sprite.x, this.player.sprite.y, SHOP_W / 2, COUNTER_Y + 26);
     this.nearCounter = dist < 56;
-    this.promptText.setText(this.nearCounter ? '[E] Belanja bibit' : '');
+    this.promptText.setText(this.nearCounter ? '[E] Toko tani' : '');
     this.promptText.setVisible(this.nearCounter);
   }
 
   private openShop(): void {
     this.shopOpen = true;
     this.draggingShopList = false;
+    this.rebuildShopList();
     this.updateShopListScroll(0);
     this.player.freeze();
     this.promptText.setVisible(false);
@@ -415,6 +552,36 @@ export class FarmSupplyShopScene extends Phaser.Scene {
     if (gameManager.firstDayStage === 'buy_seed') {
       gameManager.advanceFirstDay('buy_seed');
     }
+  }
+
+  private buyUpgrade(upgrade: ToolUpgradeConfig): void {
+    const level = gameManager.getToolLevel(upgrade.id);
+    if (!gameManager.inventory.hasItem(upgrade.id)) {
+      this.showToast('Alatnya belum kamu punya.');
+      return;
+    }
+    if (level >= 3) {
+      this.showToast('Upgrade alat ini sudah maksimal.');
+      return;
+    }
+
+    const price = upgrade.basePrice * level;
+    if (!gameManager.spendMoney(price)) {
+      this.showToast('Uang tidak cukup.');
+      return;
+    }
+
+    const upgraded = gameManager.upgradeTool(upgrade.id);
+    if (!upgraded) {
+      gameManager.addMoney(price);
+      this.showToast('Upgrade belum bisa diproses.');
+      return;
+    }
+
+    proceduralAudio.playClick();
+    this.refreshMoneyLabel();
+    this.rebuildShopList();
+    this.showToast(`${upgrade.label} sekarang Lv.${gameManager.getToolLevel(upgrade.id)}.`);
   }
 
   private refreshMoneyLabel(): void {
@@ -475,10 +642,10 @@ export class FarmSupplyShopScene extends Phaser.Scene {
     this.atmosphere.destroy();
     this.promptText.destroy();
     this.toastText?.destroy();
+    this.shopBackdrop?.destroy();
+    this.shopContainer?.destroy();
     this.shopListContainer?.destroy();
     this.shopListMaskShape?.destroy();
-    for (const btn of this.buyButtons) btn.destroy();
-    for (const txt of this.buyButtonTexts) txt.destroy();
     this.closeButton?.destroy();
     this.closeButtonText?.destroy();
     this.ownedAudioSystem?.destroy();

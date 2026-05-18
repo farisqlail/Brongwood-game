@@ -40,10 +40,20 @@ const PASSIVE_STAMINA_DRAIN_EVENING = 1;
 const PASSIVE_STAMINA_DRAIN_LATE_NIGHT = 2;
 const SHIPPING_VALUE_KEY = 'shippingBinValue';
 const SHIPPING_COUNT_KEY = 'shippingBinCount';
+const TOOL_LEVEL_KEYS = {
+  hoe: 'toolLevel:hoe',
+  watering_can: 'toolLevel:watering_can',
+  axe: 'toolLevel:axe',
+  pickaxe: 'toolLevel:pickaxe',
+  fishing_rod: 'toolLevel:fishing_rod',
+} as const;
 const SHIPPING_PRICES: Record<string, number> = {
   carrot: 80,
   red_onion: 120,
   flower: 35,
+  mushroom: 65,
+  shell: 45,
+  berry: 50,
   gem: 250,
   meat_1: 90,
   meat_2: 110,
@@ -51,10 +61,16 @@ const SHIPPING_PRICES: Record<string, number> = {
   meat_4: 160,
   meat_5: 105,
   small_fish: 85,
+  reef_fish: 135,
+  night_fish: 170,
+  rain_fish: 190,
   rare_fish: 320,
   coffee: 6000,
   cake: 9000,
   nasi_campur: 14000,
+  flower_vase: 18000,
+  wall_wreath: 25000,
+  table_plant: 21000,
 };
 
 /**
@@ -284,6 +300,26 @@ class GameManagerImpl {
     return typeof value === 'number' ? Math.max(0, Math.floor(value)) : 0;
   }
 
+  getToolLevel(toolId: keyof typeof TOOL_LEVEL_KEYS): number {
+    const value = this.gameFlags[TOOL_LEVEL_KEYS[toolId]];
+    if (typeof value !== 'number') return 1;
+    return Math.max(1, Math.min(3, Math.floor(value)));
+  }
+
+  setToolLevel(toolId: keyof typeof TOOL_LEVEL_KEYS, level: number): void {
+    this.gameFlags[TOOL_LEVEL_KEYS[toolId]] = Math.max(1, Math.min(3, Math.floor(level)));
+  }
+
+  canUpgradeTool(toolId: keyof typeof TOOL_LEVEL_KEYS): boolean {
+    return this.inventory.hasItem(toolId) && this.getToolLevel(toolId) < 3;
+  }
+
+  upgradeTool(toolId: keyof typeof TOOL_LEVEL_KEYS): boolean {
+    if (!this.canUpgradeTool(toolId)) return false;
+    this.setToolLevel(toolId, this.getToolLevel(toolId) + 1);
+    return true;
+  }
+
   getShippingPrice(item: InventoryItem): number {
     if (item.icon === 'tool' || item.id.endsWith('_seed') || item.id === 'seed_bag') return 0;
     if (item.id === 'letter' || item.id === 'old_key' || item.id === 'book') return 0;
@@ -340,6 +376,11 @@ class GameManagerImpl {
     }
     if (typeof this.gameFlags[SHIPPING_COUNT_KEY] !== 'number') {
       this.gameFlags[SHIPPING_COUNT_KEY] = 0;
+    }
+    for (const toolId of Object.keys(TOOL_LEVEL_KEYS) as Array<keyof typeof TOOL_LEVEL_KEYS>) {
+      if (typeof this.gameFlags[TOOL_LEVEL_KEYS[toolId]] !== 'number') {
+        this.gameFlags[TOOL_LEVEL_KEYS[toolId]] = 1;
+      }
     }
     if (this._lastPassiveStaminaDrainMinute <= 0) {
       this._lastPassiveStaminaDrainMinute = this.time.totalMinutes;

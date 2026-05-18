@@ -17,8 +17,6 @@ import Phaser from 'phaser';
 import { DEPTH, GAME_CONFIG } from '@config/game.config';
 import { Player } from '@/entities/Player';
 import { MobileControls } from '@/ui/MobileControls';
-import { ActivitySystem } from '@/systems/ActivitySystem';
-import { ActivityZoneUI } from '@/ui/ActivityZoneUI';
 import { PauseMenuUI } from '@/ui/PauseMenuUI';
 import { SceneHUD } from '@/ui/SceneHUD';
 import { SceneAtmosphere } from '@/systems/SceneAtmosphere';
@@ -30,6 +28,10 @@ import { NPC } from '@/entities/NPC';
 import { TEXTURE_KEYS } from '@config/assets.manifest';
 import { DialogueSystem } from '@/dialogue/DialogueSystem';
 import { getRikaDialogue } from '@/dialogue/RikaDialogue';
+import { ForagingSystem } from '@/systems/ForagingSystem';
+import { FishingMiniGameSystem } from '@/systems/FishingMiniGameSystem';
+import { tryGiveSelectedItemToNpc } from '@/systems/GiftSystem';
+import { proceduralAudio } from '@/audio/ProceduralAudio';
 
 const W = GAME_CONFIG.WIDTH;   // 480
 const H = GAME_CONFIG.HEIGHT;  // 300
@@ -40,8 +42,7 @@ const SHORE_Y   = 190;         // air bertemu pasir (water zone: 85-190 = 105px)
 export class FishingScene extends Phaser.Scene {
   private player!: Player;
   private mobileControls!: MobileControls;
-  private activitySystem!: ActivitySystem;
-  private activityZoneUI!: ActivityZoneUI;
+  private fishingMiniGame!: FishingMiniGameSystem;
   private pauseMenu!: PauseMenuUI;
   private hud!: SceneHUD;
   private atmosphere!: SceneAtmosphere;
@@ -50,6 +51,7 @@ export class FishingScene extends Phaser.Scene {
   private rika: NPC | null = null;
   private dialogueSystem!: DialogueSystem;
   private promptText!: Phaser.GameObjects.Text;
+  private foragingSystem!: ForagingSystem;
   private exiting = false;
   private readonly onPlayerLocked = (payload: { locked: boolean }) => {
     if (payload.locked) this.player.freeze();
@@ -72,6 +74,20 @@ export class FishingScene extends Phaser.Scene {
     this.player = new Player(this, 30, SHORE_Y + 45);
     this.player.sprite.setCollideWorldBounds(true);
     this.spawnRikaIfAvailable();
+    this.foragingSystem = new ForagingSystem(this, {
+      locationId: 'fishing',
+      player: this.player.sprite,
+      dailyCount: 5,
+      itemIds: ['shell', 'berry'],
+      areas: [
+        { x: 54, y: SHORE_Y + 20, width: 178, height: H - SHORE_Y - 34 },
+        { x: 322, y: SHORE_Y + 24, width: 132, height: H - SHORE_Y - 40 },
+      ],
+      avoid: [
+        { x: 30, y: SHORE_Y + 45, radius: 50 },
+        { x: 360, y: SHORE_Y + 52, radius: 64 },
+      ],
+    });
 
     this.cameras.main.setBounds(0, 0, W, H);
     this.cameras.main.centerOn(W / 2, H / 2);
@@ -79,29 +95,33 @@ export class FishingScene extends Phaser.Scene {
     // Barrier air — mencegah player masuk ke air
     this.createWaterBarrier();
 
-    this.activitySystem = new ActivitySystem();
-    this.activityZoneUI = new ActivityZoneUI(this, this.activitySystem);
+    this.fishingMiniGame = new FishingMiniGameSystem(this, {
+      player: this.player.sprite,
+      getWeather: () => this.atmosphere.weatherState,
+      zone: {
+        x: 260,
+        y: SHORE_Y + 10,
+        width: 160,
+        height: 40,
+      },
+    });
 
     // Zona memancing — di tepi pantai dekat dermaga (bisa dijangkau dari pasir)
-    this.activityZoneUI.createZones(this.player.sprite, [{
-      id: 'fishing',
-      x: 260,
-      y: SHORE_Y + 10,
-      width: 160,
-      height: 40,
-    }]);
 
     // E key
     this.input.keyboard!
       .addKey(Phaser.Input.Keyboard.KeyCodes.E)
       .on('down', () => {
         if (this.tryTalkToRika()) return;
-
-        if (this.activityZoneUI.isActivityActive) {
-          this.activityZoneUI.cancelActivity();
-        } else if (this.activityZoneUI.isInZone) {
-          this.activityZoneUI.startActivity();
-        }
+        if (this.foragingSystem.tryCollect()) return;
+        if (this.fishingMiniGame.handleAction()) return;
+      });
+    this.input.keyboard!
+      .addKey(Phaser.Input.Keyboard.KeyCodes.G)
+      .on('down', () => {
+        if (!this.rika || this.dialogueSystem.isActive || this.pauseMenu.opened) return;
+        if (!this.isPlayerNearRika()) return;
+        this.giveGiftToRika();
       });
 
     // Freeze/unfreeze player saat activity berlangsung
@@ -146,6 +166,17 @@ export class FishingScene extends Phaser.Scene {
     this.syncRikaBeachPresence();
     this.rika?.update(delta);
     this.updateRikaPrompt();
+    this.fishingMiniGame.update(
+      delta,
+      !this.promptText.visible && !this.pauseMenu.opened && !this.dialogueSystem.isActive,
+    );
+    this.foragingSystem.update(
+      !this.promptText.visible &&
+      !this.pauseMenu.opened &&
+      !this.dialogueSystem.isActive &&
+      !this.fishingMiniGame.isInZone &&
+      !this.fishingMiniGame.isActive,
+    );
     if (this.pauseMenu.opened || this.dialogueSystem.isActive) return;
 
     if (this.mobileControls.visible) {
@@ -153,14 +184,12 @@ export class FishingScene extends Phaser.Scene {
       this.player.setJoystickInput(js.isActive, js.forceX, js.forceY);
       if (this.mobileControls.actionPressed) {
         if (this.tryTalkToRika()) return;
-        if (this.activityZoneUI.isActivityActive) this.activityZoneUI.cancelActivity();
-        else if (this.activityZoneUI.isInZone) this.activityZoneUI.startActivity();
+        if (this.foragingSystem.tryCollect()) return;
+        if (this.fishingMiniGame.handleAction()) return;
       }
     }
 
     this.player.update();
-    this.activitySystem.update(delta);
-    this.activityZoneUI.update(delta);
 
     // Keluar kembali ke kota (tepi kiri)
     if (!this.exiting && this.player.sprite.x < 22) {
@@ -211,20 +240,13 @@ export class FishingScene extends Phaser.Scene {
       this.rika.sprite.x,
       this.rika.sprite.y,
     );
-    this.promptText.setText('[E] Bicara dengan Rika');
+    this.promptText.setText('[E] Bicara  [G] Hadiah');
     this.promptText.setVisible(dist < 58);
   }
 
   private tryTalkToRika(): boolean {
     if (!this.rika || this.dialogueSystem.isActive || this.pauseMenu.opened) return false;
-
-    const dist = Phaser.Math.Distance.Between(
-      this.player.sprite.x,
-      this.player.sprite.y,
-      this.rika.sprite.x,
-      this.rika.sprite.y,
-    );
-    if (dist >= 58) return false;
+    if (!this.isPlayerNearRika()) return false;
 
     this.rika.freeze();
     this.rika.faceToward(this.player.sprite.x, this.player.sprite.y);
@@ -241,6 +263,44 @@ export class FishingScene extends Phaser.Scene {
       relationship,
     }));
     return true;
+  }
+
+  private giveGiftToRika(): void {
+    if (!this.rika) return;
+    this.rika.faceToward(this.player.sprite.x, this.player.sprite.y);
+    const result = tryGiveSelectedItemToNpc('rika', gameManager.time.day);
+    this.showGiftToast(result.message, result.color);
+    if (result.success) proceduralAudio.playClick();
+  }
+
+  private isPlayerNearRika(): boolean {
+    if (!this.rika) return false;
+    const dist = Phaser.Math.Distance.Between(
+      this.player.sprite.x,
+      this.player.sprite.y,
+      this.rika.sprite.x,
+      this.rika.sprite.y,
+    );
+    return dist < 58;
+  }
+
+  private showGiftToast(message: string, color: number): void {
+    const toast = this.add.text(this.player.sprite.x, this.player.sprite.y - 44, message, {
+      fontSize: '8px',
+      color: Phaser.Display.Color.IntegerToColor(color).rgba,
+      fontFamily: 'monospace',
+      backgroundColor: '#00000099',
+      padding: { x: 6, y: 4 },
+    }).setOrigin(0.5).setDepth(DEPTH.UI + 22);
+
+    this.tweens.add({
+      targets: toast,
+      y: toast.y - 18,
+      alpha: 0,
+      duration: 1100,
+      ease: 'Sine.easeOut',
+      onComplete: () => toast.destroy(),
+    });
   }
 
   private readonly onDialogueEnded = (): void => {
@@ -700,8 +760,9 @@ export class FishingScene extends Phaser.Scene {
     this.rika?.destroy();
     this.dialogueSystem.destroy();
     this.promptText.destroy();
+    this.foragingSystem.destroy();
+    this.fishingMiniGame.destroy();
     this.mobileControls.destroy();
-    this.activityZoneUI.destroy();
     this.pauseMenu.destroy();
     this.hud.destroy();
     this.atmosphere.destroy();
